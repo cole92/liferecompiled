@@ -9,8 +9,12 @@ const Register = () => {
     password: "",
     confirmPassword: "",
   });
+
   // State za cuvanje gresaka validacije
   const [errors, setErrors] = useState({});
+
+  // State za spiner (Pracenje da li je registracija u toku)
+  const [loading, setLoading] = useState(false);
 
   // Funkcija za validaciju forme i procesiranje unosa
   const handleSubmit = async (e) => {
@@ -18,7 +22,6 @@ const Register = () => {
     const newErrors = {};
 
     // Provera da li su input polja prazna
-    // Ako su prazna, dodajemo odgovarajuce greske
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.password) newErrors.password = "Password is required";
     if (!formData.confirmPassword) {
@@ -52,27 +55,28 @@ const Register = () => {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
-    // Azuriranje state-a sa greskama
-    setErrors(newErrors);
+    // Ako postoje greske, prekini procesiranje
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
-    // Ako nema gresaka, dozvoljavamo procesiranje
-    if (Object.keys(newErrors).length === 0) {
-      try {
-        // Firebase funkcija za kreiranje korisnika
-        await createUserWithEmailAndPassword(
-          auth,
-          formData.email,
-          formData.password
-        );
-        console.log("User registered successfully");
-        // Preusmeravanje na login ili dashboard (ovo cemo dodati kasnije)
-      } catch (error) {
-        //Obrada greske sa Firebase-a
-        console.error(error.message);
-        setErrors({ firebase: error.message });
-      }
+    // Ako nema gresaka, zapocni proces registracije na Firebase-u
+    setLoading(true); // Aktiviraj spinner
+    try {
+      await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      console.log("User registered successfully!");
+      setLoading(false); // Sakrij spinner nakon uspesne registracije
+    } catch (error) {
+      setLoading(false); // Sakrij spinner ako dođe do greske
+      setErrors({ firebase: error.message }); // Prikazi gresku iz Firebase-a
     }
   };
+
   return (
     <div className="container mt-5">
       <h2 className="text-center mb-4">Register</h2>
@@ -137,11 +141,21 @@ const Register = () => {
           )}
         </div>
 
-        {/* Submit Button */}
+        {/* Firebase greska */}
         {errors.firebase && <p className="text-danger">{errors.firebase}</p>}
-        <button type="submit" className="btn btn-primary w-100">
-          Register
-        </button>
+
+        {/* Submit dugme ili spinner */}
+        {loading ? (
+          <div className="d-flex justify-content-center my-3">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        ) : (
+          <button type="submit" className="btn btn-primary w-100">
+            Register
+          </button>
+        )}
       </form>
     </div>
   );
