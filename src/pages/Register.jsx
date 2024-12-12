@@ -1,6 +1,8 @@
+import { useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { useState } from "react";
+import { toast, ToastContainer } from "react-toastify";
 
 const Register = () => {
   // State za cuvanje vrednosti input polja
@@ -15,6 +17,9 @@ const Register = () => {
 
   // State za spiner (Pracenje da li je registracija u toku)
   const [loading, setLoading] = useState(false);
+
+  // Kreiranje navigate funkcije
+  const navigate = useNavigate();
 
   // Funkcija za validaciju forme i procesiranje unosa
   const handleSubmit = async (e) => {
@@ -55,7 +60,7 @@ const Register = () => {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
-    // Ako postoje greske, prekini procesiranje
+    // Ako postoje greske, prekidamo procesiranje
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -69,11 +74,16 @@ const Register = () => {
         formData.email,
         formData.password
       );
-      console.log("User registered successfully!");
-      setLoading(false); // Sakrij spinner nakon uspesne registracije
+      toast.success("Registration successful! Redirecting to login...", {
+        autoClose: 2000,
+      });
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000); // Preusmeravanje posle 2 sekunde
+      setLoading(false); // Sakrivamo spinner nakon uspesne registracije
     } catch (error) {
-      setLoading(false); // Sakrij spinner ako dođe do greske
-      setErrors({ firebase: error.message }); // Prikazi gresku iz Firebase-a
+      setLoading(false); // Sakrivamo spinner ako dođe do greske
+      setErrors({ firebase: error.message }); // Prikazujemo gresku iz Firebase-a
     }
   };
 
@@ -157,6 +167,8 @@ const Register = () => {
           </button>
         )}
       </form>
+      {/* ToastContainer za prikaz obavestenja */}
+      <ToastContainer />
     </div>
   );
 };
