@@ -1,4 +1,8 @@
+import { useNavigate } from "react-router-dom";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase";
 import { useState } from "react";
+import { toast, ToastContainer } from "react-toastify";
 
 const Register = () => {
   // State za cuvanje vrednosti input polja
@@ -7,16 +11,22 @@ const Register = () => {
     password: "",
     confirmPassword: "",
   });
+
   // State za cuvanje gresaka validacije
   const [errors, setErrors] = useState({});
 
+  // State za spiner (Pracenje da li je registracija u toku)
+  const [loading, setLoading] = useState(false);
+
+  // Kreiranje navigate funkcije
+  const navigate = useNavigate();
+
   // Funkcija za validaciju forme i procesiranje unosa
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
     // Provera da li su input polja prazna
-    // Ako su prazna, dodajemo odgovarajuce greske
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.password) newErrors.password = "Password is required";
     if (!formData.confirmPassword) {
@@ -50,14 +60,33 @@ const Register = () => {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
-    // Azuriranje state-a sa greskama
-    setErrors(newErrors);
+    // Ako postoje greske, prekidamo procesiranje
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
-    // Ako nema gresaka, dozvoljavamo procesiranje
-    if (Object.keys(newErrors).length === 0) {
-      console.log("Form submitted successfully!");
+    // Ako nema gresaka, zapocni proces registracije na Firebase-u
+    setLoading(true); // Aktiviraj spinner
+    try {
+      await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      toast.success("Registration successful! Redirecting to login...", {
+        autoClose: 2000,
+      });
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000); // Preusmeravanje posle 2 sekunde
+      setLoading(false); // Sakrivamo spinner nakon uspesne registracije
+    } catch (error) {
+      setLoading(false); // Sakrivamo spinner ako dođe do greske
+      setErrors({ firebase: error.message }); // Prikazujemo gresku iz Firebase-a
     }
   };
+
   return (
     <div className="container mt-5">
       <h2 className="text-center mb-4">Register</h2>
@@ -122,11 +151,24 @@ const Register = () => {
           )}
         </div>
 
-        {/* Submit Button */}
-        <button type="submit" className="btn btn-primary w-100">
-          Register
-        </button>
+        {/* Firebase greska */}
+        {errors.firebase && <p className="text-danger">{errors.firebase}</p>}
+
+        {/* Submit dugme ili spinner */}
+        {loading ? (
+          <div className="d-flex justify-content-center my-3">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        ) : (
+          <button type="submit" className="btn btn-primary w-100">
+            Register
+          </button>
+        )}
       </form>
+      {/* ToastContainer za prikaz obavestenja */}
+      <ToastContainer />
     </div>
   );
 };
