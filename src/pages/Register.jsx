@@ -1,3 +1,5 @@
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase";
 import { useState } from "react";
 
 const Register = () => {
@@ -11,7 +13,7 @@ const Register = () => {
   const [errors, setErrors] = useState({});
 
   // Funkcija za validaciju forme i procesiranje unosa
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -55,7 +57,20 @@ const Register = () => {
 
     // Ako nema gresaka, dozvoljavamo procesiranje
     if (Object.keys(newErrors).length === 0) {
-      console.log("Form submitted successfully!");
+      try {
+        // Firebase funkcija za kreiranje korisnika
+        await createUserWithEmailAndPassword(
+          auth,
+          formData.email,
+          formData.password
+        );
+        console.log("User registered successfully");
+        // Preusmeravanje na login ili dashboard (ovo cemo dodati kasnije)
+      } catch (error) {
+        //Obrada greske sa Firebase-a
+        console.error(error.message);
+        setErrors({ firebase: error.message });
+      }
     }
   };
   return (
@@ -123,6 +138,7 @@ const Register = () => {
         </div>
 
         {/* Submit Button */}
+        {errors.firebase && <p className="text-danger">{errors.firebase}</p>}
         <button type="submit" className="btn btn-primary w-100">
           Register
         </button>
