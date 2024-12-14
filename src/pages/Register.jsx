@@ -74,16 +74,17 @@ const Register = () => {
         formData.email,
         formData.password
       );
+      // Poruka o uspesnoj registraciji
       toast.success("Registration successful! Redirecting to login...", {
         autoClose: 2000,
       });
       setTimeout(() => {
-        navigate("/login");
+        navigate("/login", {state: { email: formData.email } }); // Prosledjivanje registrovanog email-a kroz state
       }, 2000); // Preusmeravanje posle 2 sekunde
       setLoading(false); // Sakrivamo spinner nakon uspesne registracije
     } catch (error) {
-      setLoading(false); // Sakrivamo spinner ako dođe do greske
-      setErrors({ firebase: error.message }); // Prikazujemo gresku iz Firebase-a
+      setLoading(false); // Sakrivamo spinner ako dodje do greske
+      toast.error(error.message); // Prikaz greske putem Toastify
     }
   };
 

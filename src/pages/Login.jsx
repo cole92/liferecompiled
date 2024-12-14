@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase";
+import { toast, ToastContainer } from "react-toastify";
+import { useState, useEffect } from "react";
 
 const Login = () => {
   // State za cuvanje unetih vrednosti
@@ -10,8 +14,30 @@ const Login = () => {
   // State za cuvanje gresaka
   const [errors, setErrors] = useState({});
 
+  // State za spiner (Pracenje da li je registracija u toku)
+  const [loading, setLoading] = useState(false);
+
+  // Kreiranje navigate funkcije
+  const navigate = useNavigate();
+  // Kreiranje loaction funkcije
+  const location = useLocation();
+
+  // Automatsko popunjavanje email-a iz state-a
+  // useEffect prati da li je email prosledjen iz Register strane
+  // Ako jeste, postavlja ga u formu i resetuje state kako bi se izbegla ponovna upotreba
+  useEffect(() => {
+    if (location.state?.email) {
+      setFormData((prevState) => ({
+        ...prevState,
+        email: location.state.email,
+      }));
+      // Resetujemo state nakon preuzimanja email-a
+      navigate("/login", { replace: true });
+    }
+  }, [location.state, navigate]);
+
   // Funkcija za obradu prijave
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     console.log("Submitted", formData);
     const newErrors = {};
@@ -30,6 +56,27 @@ const Login = () => {
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
+    }
+
+    // Ako nema gresaka, zapocinjemo proces logovanja
+    setLoading(true); // Aktiviraj spinner
+    try {
+      // Pokusaj prijave korisnka
+      await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      // Poruka o uspesnoj prijavi
+      toast.success("Login successful! Redirecting to dashboard...", {
+        autoClose: 2000,
+      });
+      // Preusmeravanje na dashboard
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 2000);
+    } catch (error) {
+      // Obrada greske
+      toast.error(error.message); // Prikaz greske putem Toastify
+    } finally {
+      // Uklanjamo spiner
+      setLoading(false);
     }
   };
 
@@ -52,6 +99,7 @@ const Login = () => {
             value={formData.email}
             onChange={(e) => {
               setFormData({ ...formData, email: e.target.value });
+              if (errors.email) setErrors({ ...errors, email: "" });
             }}
           />
           {errors.email && <p className="text-danger">{errors.email}</p>}
@@ -70,15 +118,25 @@ const Login = () => {
             value={formData.password}
             onChange={(e) => {
               setFormData({ ...formData, password: e.target.value });
+              if (errors.password) setErrors({ ...errors, password: "" });
             }}
           />
           {errors.password && <p className="text-danger">{errors.password}</p>}
         </div>
-        {/* Log In dugme */}
-        <button type="submit" className="btn btn-primary w-100">
-          Login
-        </button>
+        {loading ? (
+          <div className="d-flex justify-content-center my-3">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        ) : (
+          <button type="submit" className="btn btn-primary w-100">
+            Login
+          </button>
+        )}
       </form>
+      {/* ToastContainer za prikaz obavestenja */}
+      <ToastContainer />
     </div>
   );
 };
