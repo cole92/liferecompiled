@@ -36,7 +36,7 @@ const Register = () => {
     // Provera formata email-a
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (formData.email && !emailRegex.test(formData.email)) {
-      newErrors.email = "Invalid email format";
+      newErrors.email = "Invalid email format. Please try again.";
     }
 
     // Provera da li lozinka ima minimum 6 karaktera
@@ -78,8 +78,16 @@ const Register = () => {
       toast.success("Registration successful! Redirecting to login...", {
         autoClose: 2000,
       });
+
+      // Resetujemo formu nakon uspesne registracije
+      setFormData({
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
+
       setTimeout(() => {
-        navigate("/login", {state: { email: formData.email } }); // Prosledjivanje registrovanog email-a kroz state
+        navigate("/login", { state: { email: formData.email } }); // Prosledjivanje registrovanog email-a kroz state
       }, 2000); // Preusmeravanje posle 2 sekunde
       setLoading(false); // Sakrivamo spinner nakon uspesne registracije
     } catch (error) {
@@ -92,7 +100,7 @@ const Register = () => {
     <div className="container mt-5">
       <h2 className="text-center mb-4">Register</h2>
       {/* Forma za registraciju sa validacijom */}
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         {/* Email */}
         <div className="mb-3">
           <label htmlFor="email" className="form-label">
@@ -104,9 +112,10 @@ const Register = () => {
             id="email"
             placeholder="name@example.com"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, email: e.target.value });
+              if (errors.email) setErrors({ ...errors, email: "" }); // Automatski brisemo gresku pri pocetku kucanja
+            }}
             autoComplete="email"
           />
           {errors.email && <p className="text-danger">{errors.email}</p>}
@@ -123,9 +132,10 @@ const Register = () => {
             id="password"
             placeholder="Enter your password"
             value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, password: e.target.value });
+              if (errors.password) setErrors({ ...errors, password: "" }); // Automatski brisemo gresku pri pocetku kucanja
+            }}
             autoComplete="new-password"
           />
           {errors.password && <p className="text-danger">{errors.password}</p>}
@@ -142,9 +152,11 @@ const Register = () => {
             id="confirm-password"
             placeholder="Confirm your password"
             value={formData.confirmPassword}
-            onChange={(e) =>
-              setFormData({ ...formData, confirmPassword: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, confirmPassword: e.target.value });
+              if (errors.confirmPassword)
+                setErrors({ ...errors, confirmPassword: "" }); // Automatski brisemo gresku pri pocetku kucanja
+            }}
             autoComplete="new-password"
           />
           {errors.confirmPassword && (
