@@ -21,6 +21,14 @@ const Register = () => {
   // Kreiranje navigate funkcije
   const navigate = useNavigate();
 
+  // Mapa friendly user Firebase gresaka
+  const firebaseErrorMessages = {
+    "auth/email-already-in-use": "This email is already in use. Try logging in.",
+    "auth/too-many-requests": "Too many failed attempts. Please try again later.",
+    "auth/network-request-failed": "Network error. Please check your connection.",
+    "auth/operation-not-allowed": "Registration is currently disabled. Please contact support.",
+  };
+
   // Funkcija za validaciju forme i procesiranje unosa
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,7 +100,10 @@ const Register = () => {
       setLoading(false); // Sakrivamo spinner nakon uspesne registracije
     } catch (error) {
       setLoading(false); // Sakrivamo spinner ako dodje do greske
-      toast.error(error.message); // Prikaz greske putem Toastify
+      // Prikaz friendly user Firebase gresaka
+      const message = 
+        firebaseErrorMessages[error.code] || "An unexpected error occurred. Please try again.";
+        toast.error(message);
     }
   };
 
