@@ -36,10 +36,18 @@ const Login = () => {
     }
   }, [location.state, navigate]);
 
+  // Mapa friendly user Firebase gresaka
+  const firebaseErrorMessages = {
+    "auth/user-not-found": "Invalid email or password. Please try again.",
+    "auth/invalid-credential": "Invalid email or password. Please try again.",
+    "auth/too-many-requests": "Too many failed attempts. Please try again later.",
+    "auth/network-request-failed": "Network error. Please check your connection and try again.",
+    "auth/user-disabled": "Your account has been disabled. Please contact support.",
+  };
+
   // Funkcija za obradu prijave
   const handleLogin = async (e) => {
     e.preventDefault();
-    console.log("Submitted", formData);
     const newErrors = {};
 
     // Provera da li su input polja prazna
@@ -72,8 +80,10 @@ const Login = () => {
         navigate("/dashboard");
       }, 2000);
     } catch (error) {
-      // Obrada greske
-      toast.error(error.message); // Prikaz greske putem Toastify
+      // Prikaz friendly user Firebase gresaka
+      const message = 
+        firebaseErrorMessages[error.code] || "An unexpected error occurred. Please try again.";
+        toast.error(message);
     } finally {
       // Uklanjamo spiner
       setLoading(false);
