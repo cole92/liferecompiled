@@ -1,5 +1,7 @@
 //import { useState } from 'react';
 import { Routes, Route } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -14,7 +16,18 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Zasticena ruta */} 
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        {/* Default preusmeravanje ako ruta ne postoji */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Zasticena ruta */}
       </Routes>
     </Layout>
   );
