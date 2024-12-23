@@ -1,25 +1,22 @@
-import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { auth } from "../firebase";
+import { useContext, useState, useEffect } from "react";
+import { AuthContext } from "../context/AuthContext";
 import PropTypes from "prop-types";
 
 const ProtectedRoute = ({ children }) => {
-  // State za pracenje autentifikacije korisnika
-  const [isAuthenticated, setIsAuthenticated] = useState(null); // `null` dok ne dobijemo odgovor od Firebase-a
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);  // `true` dok traje provera autentifikacije
+  const { isAuthenticated, isCheckingAuth } = useContext(AuthContext);
+  const [redirectDelay, setRedirectDelay] = useState(false);
 
+  // Kada korisnik nije autentifikovan, postavljamo kasnjenje
   useEffect(() => {
-    // Listener za promene u autentifikaciji korisnika
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      setIsAuthenticated(!!currentUser); // Postavlja `true` ako je korisnik autentifikovan, inace `false`
-      setTimeout(() => {
-        setIsCheckingAuth(false); // Pauza pre zavrsetka provere radi boljeg korisnickog iskustva
+    if (!isAuthenticated && !isCheckingAuth) {
+      const timer = setTimeout(() => {
+        setRedirectDelay(true); // Postavljamo stanje za redirekciju nakon 500ms
       }, 500);
-    });
 
-     // Cisti listener kada se komponenta ukloni
-    return () => unsubscribe();
-  }, []);
+      return () => clearTimeout(timer); // Cistimo timer pri unmount-u
+    }
+  }, [isAuthenticated, isCheckingAuth]);
 
   // Prikaz spinnera tokom provere autentifikacije
   if (isCheckingAuth) {
@@ -31,8 +28,18 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  // Redirekcija na login ako korisnik nije autentifikovan
-  if (!isAuthenticated) {
+  // Prikaz spinnera pre redirekcije
+  if (!isAuthenticated && !redirectDelay) {
+    return (
+      <div className="center-spinner">
+        <div className="spinner-border text-primary" role="status"></div>
+        <p className="text-center mt-3">Redirecting to login...</p>
+      </div>
+    );
+  }
+
+  // Redirekcija na login stranicu
+  if (!isAuthenticated && redirectDelay) {
     return <Navigate to="/login" replace />;
   }
 

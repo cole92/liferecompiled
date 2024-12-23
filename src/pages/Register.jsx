@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { useState } from "react";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 
 const Register = () => {
   // State za cuvanje vrednosti input polja
@@ -191,8 +191,6 @@ const Register = () => {
           </button>
         )}
       </form>
-      {/* ToastContainer za prikaz obavestenja */}
-      <ToastContainer />
     </div>
   );
 };
