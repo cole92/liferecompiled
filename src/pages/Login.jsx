@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import { useState, useEffect } from "react";
 
 const Login = () => {
@@ -70,7 +70,7 @@ const Login = () => {
     setLoading(true); // Aktiviraj spinner
     try {
       // Pokusaj prijave korisnka
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      await signInWithEmailAndPassword(auth, formData.email, formData.password)
       // Poruka o uspesnoj prijavi
       toast.success("Login successful! Redirecting to dashboard...", {
         autoClose: 2000,
@@ -145,8 +145,6 @@ const Login = () => {
           </button>
         )}
       </form>
-      {/* ToastContainer za prikaz obavestenja */}
-      <ToastContainer />
     </div>
   );
 };
