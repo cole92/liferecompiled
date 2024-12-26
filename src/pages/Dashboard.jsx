@@ -1,5 +1,6 @@
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
+import Spinner from "../components/Spinner";
 
 // Dashboard komponenta za prikaz podataka korisnika
 const Dashboard = () => {
@@ -13,10 +14,7 @@ const Dashboard = () => {
       <h1>Welcome, {user ? user.email : "Guest"}</h1>
        {/* Prikaz spinnera tokom logout procesa */}
       {isLoggingOut ? (
-        <div className="center-spinner">
-          <div className="spinner-border text-primary" role="status"></div>
-          <p className="text-center mt-3">Logging out...</p>
-        </div>
+        <Spinner message="Logging out..." />
       ) : (
         // Logout dugme
         <button onClick={logout} className="btn btn-danger">

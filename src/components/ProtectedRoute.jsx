@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import PropTypes from "prop-types";
+import Spinner from "./Spinner";
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isCheckingAuth } = useContext(AuthContext);
@@ -21,20 +22,14 @@ const ProtectedRoute = ({ children }) => {
   // Prikaz spinnera tokom provere autentifikacije
   if (isCheckingAuth) {
     return (
-      <div className="center-spinner">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="text-center mt-3">Verifying your session...</p>
-      </div>
+      <Spinner message="Checking your session. Please wait..."/>
     );
   }
 
   // Prikaz spinnera pre redirekcije
   if (!isAuthenticated && !redirectDelay) {
     return (
-      <div className="center-spinner">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="text-center mt-3">Redirecting to login...</p>
-      </div>
+      <Spinner message="You are not logged in. Redirecting to login..."/>
     );
   }
 

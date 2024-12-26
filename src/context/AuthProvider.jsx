@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { auth, signOut } from "../firebase";
 import PropTypes from "prop-types";
-import { toast } from "react-toastify";
+import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 import { AuthContext } from "./AuthContext";
 
 // Kreiramo AuthProvider
@@ -24,15 +24,19 @@ const AuthProvider = ({ children }) => {
 
   const logout = async () => {
   try {
+    // Provera mreze pre odjave
+    if (!navigator.onLine) {
+      showErrorToast("You are offline. Please connect to the internet and try again.");
+      return; // Blokiramo dalje izvrsavanje
+    }
     setIsLoggingOut(true); // Pokrecemo spinner za logout
     await new Promise((resolve) => setTimeout(resolve, 500)); // Pauza za spinner
 
     await signOut(auth); // Firebase odjava
-    toast.success("Successfully logged out! Redirected to login.", {
-      autoClose: 2000,
+    showSuccessToast("You have been logged out successfully. Redirecting to login...", {
     });
   } catch (error) {
-    toast.error("An error occurred during logout. Please try again.");
+    showErrorToast("Oops! Something went wrong during logout. Please try again.");
     console.error("Logout error:", error); // Log greske
   } finally {
     setIsLoggingOut(false); // Zaustavljamo spinner
