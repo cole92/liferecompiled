@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { toast } from "react-toastify";
 import { useState, useEffect } from "react";
+import Spinner from "../components/Spinner";
 
 const Login = () => {
   // State za cuvanje unetih vrednosti
@@ -134,11 +135,7 @@ const Login = () => {
           {errors.password && <p className="text-danger">{errors.password}</p>}
         </div>
         {loading ? (
-          <div className="d-flex justify-content-center my-3">
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
-          </div>
+          <Spinner message="" />
         ) : (
           <button type="submit" className="btn btn-primary w-100">
             Login
