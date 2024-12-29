@@ -71,7 +71,7 @@ const Login = () => {
     setLoading(true); // Aktiviraj spinner
     try {
       // Pokusaj prijave korisnka
-      await signInWithEmailAndPassword(auth, formData.email, formData.password)
+      await signInWithEmailAndPassword(auth, formData.email, formData.password);
       // Poruka o uspesnoj prijavi
       toast.success("Login successful! Redirecting to dashboard...", {
         autoClose: 2000,
@@ -82,9 +82,9 @@ const Login = () => {
       }, 2000);
     } catch (error) {
       // Prikaz friendly user Firebase gresaka
-      const message = 
+      const message =
         firebaseErrorMessages[error.code] || "An unexpected error occurred. Please try again.";
-        toast.error(message);
+      toast.error(message);
     } finally {
       // Uklanjamo spiner
       setLoading(false);
@@ -92,7 +92,7 @@ const Login = () => {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="form-container">
       <h2 className="text-center mb-4">Log In</h2>
       {/* Forma za prijavu sa validacijom */}
       <form onSubmit={handleLogin} noValidate>

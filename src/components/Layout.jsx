@@ -5,14 +5,25 @@ import Footer from "./Footer";
 // Layout komponenta koja obavija stranice aplikacije
 const Layout = ({ children }) => {
   return (
-    <>
-      <Header />
-      {/* Glavni sadrzaj stranice (dinamican, prosledjen kroz children prop) */}
-      <main className="container mt-4">{children}</main>
-      <Footer />
-    </>
+    <div className="d-flex flex-column vh-100">
+      {/* Header - fiksiran na vrhu, puni ekran */}
+      <div className="container-fluid bg-light border-bottom">
+        <Header />
+      </div>
+
+      {/* Glavni sadrzaj stranice (dinamican - skrolabilan, prosledjen kroz children prop) */}
+      <main className="flex-grow-1 overflow-auto">
+        <div className="container mt-4">{children}</div>
+      </main>
+
+      {/* Footer - fiksiran na dnu, puni ekran */}
+      <div className="container-fluid bg-light border-top">
+        <Footer />
+      </div>
+    </div>
   );
 };
+
 // Validacija props-a: children mora biti React cvor i obavezan je
 Layout.propTypes = {
   children: PropTypes.node.isRequired,
