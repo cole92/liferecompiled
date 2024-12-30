@@ -1,51 +1,42 @@
-import { Link } from "react-router-dom";
+import LeftMenu from "./Left & Right Menu/LeftMenu";
+import RightMenu from "./Left & Right Menu/RightMenu";
 
 const Header = () => {
   return (
-    <nav className="navbar navbar-expand-lg navbar-light bg-light">
-      <div className="container-fluid">
-        {/* Logo ili naziv aplikacije */}
-        <Link className="navbar-brand" to="/">
-          Blog App
-        </Link>
+    <header className="d-flex justify-content-between align-items-center p-2 bg-light">
+      {/* Levo dugme - otvara levi offcanvas meni */}
+      <button
+        className="btn btn-outline-primary"
+        type="button"
+        data-bs-toggle="offcanvas"
+        data-bs-target="#offcanvasLeft"
+        aria-controls="offcanvasLeft"
+      >
+        <span className="navbar-toggler-icon"></span>
+        {/* Ikonica za otvaranje levog menija */}
+      </button>
 
-        {/* Dugme za otvaranje menija na manjim ekranima */}
-        <button
-          className="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-        >
-          <span className="navbar-toggler-icon"></span>
-        </button>
+      {/* Logo ili naslov aplikacije u centru */}
+      <h1 className="fs-4 m-0">Blog App</h1>
 
-        {/* Navigacioni linkovi */}
-        <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav">
-            <li className="nav-item">
-              <Link className="nav-link" to="/">
-                Home
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className="nav-link" to="/login">
-                Login
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className="nav-link" to="/register">
-                Register
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className="nav-link" to="/dashboard">
-                Dashboard
-              </Link>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
+      {/* Desno dugme - otvara desni offcanvas meni */}
+      <button
+        className="btn btn-outline-secondary"
+        type="button"
+        data-bs-toggle="offcanvas"
+        data-bs-target="#offcanvasRight"
+        aria-controls="offcanvasRight"
+      >
+        <span className="navbar-toggler-icon"></span>
+        {/* Ikonica za otvaranje desnog menija */}
+      </button>
+
+      {/* Levi offcanvas meni */}
+      <LeftMenu />
+
+      {/* Desni offcanvas meni */}
+      <RightMenu />
+    </header>
   );
 };
 
