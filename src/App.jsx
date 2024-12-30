@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
 import { ToastContainer } from "react-toastify";
 import "./App.css";
 
@@ -28,6 +29,16 @@ function App() {
         {/* Default preusmeravanje ako ruta ne postoji */}
         <Route path="*" element={<Navigate to="/login" replace />} />
         {/* Zasticena ruta */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        {/* Default preusmeravanje ako ruta ne postoji */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
       {/*  ToastContainer: Komponenta za prikaz globalnih toast poruka*/}
       <ToastContainer />
