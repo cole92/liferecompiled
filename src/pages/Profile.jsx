@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { getAuth } from "firebase/auth";
+import EditProfileModal from "../components/EditProfileModal";
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -65,8 +67,17 @@ const Profile = () => {
         <p>
           Bio: {userData.bio}
         </p>
-        <button className="btn btn-primary">Edit Profile</button>
+        <button className="btn btn-primary"
+          onClick={() => setShowModal(true)}
+        >
+          Edit Profile
+        </button>
       </div>
+      <EditProfileModal
+        show={showModal}
+        handleClose={() => setShowModal(false)}
+        userData={userData}
+      />
     </div>
   );
 };
