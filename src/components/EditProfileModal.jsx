@@ -1,5 +1,5 @@
 import { updateDoc, doc } from "firebase/firestore";
-import { db } from "../firebase"; 
+import { db } from "../firebase";
 import { PropTypes } from "prop-types";
 import { useState, useEffect } from "react";
 
@@ -12,7 +12,7 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   });
   // State za validacione greske
   const [errors, setErrors] = useState({});
-   // Postavljanje pocetnih vrednosti forme iz userData
+  // Postavljanje pocetnih vrednosti forme iz userData
   useEffect(() => {
     if (userData) {
       setFormData({
@@ -26,9 +26,14 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   // Funkcija za validaciju podataka unetih u formu
   const validateForm = () => {
     const newErrors = {};
-    // Provera da li je ime uneto
+    const nameRegex = /^[A-Za-zÀ-ÿ' -]+$/; // Regex pravilo: dozvoljeni karakteri (slova, razmaci, crtice, apostrofi)
+    // Validacija unosa za ime
     if (!formData.name.trim()) {
-      newErrors.name = "Name is required.";
+      newErrors.name = "Name is required."; // Greska ako je polje prazno
+    } else if (!nameRegex.test(formData.name)) {
+      newErrors.name = "Invalid characters in name"; // Greska ako ime sadrzi nedozvoljene karaktere
+    } else if (formData.name.length > 20) {
+      newErrors.name = "Name cannot exceed 20 characters."; // Greska ako je ime predugacko
     }
     // Provera da li biografija ima manje od 200 karaktera
     if (formData.bio.length > 200) {
@@ -42,7 +47,7 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
     ) {
       newErrors.status = "Invalid status.";
     }
-     // Postavljanje gresaka i vracanje rezultata validacije
+    // Postavljanje gresaka i vracanje rezultata validacije
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
@@ -52,7 +57,7 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   const handleSave = async () => {
     if (validateForm()) {
       const updatedData = {};
-       // Proveravamo i pripremamo podatke za azuriranje
+      // Proveravamo i pripremamo podatke za azuriranje
       if (formData.name !== userData.name) updatedData.name = formData.name;
       if (formData.bio !== userData.bio) updatedData.bio = formData.bio;
       if (formData.status !== userData.status)
@@ -74,10 +79,10 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
 
   return (
     <div
-      className={`modal fade ${show ? "show d-block" : "d-none"}`}  // Prikaz modala u zavisnosti od `show` prop-a
+      className={`modal fade ${show ? "show d-block" : "d-none"}`} // Prikaz modala u zavisnosti od `show` prop-a
       tabIndex="-1"
       role="dialog"
-      aria-hidden={!show} 
+      aria-hidden={!show}
     >
       <div className="modal-dialog" role="document">
         <div className="modal-content">
@@ -103,13 +108,17 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
                   className="form-control"
                   id="name"
                   name="name"
-                  placeholder="Enter your name"  // Placeholder tekst za unos
-                  value={formData.name}  // Vrednost iz stanja forme
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value }) // Azuriranje stat-a pri unosu
-                  }
+                  placeholder="Enter your name" // Placeholder tekst za unos
+                  value={formData.name} // Vrednost iz stanja forme
+                  onChange={(e) => {
+                    const value = e.target.value; // Trenutna vrednost uneta u polje
+                    const capitalizedName =
+                      value.charAt(0).toUpperCase() + value.slice(1); // Pretvaramo prvo slovo u veliko, ostatak ostaje nepromenjen
+                    setFormData({ ...formData, name: capitalizedName }); // Azuriramo stanje forme sa novom vrednoscu
+                  }}
                 />
-                {errors.name && <p className="text-danger">{errors.name}</p>}  {/* Prikaz greske za ime */}
+                {errors.name && <p className="text-danger">{errors.name}</p>}{" "}
+                {/* Prikaz greske za ime */}
               </div>
 
               {/* Polje za biografiju */}
@@ -123,12 +132,22 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
                   name="bio"
                   rows="3"
                   placeholder="Tell us about yourself"
-                  value={formData.bio}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bio: e.target.value })
+                  maxLength={200} // Sprecavamo unos vise od 200 karaktera
+                  value={formData.bio} // Vrednost iz stanja
+                  onChange={
+                    (e) => setFormData({ ...formData, bio: e.target.value }) // Azuriranje stat-a pri unosu
                   }
                 ></textarea>
-                {errors.bio && <p className="text-danger">{errors.bio}</p>}
+                {/* Sekcija za dinamicki brojac preostalih karaktera */}
+                <div
+                  style={{
+                    color: 200 - formData.bio.length < 1 ? "red" : "gray",
+                  }}
+                >
+                  {200 - formData.bio.length } characters left
+                </div>
+                {errors.bio && <p className="text-danger">{errors.bio}</p>}{" "}
+                {/* Prikaz greske za biografiju */}
               </div>
 
               {/* Polje za status */}
@@ -140,21 +159,22 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
                   className="form-select"
                   id="status"
                   name="status"
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value })
+                  value={formData.status} // Vrednost iz stanja
+                  onChange={
+                    (e) => setFormData({ ...formData, status: e.target.value }) // Azuriranje stat-a pri unosu
                   }
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
                 {errors.status && (
-                  <p className="text-danger">{errors.status}</p>
+                  <p className="text-danger">{errors.status}</p> // Prikaz greske za status
                 )}
               </div>
             </form>
           </div>
           <div className="modal-footer">
+            {/* Dugme za zatvaranje modala */}
             <button
               type="button"
               className="btn btn-secondary"
@@ -162,10 +182,17 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
             >
               Close
             </button>
+            {/* Dugme za cuvanje promena */}
             <button
               type="button"
               className="btn btn-primary"
               onClick={handleSave}
+              // U slucaju nepromenjenih podataka dugme je disabled
+              disabled={
+                formData.name === userData.name &&
+                formData.bio === userData.bio &&
+                formData.status === userData.status
+              }
             >
               Save Changes
             </button>
@@ -180,7 +207,7 @@ EditProfileModal.propTypes = {
   show: PropTypes.bool.isRequired,
   handleClose: PropTypes.func.isRequired,
   userData: PropTypes.shape({
-    id: PropTypes.string.isRequired, // Dodaj validaciju za id
+    id: PropTypes.string.isRequired,
     name: PropTypes.string,
     bio: PropTypes.string,
     status: PropTypes.string,
