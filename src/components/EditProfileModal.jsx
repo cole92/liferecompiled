@@ -10,8 +10,13 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
     bio: "",
     status: "Active",
   });
+
   // State za validacione greske
   const [errors, setErrors] = useState({});
+
+  // State za pracenje snimanja podataka
+  const [isSaving, setIsSaving] = useState(false);
+
   // Postavljanje pocetnih vrednosti forme iz userData
   useEffect(() => {
     if (userData) {
@@ -27,6 +32,8 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   const validateForm = () => {
     const newErrors = {};
     const nameRegex = /^[A-Za-zÀ-ÿ' -]+$/; // Regex pravilo: dozvoljeni karakteri (slova, razmaci, crtice, apostrofi)
+    const allowedStatuses = ["Active", "Inactive"]; // Niz dozvoljenih statusa
+
     // Validacija unosa za ime
     if (!formData.name.trim()) {
       newErrors.name = "Name is required."; // Greska ako je polje prazno
@@ -39,13 +46,9 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
     if (formData.bio.length > 200) {
       newErrors.bio = "Bio must be 200 characters or less.";
     }
-    // Provera validnosti statusa
-    if (
-      formData.status !== "Active" &&
-      formData.status !== "Inactive" &&
-      formData.status !== userData.status
-    ) {
-      newErrors.status = "Invalid status.";
+    // Validacija unosa za status
+    if (!allowedStatuses.includes(formData.status)) {
+      newErrors.status = "Invalid status";
     }
     // Postavljanje gresaka i vracanje rezultata validacije
     setErrors(newErrors);
@@ -55,6 +58,8 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
 
   // Funkcija za cuvanje podataka
   const handleSave = async () => {
+    setIsSaving(true);
+
     if (validateForm()) {
       const updatedData = {};
       // Proveravamo i pripremamo podatke za azuriranje
@@ -73,8 +78,20 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
         handleClose(); // Zatvaranje modala nakon uspesnog cuvanja
       } catch (error) {
         console.error("Error updating document:", error);
+      } finally {
+        setIsSaving(false);
       }
+    } else {
+      setIsSaving(false);
     }
+  };
+  const isSaveDisabled = () => {
+    if (isSaving) return true; // Ako se trenutno čuva, onemogući dugme
+    return (
+      formData.name === userData.name &&
+      formData.bio === userData.bio &&
+      formData.status === userData.status
+    ); // Onemogući ako podaci nisu promenjeni
   };
 
   return (
@@ -141,10 +158,10 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
                 {/* Sekcija za dinamicki brojac preostalih karaktera */}
                 <div
                   style={{
-                    color: 200 - formData.bio.length < 1 ? "red" : "gray",
+                    color: 200 - formData.bio.length < 1 ? "red" : "gray", // Boja zavisi od stannja
                   }}
                 >
-                  {200 - formData.bio.length } characters left
+                  {200 - formData.bio.length} characters left
                 </div>
                 {errors.bio && <p className="text-danger">{errors.bio}</p>}{" "}
                 {/* Prikaz greske za biografiju */}
@@ -187,14 +204,9 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
               type="button"
               className="btn btn-primary"
               onClick={handleSave}
-              // U slucaju nepromenjenih podataka dugme je disabled
-              disabled={
-                formData.name === userData.name &&
-                formData.bio === userData.bio &&
-                formData.status === userData.status
-              }
+              disabled={isSaveDisabled()}  // Onemoguceno ako se nista ne menja ili se cuva
             >
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"} {/* Tekst zavisi od stanja */}
             </button>
           </div>
         </div>
