@@ -17,6 +17,9 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   // State za pracenje snimanja podataka
   const [isSaving, setIsSaving] = useState(false);
 
+  // State za Btn hover
+  const [hoverMessage, setHoverMessage] = useState("Save changes");
+
   // Postavljanje pocetnih vrednosti forme iz userData
   useEffect(() => {
     if (userData) {
@@ -28,6 +31,20 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
     }
   }, [userData]);
 
+  const handleMouseEnter = () => {
+    if (isSaving) return; // Ako se podaci cuvaju, nista ne radi
+    if (isSaveDisabled()) {
+      setHoverMessage("No changes detected");
+    } else {
+      setHoverMessage("Save Changes"); // Ako su podaci izmenjeni, ostaje "Save Changes"
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isSaving) return;
+    setHoverMessage("Save Changes");
+  };
+
   // Funkcija za validaciju podataka unetih u formu
   const validateForm = () => {
     const newErrors = {};
@@ -38,7 +55,8 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
     if (!formData.name.trim()) {
       newErrors.name = "Name is required."; // Greska ako je polje prazno
     } else if (!nameRegex.test(formData.name)) {
-      newErrors.name = "Invalid characters in name"; // Greska ako ime sadrzi nedozvoljene karaktere
+      newErrors.name =
+        "Allowed characters: letters (A-Z, a-z), spaces, hyphens (-), and apostrophes (')."; // Greska ako ime sadrzi nedozvoljene karaktere
     } else if (formData.name.length > 20) {
       newErrors.name = "Name cannot exceed 20 characters."; // Greska ako je ime predugacko
     }
@@ -86,12 +104,12 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
     }
   };
   const isSaveDisabled = () => {
-    if (isSaving) return true; // Ako se trenutno čuva, onemogući dugme
+    if (isSaving) return true; // Ako se trenutno cuva, onemoguci dugme
     return (
       formData.name === userData.name &&
       formData.bio === userData.bio &&
       formData.status === userData.status
-    ); // Onemogući ako podaci nisu promenjeni
+    ); // Onemoguci ako podaci nisu promenjeni
   };
 
   return (
@@ -200,14 +218,20 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
               Close
             </button>
             {/* Dugme za cuvanje promena */}
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleSave}
-              disabled={isSaveDisabled()}  // Onemoguceno ako se nista ne menja ili se cuva
+            <div
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             >
-              {isSaving ? "Saving..." : "Save Changes"} {/* Tekst zavisi od stanja */}
-            </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={isSaveDisabled()} // Onemoguceno ako se nista ne menja ili se cuva
+              >
+                {isSaving ? "Saving..." : hoverMessage || "Save Changes"}{" "}
+                {/* Tekst dugmeta zavisi od `hoverMessage` */}
+              </button>
+            </div>
           </div>
         </div>
       </div>
