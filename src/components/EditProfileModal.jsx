@@ -34,7 +34,7 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   const handleMouseEnter = () => {
     if (isSaving) return; // Ako se podaci cuvaju, nista ne radi
     if (isSaveDisabled()) {
-      setHoverMessage("No changes detected");
+      setHoverMessage("No changes :)");
     } else {
       setHoverMessage("Save Changes"); // Ako su podaci izmenjeni, ostaje "Save Changes"
     }

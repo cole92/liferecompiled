@@ -8,10 +8,17 @@ import "react-toastify/dist/ReactToastify.css";
 import { BrowserRouter } from "react-router-dom";
 import AuthProvider from "./context/AuthProvider.jsx";
 
-createRoot(document.getElementById("root")).render(
-  <AuthProvider>  {/* AuthProvider obuhvata celu aplikaciju i obezbeđuje globalni kontekst za pracenje korisnika i autentifikaciju */}
-    <BrowserRouter>   {/* BrowserRouter omogucava navigaciju izmedju razlicitih ruta aplikacije */}
-      <App />
-    </BrowserRouter>
-  </AuthProvider>
-);
+// Provera postojanja root elementa
+const rootElement = document.getElementById("root");
+
+if (rootElement) {
+  createRoot(rootElement).render(
+    <AuthProvider>  {/* AuthProvider obuhvata celu aplikaciju i obezbeđuje globalni kontekst za pracenje korisnika i autentifikaciju */}
+      <BrowserRouter>   {/* BrowserRouter omogucava navigaciju izmedju razlicitih ruta aplikacije */}
+        <App />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+} else {
+  console.error("Root element not found!");  // Log greske ako root element ne postoji
+}
