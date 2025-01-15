@@ -7,6 +7,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import CloudinaryPreview from "./components/CloudinaryPreview";
+import CloudinaryUpload from "./pages/CloudinaryUpload";
 import { ToastContainer } from "react-toastify";
 import "./App.css";
 
@@ -17,6 +19,9 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/cloudinary-preview" element={<CloudinaryPreview />} /> {/* Test ruta */}
+        <Route path="/cloudinary-upload" element={<CloudinaryUpload />} />
+
         {/* Zasticena ruta */}
         <Route
           path="/dashboard"
