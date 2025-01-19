@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import Spinner from "../components/Spinner";
@@ -78,11 +79,23 @@ const Register = () => {
     // Ako nema gresaka, zapocni proces registracije na Firebase-u
     setLoading(true); // Aktiviraj spinner
     try {
-      await createUserWithEmailAndPassword(
+      const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
+      const user = userCredential.user;
+
+      // Kreiranje korisnickog dokumenta u Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        name: "",
+        bio: "",
+        status: "Active",
+        profilePicture: "",
+        email: user.email,
+        createdAt: new Date(),
+      });
+
       // Poruka o uspesnoj registraciji
       toast.success("Registration successful! Redirecting to login...", {
         autoClose: 2000,
@@ -98,13 +111,13 @@ const Register = () => {
       setTimeout(() => {
         navigate("/login", { state: { email: formData.email } }); // Prosledjivanje registrovanog email-a kroz state
       }, 2000); // Preusmeravanje posle 2 sekunde
-      setLoading(false); // Sakrivamo spinner nakon uspesne registracije
     } catch (error) {
-      setLoading(false); // Sakrivamo spinner ako dodje do greske
       // Prikaz friendly user Firebase gresaka
-      const message = 
+      const message =
         firebaseErrorMessages[error.code] || "An unexpected error occurred. Please try again.";
-        toast.error(message);
+      toast.error(message);
+    } finally {
+      setLoading(false); // Sakrivamo spinner nakon procesa
     }
   };
 
@@ -176,12 +189,9 @@ const Register = () => {
           )}
         </div>
 
-        {/* Firebase greska */}
-        {errors.firebase && <p className="text-danger">{errors.firebase}</p>}
-
         {/* Submit dugme ili spinner */}
         {loading ? (
-          <Spinner message=""/>
+          <Spinner message="" />
         ) : (
           <button type="submit" className="btn btn-primary w-100">
             Register

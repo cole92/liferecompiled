@@ -54,7 +54,7 @@ const Profile = () => {
       {/* Gornji deo: Profilna slika centrirana */}
       <div className="text-center mb-4">
         <img
-          src="https://via.placeholder.com/150"
+          src={userData.profilePicture}
           alt="Profile pic"
           className="rounded-circle"
           style={{ width: "150px", height: "150px" }}
