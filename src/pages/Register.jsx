@@ -5,6 +5,7 @@ import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import Spinner from "../components/Spinner";
+import {DEFAULT_PROFILE_PICTURE} from "../constants/defaults"
 
 const Register = () => {
   // State za cuvanje vrednosti input polja
@@ -91,7 +92,7 @@ const Register = () => {
         name: "",
         bio: "",
         status: "Active",
-        profilePicture: "",
+        profilePicture: DEFAULT_PROFILE_PICTURE,
         email: user.email,
         createdAt: new Date(),
       });
