@@ -1,11 +1,11 @@
 import { useState } from "react";
+import PropTypes from "prop-types";
 import { toast } from "react-toastify";
 import Spinner from "../components/Spinner";
 
-const CloudinaryUpload = () => {
-  
-  const [imageUrl, setImageUrl] = useState(""); // State za cuvanje URL-a slike nakon upload-a
-  const [isLoading, setIsLoading] = useState(false) // Indikator za loading
+const CloudinaryUpload = ({ onUploadComplete }) => {
+  // Indikator za loading
+  const [isLoading, setIsLoading] = useState(false);
 
   // Funkcija za obradu upload-a
   const handleFileUpload = async (event) => {
@@ -52,8 +52,9 @@ const CloudinaryUpload = () => {
 
       // Pretvaramo odgovor u JSON
       const data = await response.json();
-      // Cuvamo URL slike u state
-      setImageUrl(data.secure_url);
+      if (onUploadComplete) {
+        onUploadComplete(data.secure_url); // Poziva se callback sa URL-om slike
+      }
       toast.success("Image uploaded successfully!");
     } catch (error) {
       toast.error("Upload failed. Please try again.");
@@ -67,7 +68,6 @@ const CloudinaryUpload = () => {
   return (
     <div className="container mt-4 text-center">
       <h2>Upload Image to Cloudinary</h2>
-
       {/* Input za izbor fajla */}
       <input
         type="file"
@@ -75,17 +75,15 @@ const CloudinaryUpload = () => {
         className="form-control my-3"
         accept="image/*" // Prihvatamo samo slike
       />
-
       {/* Prikaz slike nakon uspesnog upload-a */}
-      {isLoading && <Spinner message=""/>} {/* Prikaz spinnera tokom upload-a */}
-      {imageUrl && (
-        <div>
-          <h3>Uploaded Image:</h3>
-          <img src={imageUrl} alt="Uploaded" style={{ maxWidth: "300px" }} />
-        </div>
-      )}
+      {isLoading && <Spinner message="" />}{" "}
+      {/* Prikaz spinnera tokom upload-a */}
     </div>
   );
+};
+
+CloudinaryUpload.propTypes = {
+  onUploadComplete: PropTypes.func.isRequired, // Prop mora biti funkcija i obavezan je
 };
 
 export default CloudinaryUpload;

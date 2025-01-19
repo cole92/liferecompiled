@@ -43,16 +43,6 @@ const LeftMenu = () => {
               Dashboard
             </Link>
           </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/cloudinary-preview">
-              TestPic
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/cloudinary-upload">
-              TestUpload
-            </Link>
-          </li>
         </ul>
       </div>
     </div>
