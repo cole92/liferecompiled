@@ -3,6 +3,7 @@ import { db } from "../firebase";
 import { PropTypes } from "prop-types";
 import { useState, useEffect } from "react";
 import CloudinaryUpload from "../pages/CloudinaryUpload";
+import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
 const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   // State za podatke forme
@@ -29,7 +30,7 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
         name: userData.name || "",
         bio: userData.bio || "",
         status: userData.status || "Active",
-        profilePicture: userData.profilePicture || "",
+        profilePicture: userData.profilePicture || DEFAULT_PROFILE_PICTURE,
       });
     }
   }, [userData]);
@@ -144,19 +145,15 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
           <div className="modal-body">
             {/* Forma za unos podataka */}
             <form>
-              {/* Prikaz profine na modalu */}
+              {/* Prikaz profilne slike na modalu */}
               <div className="form-group">
-                <label>Profile Picture</label> <br /> <br />
-                {formData.profilePicture ? (
-                  <img
-                    src={formData.profilePicture}
-                    alt="Profile"
-                    className="rounded-circle mb-3"
-                    style={{ width: "100px", height: "100px" }}
-                  />
-                ) : (
-                  <div className="mb-3">No picture uploaded</div>
-                )}
+                <label className="mb-3 d-block">Profile Picture</label>
+                <img
+                  src={formData.profilePicture} // Uvek će imati vrednost
+                  alt="Profile"
+                  className="rounded-circle mb-3"
+                  style={{ width: "100px", height: "100px" }}
+                />
                 <CloudinaryUpload onUploadComplete={handleUploadComplete} />
               </div>
               {/* Polje za ime */}
@@ -273,7 +270,7 @@ EditProfileModal.propTypes = {
     name: PropTypes.string,
     bio: PropTypes.string,
     status: PropTypes.string,
-    profilePicture: PropTypes.string
+    profilePicture: PropTypes.string,
   }),
   updateUserData: PropTypes.func.isRequired,
 };
