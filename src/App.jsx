@@ -18,35 +18,12 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        {/* Zasticena ruta */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        {/* Zasticena ruta */}
-        <Route
-          path="/dashboard/create-post"
-          element={
-            <ProtectedRoute>
-              <CreatePost />
-            </ProtectedRoute>
-          }
-        />
-        {/* Default preusmeravanje ako ruta ne postoji */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-        {/* Zasticena ruta */}
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
+        {/* Zasticene ruta */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/create-post" element={<CreatePost />} />
+          <Route path="/profile" element={<Profile />} />
+        </Route>
         {/* Default preusmeravanje ako ruta ne postoji */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

@@ -1,10 +1,9 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
-import PropTypes from "prop-types";
 import Spinner from "./Spinner";
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = () => {
   const { isAuthenticated, isCheckingAuth } = useContext(AuthContext);
   const [redirectDelay, setRedirectDelay] = useState(false);
 
@@ -38,13 +37,9 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Ako je autentifikovan, prikazujemo decu komponente
-  return children;
+  // Renderovanje child ruta putem Outlet-a
+  return <Outlet />;
 };
 
-// PropTypes validacija za `children`
-ProtectedRoute.propTypes = {
-  children: PropTypes.node.isRequired, // `children` mora biti React Node i obavezan je
-};
 
 export default ProtectedRoute;
