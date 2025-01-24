@@ -18,20 +18,25 @@ const CreatePost = () => {
       newErrors.title = "Title is required";
     } else if (title.trim().length < 5) {
       newErrors.title = "Title must be at least 5 characters long";
-    } else if (title.trim().length > 20) {
-      newErrors.title = "Title must not exceed 20 characters";
+    } else if (title.trim().length > 25) {
+      newErrors.title = "Title must not exceed 25 characters";
     } else if (!titleRegex.test(title.trim())) {
       newErrors.title =
         "Allowed characters: letters, numbers, spaces, commas, periods, question marks, exclamation points, and hyphens.";
     }
+
+    // Validacija za opis
+    if (description.trim() && description.trim().length < 10) {
+      newErrors.description = "Description must be at least 10 characters long";
+    }
+
     // Validacija za sadrzaj
     if (!content.trim()) {
       newErrors.content = "Content is required";
     } else if (content.trim().length < 20) {
       newErrors.content = "Content must be at least 20 characters long";
-    } else if (content.trim() > 5000) {
-      newErrors.content = "Content must not exceed 5000 characters";
     }
+
     // Validacija za kategoriju
     if (!category) {
       newErrors.category = "Please select a category";
@@ -90,12 +95,20 @@ const CreatePost = () => {
           </label>
           <textarea
             id="description"
-            className="form-control"
+            className={`form-control ${errors.description ? "is-invalid" : ""}`}
             placeholder="Enter a short description"
+            maxLength={300} // Sprecavamo unos vise od 300 karaktera
             value={description}
             onChange={(e) => setDescripton(e.target.value)}
             rows="3"
           />
+          <small className="form-text text-muted">
+            This field is optional, but if filled, please keep it between 10 and{" "}
+            {300 - description.trim().length} characters.
+          </small>
+          {errors.description && (
+            <div className="invalid-feedback">{errors.description}</div>
+          )}
         </div>
 
         {/* Sadrzaj */}
@@ -107,6 +120,7 @@ const CreatePost = () => {
             id="content"
             className={`form-control ${errors.content ? "is-invalid" : ""}`}
             placeholder="Enter the main content of the post"
+            maxLength={5000} // Sprecavamo unos vise od 5000 karaktera
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows="6"
@@ -116,7 +130,8 @@ const CreatePost = () => {
             <div className="invalid-feedback">{errors.content}</div>
           )}
           <small className="form-text text-muted">
-            Content should be at least 20 characters and no longer than 5000
+            Content should be at least 20 characters and no longer than{" "}
+            {5000 - content.trim().length} {" "}
             characters.
           </small>
         </div>
