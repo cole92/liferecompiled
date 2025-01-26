@@ -1,17 +1,22 @@
 import { useState } from "react";
+import TagsInput from "../components/TagsInput";
 
 const CreatePost = () => {
-  const [title, setTitle] = useState("");
-  const [description, setDescripton] = useState("");
-  const [content, setContent] = useState("");
-  const [tags, setTags] = useState("");
-  const [category, setCategory] = useState("");
-  const [errors, setErrors] = useState({});
+  // State za polja forme
+  const [title, setTitle] = useState(""); // Naslov posta
+  const [description, setDescripton] = useState(""); // Opis posta (opciono)
+  const [content, setContent] = useState(""); // Sadrzaj posta
+  const [tags, setTags] = useState([]); // Tagovi posta
+  const [category, setCategory] = useState(""); // Kategorija
+  const [errors, setErrors] = useState({}); // State za greske u validaciji
+
+  // Regex za validaciju naslova
   const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u;
 
+  // Funkcija za slanje forme
   const handleSubmit = (e) => {
     e.preventDefault();
-    const newErrors = {};
+    const newErrors = {}; // Objekat za cuvanje gresaka
 
     // Validacija za naslov
     if (!title.trim()) {
@@ -25,7 +30,7 @@ const CreatePost = () => {
         "Allowed characters: letters, numbers, spaces, commas, periods, question marks, exclamation points, and hyphens.";
     }
 
-    // Validacija za opis
+    // Validacija za opis (ako je unet)
     if (description.trim() && description.trim().length < 10) {
       newErrors.description = "Description must be at least 10 characters long";
     }
@@ -38,26 +43,40 @@ const CreatePost = () => {
     }
 
     // Validacija za kategoriju
-    if (!category) {
+    if (category.trim() === "") {
       newErrors.category = "Please select a category";
+    } else {
+      const validCategories = ["Frontend", "Backend", "Full Stack", "DevOps"];
+      if (!validCategories.includes(category)) {
+        newErrors.category = "Invalid category selected";
+      }
     }
 
     // Proveravamo ima li gresaka
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors); // Postavljamo greske u state
-      return; // Prekidamo proces
+      return; // Prekidamo proces ako ima gresaka 
     }
 
     // Ako nema gresaka, nastavljamo
     console.log("Form is valid, submitting data:", {
       title,
+      description,
       content,
       category,
+      tags,
     });
+
+    // Resetovanje forme nakon uspesnog slanja
+    setTitle("");
+    setDescripton("");
+    setContent("");
+    setTags([]);
+    setCategory("");
     setErrors({}); // Resetujemo greske
 
     // Logika za cuvanje posta u Firestore-u dolazi kasnije
-    console.log({ title, description, content, tags, category });
+    console.log({ title, description, content, category, tags });
   };
 
   return (
@@ -131,25 +150,12 @@ const CreatePost = () => {
           )}
           <small className="form-text text-muted">
             Content should be at least 20 characters and no longer than{" "}
-            {5000 - content.trim().length} {" "}
-            characters.
+            {5000 - content.trim().length} characters.
           </small>
         </div>
 
         {/* Tagovi */}
-        <div className="mb-3">
-          <label htmlFor="tags" className="form-label">
-            Tags
-          </label>
-          <input
-            type="text"
-            id="tags"
-            className="form-control"
-            placeholder="Enter tags separated by commas"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-          />
-        </div>
+        <TagsInput tags={tags} setTags={setTags} />
 
         {/* Kategorija */}
         <div className="mb-3">
