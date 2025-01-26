@@ -52,7 +52,7 @@ const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   // Funkcija za validaciju podataka unetih u formu
   const validateForm = () => {
     const newErrors = {};
-    const nameRegex = /^[A-Za-zÀ-ÿ' -]+$/; // Regex pravilo: dozvoljeni karakteri (slova, razmaci, crtice, apostrofi)
+    const nameRegex = /^[\p{L}' -]+$/u; // Regex pravilo: dozvoljeni karakteri (slova, razmaci, crtice, apostrofi)
     const allowedStatuses = ["Active", "Inactive"]; // Niz dozvoljenih statusa
 
     // Validacija unosa za ime
