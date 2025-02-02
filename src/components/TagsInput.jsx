@@ -12,15 +12,15 @@ const TagsInput = ({ tags, setTags }) => {
   // State za pracenje trenutne vrednosti input polja
   const [inputValue, setInputValue] = useState("");
 
-  // Definišemo koji tasteri zavrsavaju unos taga (samo Enter)
+  // Definisemo koji tasteri zavrsavaju unos taga (samo Enter)
   const separators = [SEPARATORS.ENTER];
   // Funkcija koja omogucava da sve validacije radimo unutar handleAddition
   const handleValidate = () => true;
 
   /**
    * Funkcija koja obrađuje promene u input polju.
-   * - Sprečava korisnika da unese vodeće razmake (početak unosa sa space).
-   * - Ažurira state inputValue.
+   * - Sprecava korisnika da unese vodeće razmake (pocetak unosa sa space).
+   * - Azurira state inputValue.
    */
   const handleInputChange = (value) => {
     if (value.startsWith(" ")) {
@@ -67,20 +67,31 @@ const TagsInput = ({ tags, setTags }) => {
       return setError("Tags must be 20 characters or shorter.");
     }
 
-    // Ako je sve prošlo validaciju, dodajemo tag
+    // Ako je sve proslo validaciju, dodajemo tag
     setError(null);
     setTags([...tags, { id: trimmedTag, text: trimmedTag }]);
 
-    // Resetujemo inputValue nakon uspešnog dodavanja
+    // Resetujemo inputValue nakon uspesnog dodavanja
     setInputValue("");
   };
+
   /**
    * Funkcija za brisanje taga po indexu.
    * Filtrira niz tagova tako da se izostavi tag sa zadatim indexom.
    */
-
   const handleDelete = (index) => {
     setTags(tags.filter((_, i) => i !== index));
+  };
+
+  /**
+   * Tag je onemogucen ako je korisnik vec odabrao 5 tagova.
+   * Medjutim, ako je tag vec odabran, ostaje aktivan i moze se kliknuti.
+   */
+  const isTagDisabled = (tag) => {
+    return (
+      tags.length >= 5 &&
+      !tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
+    );
   };
 
   return (
@@ -91,18 +102,19 @@ const TagsInput = ({ tags, setTags }) => {
           Tags
         </label>
 
-        {/* Predefinisani tagovi - dugmici koje korisnik može da klikne */}
+        {/* Predefinisani tagovi - dugmici koje korisnik moze da klikne */}
         <div className="mb-2">
           {predefinedTags.map((tag) => (
             <button
               key={tag}
               type="button"
-              className="btn btn-outline-primary btn-sm me-2 mb-2"
+              className={`btn btn-outline-primary btn-sm me-2 mb-2 ${
+                tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
+                  ? "active"
+                  : ""
+              }`}
               onClick={() => handleAddition({ id: tag, text: tag })}
-              disabled={
-                tags.some((t) => t.text.toLowerCase() === tag.toLowerCase()) ||
-                tags.length >= 5
-              }
+              disabled={isTagDisabled(tag)}
             >
               {tag}
             </button>
@@ -120,8 +132,8 @@ const TagsInput = ({ tags, setTags }) => {
           handleDelete={handleDelete}
           handleAddition={handleAddition}
           handleValidate={handleValidate}
-          allowUnique={false} // Dozvoljava duplikate da dođu do handleAddition gde ih mi validiramo
-          inputValue={inputValue} // Vežemo state input polja
+          allowUnique={false} // Dozvoljava duplikate da dodju do handleAddition gde ih mi validiramo
+          inputValue={inputValue} // Vezemo state input polja
           handleInputChange={handleInputChange} // Pratimo promene u inputu
           inputFieldPosition="bottom" // Input polje ispod liste tagova
           placeholder="Press Enter to add tag"
