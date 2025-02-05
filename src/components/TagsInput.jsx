@@ -4,13 +4,13 @@ import { WithContext as ReactTags, SEPARATORS } from "react-tag-input";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { predefinedTags } from "../constants/tags";
+import { categorizedTags } from "../constants/tags";
 import "../styles/TagsInput.css";
 
 const TagsInput = ({ tags, setTags }) => {
-  // State za pracenje gresaka u unosu tagova
-  const [error, setError] = useState(null);
-  // State za pracenje trenutne vrednosti input polja
-  const [inputValue, setInputValue] = useState("");
+  
+  const [error, setError] = useState(null); // State za pracenje gresaka u unosu tagova 
+  const [inputValue, setInputValue] = useState(""); // State za pracenje trenutne vrednosti input polja
 
   // Definisemo koji tasteri zavrsavaju unos taga (samo Enter)
   const separators = [SEPARATORS.ENTER];
@@ -18,7 +18,7 @@ const TagsInput = ({ tags, setTags }) => {
   const handleValidate = () => true;
 
   /**
-   * Funkcija koja obrađuje promene u input polju.
+   * Funkcija koja obradjuje promene u input polju.
    * - Sprecava korisnika da unese vodeće razmake (pocetak unosa sa space).
    * - Azurira state inputValue.
    */
