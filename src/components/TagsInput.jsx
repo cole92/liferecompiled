@@ -1,4 +1,4 @@
-import PropTypes from "prop-types";
+import PropTypes, { object } from "prop-types";
 import { useState } from "react";
 import { WithContext as ReactTags, SEPARATORS } from "react-tag-input";
 import { DndProvider } from "react-dnd";
@@ -94,6 +94,18 @@ const TagsInput = ({ tags, setTags }) => {
     );
   };
 
+  const filterTags = (inputValue) => {
+    if (inputValue === "") return [];
+
+    return Object.entries(categorizedTags)
+    .map(([category, tags]) => ({
+      name: category,
+      tags: tags.filter(tag => tag.toLowerCase().includes(inputValue.toLowerCase()))
+    }))
+    .filter(category => category.tags.length > 0) 
+    
+  };
+  console.log(filterTags(inputValue))
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="mb-3">
