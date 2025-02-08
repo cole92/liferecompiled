@@ -1,4 +1,4 @@
-import PropTypes, { object } from "prop-types";
+import PropTypes from "prop-types";
 import { useState } from "react";
 import { WithContext as ReactTags, SEPARATORS } from "react-tag-input";
 import { DndProvider } from "react-dnd";
@@ -6,10 +6,10 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { predefinedTags } from "../constants/tags";
 import { categorizedTags } from "../constants/tags";
 import "../styles/TagsInput.css";
+import "../styles/TagsDropDown.css";
 
 const TagsInput = ({ tags, setTags }) => {
-  
-  const [error, setError] = useState(null); // State za pracenje gresaka u unosu tagova 
+  const [error, setError] = useState(null); // State za pracenje gresaka u unosu tagova
   const [inputValue, setInputValue] = useState(""); // State za pracenje trenutne vrednosti input polja
 
   // Definisemo koji tasteri zavrsavaju unos taga (samo Enter)
@@ -98,14 +98,42 @@ const TagsInput = ({ tags, setTags }) => {
     if (inputValue === "") return [];
 
     return Object.entries(categorizedTags)
-    .map(([category, tags]) => ({
-      name: category,
-      tags: tags.filter(tag => tag.toLowerCase().includes(inputValue.toLowerCase()))
-    }))
-    .filter(category => category.tags.length > 0) 
-    
+      .map(([category, tags]) => ({
+        name: category,
+        tags: tags.filter((tag) =>
+          tag.toLowerCase().includes(inputValue.toLowerCase())
+        ),
+      }))
+      .filter((category) => category.tags.length > 0);
   };
-  console.log(filterTags(inputValue))
+
+  const renderFilteredTags = () => {
+    const filtered = filterTags(inputValue); // Filtriramo tagove na osnovu inputa
+    if (filtered.length === 0) return <p>No matching tags found</p>; // Ako nema rezultata
+
+    return (
+      <div className="dropdown-container">
+        {filtered.map(({ name, tags }) => (
+          <div key={name} className="dropdown-category">
+            <h5 className="category-name">{name}</h5>
+            <div className="tags-container">
+              {tags.slice(0, 20).map((tag) => (
+                <button
+                  key={tag}
+                  className="tag-btn"
+                  onClick={() => handleAddition({ id: tag, text: tag })}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+            <hr className="divider" />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="mb-3">
@@ -113,7 +141,6 @@ const TagsInput = ({ tags, setTags }) => {
         <label htmlFor="tags" className="form-label">
           Tags
         </label>
-
         {/* Predefinisani tagovi - dugmici koje korisnik moze da klikne */}
         <div className="mb-2">
           {predefinedTags.map((tag) => (
@@ -137,20 +164,22 @@ const TagsInput = ({ tags, setTags }) => {
           Add up to 5 tags to describe your post.
         </small>
         {/* ReactTags komponenta za unos tagova */}
-        <ReactTags
-          id="tags"
-          tags={tags}
-          separators={separators} // Koristimo SEPARATORS.ENTER umesto zastarelog delimiters
-          handleDelete={handleDelete}
-          handleAddition={handleAddition}
-          handleValidate={handleValidate}
-          allowUnique={false} // Dozvoljava duplikate da dodju do handleAddition gde ih mi validiramo
-          inputValue={inputValue} // Vezemo state input polja
-          handleInputChange={handleInputChange} // Pratimo promene u inputu
-          inputFieldPosition="bottom" // Input polje ispod liste tagova
-          placeholder="Press Enter to add tag"
-        />
-        {/* Prikazivanje greske ispod input polja */}
+        <div className="tags-input-wrapper">
+          <ReactTags
+            id="tags"
+            tags={tags}
+            separators={separators}
+            handleDelete={handleDelete}
+            handleAddition={handleAddition}
+            handleValidate={handleValidate}
+            allowUnique={false}
+            inputValue={inputValue}
+            handleInputChange={handleInputChange}
+            inputFieldPosition="bottom"
+            placeholder="Press Enter to add tag"
+          />
+          {inputValue && renderFilteredTags()}
+        </div>
         {!error ? (
           <small className="form-text text-muted">
             Allowed characters: letters, numbers, spaces, dots, underscores,

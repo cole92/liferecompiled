@@ -1,0 +1,85 @@
+/* ============================================================
+   Tags Input i Dropdown Meni - Flexbox sa centriranjem svih redova
+=============================================================== */
+
+/* Wrapper za celu komponentu (ReactTags + dropdown) */
+.tags-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* Dropdown kontejner sa filtriranim tagovima */
+.dropdown-container {
+  position: absolute;                /* Pozicioniramo apsolutno unutar .tags-input-wrapper */
+  top: calc(100% + 20px);             /* Dropdown se pojavljuje 20px ispod input polja */
+  left: 12%;                        /* Podešeno poravnanje – prilagodi po potrebi */
+  width: 75%;                       /* Širina dropdowna – prilagodi prema dizajnu */
+  max-height: 300px;                /* Maksimalna visina dropdowna */
+  overflow-y: auto;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 10px;                    /* Unutrašnji padding */
+}
+
+/* Pojedinačna kategorija unutar dropdowna */
+.dropdown-category {
+  margin-bottom: 15px;              /* Razmak između kategorija */
+}
+
+/* Naziv kategorije */
+.category-name {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+/* Kontejner za tag dugmad koristeći Flexbox */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;          /* Svi redovi centrirani */
+}
+
+/* Stilovi za pojedinačno tag dugme */
+.tag-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  background-color: #f1f1f1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;              /* Sprečava prelamanje teksta */
+  text-align: center;
+  transition: background-color 0.3s ease;
+}
+
+/* Hover efekat za tag dugme */
+.tag-btn:hover {
+  background-color: #e7e7e7;
+}
+
+/* Separator između kategorija */
+.divider {
+  border: 0;
+  height: 1px;
+  background-color: #ddd;
+  margin: 10px 0;
+}
+
+/* Responsive podešavanja za manje ekrane */
+@media (max-width: 768px) {
+  .dropdown-container {
+    left: 5%;                     /* Prilagođeno pozicioniranje */
+    width: 90%;                   /* Dropdown zauzima većinu širine ekrana */
+  }
+  
+  .tag-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}
