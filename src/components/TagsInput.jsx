@@ -19,7 +19,7 @@ const TagsInput = ({ tags, setTags }) => {
 
   /**
    * Funkcija koja obradjuje promene u input polju.
-   * - Sprecava korisnika da unese vodeće razmake (pocetak unosa sa space).
+   * - Sprecava korisnika da unese vodece razmake (pocetak unosa sa space).
    * - Azurira state inputValue.
    */
   const handleInputChange = (value) => {
@@ -40,39 +40,34 @@ const TagsInput = ({ tags, setTags }) => {
    * - Resetuje gresku ako je unos validan.
    */
   const handleAddition = (tag) => {
+    // Proveravamo da li je tag iz predefinedTags
+    const isPredefinedTag = predefinedTags.includes(tag.text);
+  
+    // Ako nije predefinisani, proveravamo filtrirane tagove
+    const filteredTags = filterTags(inputValue).flatMap(category => category.tags);
+    const foundTag = isPredefinedTag 
+      ? tag.text // Ako je predefinisan, direktno ga koristimo
+      : filteredTags.find(t => t.toLowerCase() === tag.text.toLowerCase());
+  
+    if (!foundTag) {
+      setError("Please select a tag from the list.");
+      return;
+    }
+  
     if (tags.length >= 5) {
-      setInputValue(""); // Resetuje input
-      return setError("You can add up to 5 tags only.");
+      setError("You can add up to 5 tags only.");
+      return;
     }
-
-    const trimmedTag = tag.text.trim(); // Uklanjamo nepotrebne razmake
-    // Normalizacija unosa (pretvaranje u lowercase za poredjenje)
-    const normalizedTag = trimmedTag.toLowerCase();
-    // Provera duplikata
-    if (tags.some((t) => t.text.toLowerCase() === normalizedTag)) {
-      setInputValue("");
-      return setError("Duplicate tags are not allowed.");
+  
+    if (tags.some((t) => t.text.toLowerCase() === foundTag.toLowerCase())) {
+      setError("Duplicate tags are not allowed.");
+      return;
     }
-    // Regex validacija - dozvoljeni karakteri
-    const validFormat = /^[a-zA-Z0-9_+\-# .]+$/;
-    if (!validFormat.test(trimmedTag)) {
-      setInputValue("");
-      return setError(
-        "Allowed characters: letters, numbers, spaces, dots, underscores, plus (+), hyphens (-), hashtags (#)."
-      );
-    }
-    // Ogranicenje duzine taga (max 20 karaktera)
-    if (trimmedTag.length > 20) {
-      setInputValue(trimmedTag.slice(0, 20)); // Skrati na 20 karaktera
-      return setError("Tags must be 20 characters or shorter.");
-    }
-
-    // Ako je sve proslo validaciju, dodajemo tag
+  
+    // Ako je sve u redu, dodajemo tag
     setError(null);
-    setTags([...tags, { id: trimmedTag, text: trimmedTag }]);
-
-    // Resetujemo inputValue nakon uspesnog dodavanja
-    setInputValue("");
+    setTags([...tags, { id: foundTag, text: foundTag }]);
+    setInputValue(""); // Reset inputa
   };
 
   /**
@@ -117,7 +112,7 @@ const TagsInput = ({ tags, setTags }) => {
           <div key={name} className="dropdown-category">
             <h5 className="category-name">{name}</h5>
             <div className="tags-container">
-              {tags.slice(0, 20).map((tag) => (
+              {tags.slice(0, 50).map((tag) => (
                 <button
                   key={tag}
                   className="tag-btn"
@@ -176,7 +171,7 @@ const TagsInput = ({ tags, setTags }) => {
             inputValue={inputValue}
             handleInputChange={handleInputChange}
             inputFieldPosition="bottom"
-            placeholder="Press Enter to add tag"
+            placeholder="Start typing to search for tags"
           />
           {inputValue && renderFilteredTags()}
         </div>
