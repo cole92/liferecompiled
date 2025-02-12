@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
-import { useState } from "react";
-import { WithContext as ReactTags, SEPARATORS } from "react-tag-input";
+import { useState, useRef, useEffect } from "react";
+import { WithContext as ReactTags } from "react-tag-input";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { predefinedTags } from "../constants/tags";
@@ -11,11 +11,41 @@ import "../styles/TagsDropDown.css";
 const TagsInput = ({ tags, setTags }) => {
   const [error, setError] = useState(null); // State za pracenje gresaka u unosu tagova
   const [inputValue, setInputValue] = useState(""); // State za pracenje trenutne vrednosti input polja
+  const containerRef = useRef(null);
 
-  // Definisemo koji tasteri zavrsavaju unos taga (samo Enter)
-  const separators = [SEPARATORS.ENTER];
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
+        setInputValue("");
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setInputValue(""); // Zatvaramo dropdown na Escape
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   // Funkcija koja omogucava da sve validacije radimo unutar handleAddition
-  const handleValidate = () => true;
+  // Backupovao sam metodu u slucaju da nekada pozelim da opet dodam funcionalnost dodavanja svojih tagova
+  // Razlog je sto reactTags sami rade validaciju i preskakali su moje validacije na ovaj nacin je to bilo reseno
+  // Takodje sam koristio SEPARATORS i ogranicio unos samo ne ENTER , bice mi opet jasno zbog cega ako dodjem opet do toga XD
+  // ***********************************************************************************************************
+
+  //const handleValidate = () => true;
+
+  // ***********************************************************************************************************
 
   /**
    * Funkcija koja obradjuje promene u input polju.
@@ -40,34 +70,35 @@ const TagsInput = ({ tags, setTags }) => {
    * - Resetuje gresku ako je unos validan.
    */
   const handleAddition = (tag) => {
-    // Proveravamo da li je tag iz predefinedTags
     const isPredefinedTag = predefinedTags.includes(tag.text);
-  
-    // Ako nije predefinisani, proveravamo filtrirane tagove
-    const filteredTags = filterTags(inputValue).flatMap(category => category.tags);
-    const foundTag = isPredefinedTag 
-      ? tag.text // Ako je predefinisan, direktno ga koristimo
-      : filteredTags.find(t => t.toLowerCase() === tag.text.toLowerCase());
-  
+
+    // **Sada filterTags pozivamo samo jednom**
+    const filteredTags = filterTags(inputValue);
+    const allFilteredTags = filteredTags.flatMap((category) => category.tags);
+
+    const foundTag = isPredefinedTag
+      ? tag.text
+      : allFilteredTags.find((t) => t.toLowerCase() === tag.text.toLowerCase());
+
     if (!foundTag) {
       setError("Please select a tag from the list.");
       return;
     }
-  
+
     if (tags.length >= 5) {
       setError("You can add up to 5 tags only.");
       return;
     }
-  
+
     if (tags.some((t) => t.text.toLowerCase() === foundTag.toLowerCase())) {
       setError("Duplicate tags are not allowed.");
       return;
     }
-  
+
     // Ako je sve u redu, dodajemo tag
     setError(null);
     setTags([...tags, { id: foundTag, text: foundTag }]);
-    setInputValue(""); // Reset inputa
+    setInputValue(inputValue); // Ostavlja korisnikov unos i ostavlja bug da se forma submituje cim dodamo tag iz liste!
   };
 
   /**
@@ -91,6 +122,7 @@ const TagsInput = ({ tags, setTags }) => {
 
   const filterTags = (inputValue) => {
     if (inputValue === "") return [];
+    
 
     return Object.entries(categorizedTags)
       .map(([category, tags]) => ({
@@ -105,7 +137,7 @@ const TagsInput = ({ tags, setTags }) => {
   const renderFilteredTags = () => {
     const filtered = filterTags(inputValue); // Filtriramo tagove na osnovu inputa
     if (filtered.length === 0) return <p>No matching tags found</p>; // Ako nema rezultata
-
+    
     return (
       <div className="dropdown-container">
         {filtered.map(({ name, tags }) => (
@@ -114,7 +146,7 @@ const TagsInput = ({ tags, setTags }) => {
             <div className="tags-container">
               {tags.slice(0, 50).map((tag) => (
                 <button
-                  key={tag}
+                  key={`${name}-${tag}`}
                   className="tag-btn"
                   onClick={() => handleAddition({ id: tag, text: tag })}
                 >
@@ -159,14 +191,13 @@ const TagsInput = ({ tags, setTags }) => {
           Add up to 5 tags to describe your post.
         </small>
         {/* ReactTags komponenta za unos tagova */}
-        <div className="tags-input-wrapper">
+        <div className="tags-input-wrapper" ref={containerRef}>
           <ReactTags
             id="tags"
             tags={tags}
-            separators={separators}
             handleDelete={handleDelete}
             handleAddition={handleAddition}
-            handleValidate={handleValidate}
+            // ** handleValidate={handleValidate} ** //
             allowUnique={false}
             inputValue={inputValue}
             handleInputChange={handleInputChange}

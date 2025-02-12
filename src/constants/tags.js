@@ -31,10 +31,8 @@ export const frontendTags = [
   "XState", "Valtio",
 
   // API & Communication
-  "GraphQL", "REST API", "WebSockets", "gRPC", "tRPC",
   "Apollo Client", "React Query", "SWR",
-  "Postman", "Insomnia", "Fetch API", "Axios",
-  "WebRTC", "SSE-Server-Sent-Events",
+  "Fetch API", "Axios",
 
   // UI Rendering & Animations
   "Three.js", "D3.js", "GSAP", "Framer Motion",
@@ -62,7 +60,7 @@ export const frontendTags = [
   "Edge Functions", "JAMstack", "HTMX", "Marko.js",
   "Islands Architecture", "Partial Hydration", "Resumability",
   "Hydration Strategies", "WebGPU", "Web Workers", "Streams API",
-  "Webpack Module Federation", "Cloudflare Workers",
+  "Webpack Module Federation",
   "Vercel Edge Functions", "Nitro",
 
   // SEO & Performance
@@ -78,7 +76,7 @@ export const frontendTags = [
   "Keyboard Navigation", "Reduced Motion", "Focus Management",
 
   // Advanced Development Tools
-  "Docker", "GitHub Actions", "Nx", "Turborepo",
+  "Nx", "Turborepo",
   "Vitest", "HMR-Hot-Module-Replacement", "Monorepos",
 
   // Working with Data
@@ -89,7 +87,7 @@ export const frontendTags = [
 export const backendTags = [
 
   // Backend Programming Languages
-  "JavaScript", "TypeScript", "Python", "Java", "C#", "Go",
+  "Python", "Java", "C#", "Go",
   "Rust", "Ruby", "PHP", "Kotlin", "Swift", "Dart", "Scala",
   "Elixir", "C++", "Perl", "Haskell", "Lua", "F#", "Erlang",
 
@@ -105,7 +103,7 @@ export const backendTags = [
   "REST API", "GraphQL", "gRPC", "tRPC", "RPC",
   "WebSockets", "Socket.IO", "SSE-Server-Sent-Events",
   "WebRTC", "OpenAPI", "Postman", "Insomnia",
-  "OAuth", "JWT", "API Gateway", "Rate Limiting",
+  "API Gateway", "Rate Limiting",
   "API Caching", "Throttling", "API Security",
   "HATEOAS", "GraphQL Subscriptions", "gRPC Gateway",
   "GraphQL Mesh", "H3-HTTP-3", "Apollo Server",
@@ -127,21 +125,6 @@ export const backendTags = [
   "RBAC", "ABAC", "OIDC Provider", "FIDO2", "SOP-Same-Origin-Policy",
   "mTLS-Mutual-TLS", "HSTS",
 
-  // Deployment & DevOps
-  "Docker", "Kubernetes", "Helm", "Terraform", "Nomad",
-  "NGINX", "Apache", "HAProxy", "Traefik", "Fly.io",
-  "Consul", "OpenShift", "Istio", "K3s", "Podman",
-
-  // Monitoring & Logging
-  "Prometheus", "Grafana", "Datadog", "New Relic",
-  "ELK Stack", "Loki", "Jaeger", "Sentry", "Vector",
-  "CloudWatch", "Logstash", "Honeycomb",
-
-  // Databases
-  "PostgreSQL", "MySQL", "MariaDB", "MongoDB", "Cassandra",
-  "Redis", "DynamoDB", "Oracle DB", "CockroachDB", "Neo4j",
-  "SurrealDB", "PlanetScale", "TiDB", "ArangoDB", "Turso",
-
   // Message Brokers
   "RabbitMQ", "Kafka", "Redis Streams", "NSQ", "Redpanda"
 ];
@@ -160,18 +143,17 @@ export const databaseTags = [
   // NoSQL Databases
   "MongoDB", "DynamoDB", "Cassandra", "Firebase Realtime Database",
   "Firestore", "CouchDB", "FaunaDB", "SurrealDB", "RethinkDB",
-  "ArangoDB", "Turso", "RavenDB", "KeyDB", "HarperDB",
-  "OrientDB", "Couchbase", "MarkLogic", "ScyllaDB", "TiKV",
-  "ChromaDB", "GridDB", "Hyprcubd", "Valkey",
+  "Turso", "RavenDB", "KeyDB", "HarperDB",
+  "OrientDB", "ScyllaDB", "ChromaDB", "GridDB", "Hyprcubd", "Valkey",
 
   // Graph Databases
-  "Neo4j", "ArangoDB", "JanusGraph", "Dgraph", "TigerGraph",
+  "Neo4j", "JanusGraph", "Dgraph", "TigerGraph",
   "AgensGraph", "FlockDB", "HugeGraph", "GraphDB", "Blazegraph",
   "RedisGraph", "Memgraph", "TigerGraph Cloud",
 
   // Time-Series Databases
   "InfluxDB", "TimescaleDB", "QuestDB", "Prometheus TSDB",
-  "OpenTSDB", "Graphite", "VictoriaMetrics", "Warp 10",
+  "OpenTSDB", "Graphite", "Warp 10",
   "Amazon Timestream", "Axibase", "ChronixDB",
   "TDengine", "Gnocchi", "Akumuli", "KairosDB",
 
@@ -207,7 +189,7 @@ export const databaseTags = [
   // Streaming Databases
   "Apache Kafka Streams", "Materialize", "Delta Lake",
   "KSQL-Kafka-SQL", "Apache Flink", "RisingWave",
-  "Pulsar SQL", "TrinoDB", "Redpanda", "Quix Streams",
+  "Pulsar SQL", "TrinoDB", "Quix Streams",
 
   // Optimization & Indexing
   "Database Indexing", "Partitioning", "Sharding",
@@ -251,8 +233,7 @@ export const devopsTags = [
 
   // Server & Deployment Management
   "NGINX", "Apache", "HAProxy", "Traefik", "Caddy",
-  "Envoy", "Varnish", "Lighttpd", "Istio", "Linkerd",
-  "Consul", "Vault", "Nomad", "Fleet", "Tinc VPN",
+  "Envoy", "Varnish", "Fleet", "Tinc VPN",
   "OpenResty", "Litespeed", "Nuster", "Pomerium",
   "Kong Gateway", "Fabio", "NATS",
 
@@ -280,17 +261,16 @@ export const devopsTags = [
 
   // Security & Compliance
   "Vault", "Snyk", "Trivy", "Anchore", "Grype",
-  "Falco", "AppArmor", "SELinux", "Sysdig", "Cilium",
-  "Calico", "Kube-bench", "Kube-hunter", "Tufin",
+  "Falco", "AppArmor", "SELinux", "Sysdig",
+  "Kube-bench", "Kube-hunter", "Tufin",
   "CIS Benchmarks", "Goss", "Lynis", "OSQuery",
   "Kubernetes RBAC", "Istio Security", "OPA-Open-Policy-Agent",
-  "Kyverno", "Falco Rules", "Tailscale", "Nebula",
-  "Teleport", "Boundary", "WireGuard", "Sysdig Secure",
+  "Kyverno", "Falco Rules",
   "Gitleaks", "Kubescape", "Fugue",
 
   // Networking & Service Mesh
-  "Istio", "Linkerd", "Envoy", "Cilium", "Calico",
-  "Metallb", "Kuma", "Consul Service Mesh",
+  "Istio", "Linkerd", "Cilium", "Calico",
+  "Kuma", "Consul Service Mesh",
   "OpenVPN", "WireGuard", "Tailscale", "ZeroTier",
   "BGP", "eBPF", "VXLAN", "Cloudflare Tunnels",
   "Open vSwitch", "Nebula Overlay Network", "Submariner",
@@ -304,13 +284,13 @@ export const aiTags = [
   "TensorFlow", "PyTorch", "JAX", "Keras", "Scikit-learn",
   "XGBoost", "LightGBM", "CatBoost", "FastAI", "H2O.ai",
   "ONNX", "Theano", "MXNet", "Chainer", "TFLite", "MindSpore",
-  "DeepSpeed", "Megatron-LM", "Fugue ML", "TinyGrad", "MLX",
+  "DeepSpeed", "Megatron-LM", "Fugue ML", "MLX",
   "Torch-MLIR", "Alpa",
 
   // Deep Learning & Neural Networks
   "Deep Learning", "Neural Networks", "Transformers",
   "CNN", "RNN", "LSTM", "GRU", "Autoencoders", "GAN",
-  "Diffusion Models", "Siamese Networks", "LoRA", "MoE",
+  "Diffusion Models", "Siamese Networks", "LoRA",
   "NeRF", "Latent Diffusion Models", "HyperNetworks",
   "Differentiable Programming", "Evolutive Neural Networks",
   "Liquid Neural Networks", "Implicit Neural Representations",
@@ -347,7 +327,8 @@ export const aiTags = [
 
   // AI & Big Data
   "Spark ML", "MLlib", "RAPIDS", "Dask-ML", "Ray Tune",
-  "Federated Learning", "TinyML", "MLOps", "Model Deployment",
+  "Federated Learning",
+  "MLOps", "Model Deployment",
   "Hyperparameter Optimization", "AutoML", "Neural Architecture Search",
   "NVIDIA Merlin", "Feast", "Kubeflow", "MLflow", "Tecton",
   "Ray Serve", "Modular AI",
@@ -366,8 +347,7 @@ export const aiTags = [
   "GPT Engineer", "Sweep AI",
 
   // LLM Tools & Agents
-  "LangChain", "LlamaIndex",
-  "Auto-GPT", "Gradio", "Streamlit",
+  "LangChain", "LlamaIndex", "Auto-GPT", "Gradio", "Streamlit",
   "Hugging Face Spaces", "LangFlow",
 
   // Edge AI & TinyML
@@ -378,9 +358,9 @@ export const aiTags = [
 
   // AI Ethics & Explainability
   "Explainable AI", "SHAP", "LIME", "Fairness in AI",
-  "Bias Detection", "Privacy-Preserving AI", "Federated Learning",
-  "AI Governance", "AI Regulation", "Adversarial Attacks",
-  "Model Watermarking", "Differential Privacy", "AI Safety Research",
+  "Bias Detection", "Privacy-Preserving AI", "AI Governance",
+  "AI Regulation", "Adversarial Attacks", "Model Watermarking",
+  "Differential Privacy", "AI Safety Research",
   "Constitutional AI", "AI Alignment", "AI Red-Teaming",
   "Adversarial Robustness", "Watermarking LLMs",
 
@@ -398,7 +378,7 @@ export const aiTags = [
   "Quantum Generative Models",
 
   // Decentralized AI & Blockchain AI
-  "Bittensor", "Federated Learning", "Secure Aggregation",
+  "Bittensor", "Secure Aggregation",
   "Decentralized AI", "Blockchain AI", "AI-Web3"
 ];
 
@@ -422,8 +402,8 @@ export const careerTags = [
   // Freelancing & Remote Work
   "Freelancing", "Remote Work", "Upwork", "Fiverr",
   "Toptal", "PeoplePerHour", "Freelancer.com",
-  "Digital Nomad", "Remote Job Search", "Outsourcing",
-  "Gig Economy", "Indie Hacking", "Solo Developer",
+  "Remote Job Search", "Outsourcing",
+  "Gig Economy", "Solo Developer",
   "Co-Living for Digital Nomads", "Kolabtree", "99Designs",
   "Lemon.io", "Async-First Remote Work", "Tech Evangelist",
   "Fractional Engineer",
@@ -439,9 +419,8 @@ export const careerTags = [
   "Behavior-Driven Hiring", "Automated Interviewing", "Blind Hiring",
 
   // Networking & Personal Branding
-  "LinkedIn", "Tech Blogging", "Open Source Contribution",
-  "Public Speaking", "Personal Branding", "Portfolio Website",
-  "Conference Speaking", "Building an Audience",
+  "LinkedIn",
+  "Building an Audience",
   "Twitter Tech Community", "Dev.to", "Indie Hackers",
   "Discord Tech Groups", "Tech Twitter", "Hashnode", "Polywork",
   "Podcasting for Developers", "Tech Conference Organizer",
@@ -449,20 +428,16 @@ export const careerTags = [
   // Certifications & Education
   "AWS Certified", "Google Cloud Certified", "Microsoft Azure Certified",
   "Certified Kubernetes Administrator-CKA", "Certified Ethical Hacker-CEH",
-  "CompTIA Security+", "Cisco CCNA", "Harvard CS50",
-  "Udemy Courses", "Coursera", "Pluralsight", "MIT OpenCourseWare",
-  "Stanford AI Course", "DataCamp", "Fast.ai",
-  "Harvard Data Science", "Zero to Mastery", "Fullstack Academy",
-  "Google Career Certificates", "Udacity Nanodegrees",
-  "Linux Foundation Certified Engineer-LFCE", "OpenAI Prompt Engineering Course",
-  "AI Safety and Ethics Certification", "Blockchain Developer Certification",
-  "Quantum Computing Certification",
+  "CompTIA Security+", "Cisco CCNA", "Udemy Courses",
+  "Stanford AI Course",
+  "Linux Foundation Certified Engineer-LFCE",
 
   // Product Management & Startups
   "MVP Development", "Startup Funding", "Growth Hacking",
   "Product-Led Growth", "Tech Entrepreneurship",
   "Angel Investing", "Venture Capital", "Bootstrapping",
-  "Indie Hacking", "No-Code Startups", "Technical Co-Founder",
+  "Indie Hacking",
+  "No-Code Startups", "Technical Co-Founder",
   "Indie SaaS Business", "AI Startups", "Technical Evangelist",
   "AI-Driven Startups", "Micro-SaaS Founder", "Remote-First Startup",
 
@@ -473,8 +448,8 @@ export const careerTags = [
   "Interim CTO", "Engineering Career Coach", "Staff Engineer",
 
   // Work Culture & Balance
-  "Work-Life Balance", "Mental Health for Developers",
-  "Four-Day Workweek", "Digital Detox", "Holacracy",
+  "Mental Health for Developers",
+  "Holacracy",
 
   // Alternative Career Paths
   "Metaverse Developer", "Automation Consultant", "Tech Philanthropist"
@@ -514,11 +489,11 @@ export const lifestyleTags = [
   "Overlanding", "Slow Commuting", "Remote Year Programs",
 
   // Health & Fitness
-  "Strength Training", "Mobility Training", "Yoga for Developers",
-  "Posture Correction", "Healthy Eating", "Intermittent Fasting",
+  "Strength Training",
+  "Healthy Eating",
   "Cold Therapy", "Sauna Therapy", "Breathwork",
   "High-Intensity Interval Training-HIIT", "Barefoot Running",
-  "Sunlight Exposure", "Sleep Hygiene",
+  "Sunlight Exposure",
   "Holistic Health", "Biohacking", "Longevity Science",
   "Cycling Culture", "Urban Hiking", "Ergonomic Lifestyle",
   "Hybrid Workouts", "Somatic Movement",
@@ -529,7 +504,7 @@ export const lifestyleTags = [
   "Music Production", "Photography", "Painting",
   "Writing", "Creative Coding", "Digital Art",
   "Calligraphy", "Filmmaking", "Podcasting",
-  "Indie Hacking", "Board Games", "Chess",
+  "Board Games", "Chess",
   "Woodworking", "Pottery", "3D Printing",
   "Virtual Photography", "DJing", "Gardening",
   "Analog Hobbies", "Handmade Crafting",
@@ -544,7 +519,7 @@ export const lifestyleTags = [
   "Home Office Setup", "UltraWide Monitors", "Ergonomic Chairs",
   "Cyberpunk Aesthetics", "Automation for Everyday Life",
   "Smart Lighting", "Noise-Canceling Headphones",
-  "Standing Desks", "Tech Aesthetics",
+  "Tech Aesthetics",
   "AI Personal Assistants", "E-Paper Devices",
   "Cyber Minimalism", "Portable Productivity",
   "Haptic Feedback Devices", "Brain-Computer Interfaces",
@@ -552,7 +527,6 @@ export const lifestyleTags = [
 
   // Mindset & Life Optimization
   "Mindful Living", "Stoic Lifestyle", "Philosophy in Daily Life",
-  "Flow State Optimization", "Time Affluence", "Ikigai",
   "Gratitude Practices", "Journaling for Self-Reflection",
   "Intentional Technology Use", "Escaping the Rat Race",
   "Existential Minimalism", "Meditation Retreats",
@@ -582,16 +556,16 @@ export const educationTags = [
 
   // Online Courses & Platforms
   "Udemy", "Coursera", "Pluralsight", "edX",
-  "MIT OpenCourseWare", "Stanford Online", "Harvard CS50",
-  "DataCamp", "Fast.ai", "Udacity Nanodegrees",
-  "Google Career Certificates", "Zero to Mastery",
-  "Khan Academy", "Codecademy", "LinkedIn Learning",
-  "CS50 AI", "Cloud Academy", "IBM Skills Network",
-  "Harvard Data Science", "The Odin Project",
-  "Brilliant.org", "Eloquent JavaScript", "CS50 Web Development",
-  "Mastering Data Structures in C++", "Rust Programming by Example",
-  "CS50x", "Elements of AI", "DeepLearning.AI Specialization",
-  "Recurse Center", "Harvard CS51", "MIT 6.S191",
+  "MIT OpenCourseWare", "Stanford Online", "DataCamp",
+  "Fast.ai", "Udacity Nanodegrees", "Google Career Certificates",
+  "Zero to Mastery", "Khan Academy", "Codecademy",
+  "LinkedIn Learning", "CS50 AI", "Cloud Academy",
+  "IBM Skills Network", "Harvard Data Science",
+  "The Odin Project", "Brilliant.org", "Eloquent JavaScript",
+  "CS50 Web Development", "Mastering Data Structures in C++",
+  "Rust Programming by Example", "CS50x", "Elements of AI",
+  "DeepLearning.AI Specialization", "Recurse Center",
+  "Harvard CS51", "MIT 6.S191",
   "The Missing Semester of CS Education", "AI4ALL",
 
   // Learning Methods & Strategies
@@ -603,7 +577,7 @@ export const educationTags = [
   "Flow-Based Learning", "Exploratory Learning",
   "Self-Directed Learning", "Multimodal Learning",
   "Retrieval Practice", "Cognitive Apprenticeship",
-  "Project-Based Learning", "First Principles Thinking",
+  "Project-Based Learning",
   "Learning by Teaching", "Socratic Questioning",
   "Knowledge Graphing", "Zettelkasten for Developers",
   "Progressive Summarization", "Mindful Learning",
@@ -655,14 +629,14 @@ export const healthTags = [
   "Isometric Neck Training",
 
   // Mental Health & Stress
-  "Burnout Prevention", "Work-Life Balance", "Stress Management",
+  "Burnout Prevention", "Stress Management",
   "Mindfulness for Developers", "Dopamine Detox",
   "Cognitive Behavioral Therapy-CBT", "Meditation for Focus",
   "Anxiety Reduction", "Overcoming Imposter Syndrome",
-  "Flow State Optimization", "Emotional Resilience",
+  "Emotional Resilience",
   "Tech-Induced Anxiety", "Journaling for Mental Clarity",
   "Social Disconnection in Tech", "Mental Agility",
-  "Breathwork for Stress Relief", "Digital Minimalism",
+  "Breathwork for Stress Relief",
   "Self-Compassion Practices", "Resilience Training",
   "Digital Overstimulation Recovery", "Neurofeedback",
   "Sensory Deprivation", "Dark Room Meditation",
@@ -764,7 +738,7 @@ export const softSkillsTags = [
   "Managing Team Expectations",
 
   // Networking & Personal Branding
-  "LinkedIn Optimization", "Tech Blogging", "Open Source Contribution",
+  "LinkedIn Optimization",
   "Personal Branding", "Portfolio Website", "Building an Online Presence",
   "Engaging in Developer Communities", "Speaking at Meetups",
   "Networking at Conferences", "Cold Outreach for Networking",
@@ -782,7 +756,7 @@ export const softSkillsTags = [
   "Radical Candor", "Handling Criticism", "Developing Self-Awareness",
   "Empathy in Leadership", "Difficult Conversations in Tech",
   "Managing Team Conflicts", "Understanding Workplace Dynamics",
-  "Psychological Safety in Teams", "Power Dynamics in the Workplace",
+  "Power Dynamics in the Workplace",
   "Mindfulness for Emotional Regulation", "Active Empathy",
   "Dealing with Office Politics", "High-Stakes Negotiations",
   "Trust Building in Teams", "Body Language in Negotiations",
@@ -793,12 +767,12 @@ export const softSkillsTags = [
 
   // Professional Growth & Critical Thinking
   "Critical Thinking", "Problem-Solving Skills", "Systems Thinking",
-  "Adaptability", "Time Management", "Work-Life Balance",
+  "Adaptability", "Time Management",
   "Handling Stress at Work", "Self-Discipline", "Building a Growth Mindset",
   "Decision-Making Under Pressure", "Resilience in Tech Careers",
   "Self-Motivation", "How to Take Initiative",
   "The Art of Saying No", "Asking the Right Questions",
-  "Metacognition", "Cognitive Bias Awareness",
+  "Cognitive Bias Awareness",
   "Handling Failure", "Professional Etiquette in Tech",
   "Building Self-Confidence", "Mental Models for Developers",
   "Cognitive Load Management", "Thinking in First Principles",
@@ -818,16 +792,17 @@ export const softSkillsTags = [
 
 // 🔹 Inspiration & Motivation
 export const inspirationTags = [
-  
+
   // Motivation & Discipline
   "Intrinsic Motivation", "Extrinsic Motivation", "Building Discipline",
   "Atomic Habits", "Grit and Perseverance", "Deep Work",
-  "Flow State", "Time Affluence", "Sustainable Productivity",
+  "Flow State",
+  "Time Affluence", "Sustainable Productivity",
   "The Art of Focus", "Consistency Over Intensity",
   "Mastery vs Performance Mindset", "Delayed Gratification",
   "Ikigai", "Passion vs Purpose", "Growth Mindset",
   "Overcoming Procrastination", "The 5 AM Club",
-  "Visualization Techniques", "Mental Resilience Training",
+  "Visualization Techniques",
   "Stoic Motivation", "Failure as a Learning Tool",
   "Micro Wins for Motivation", "The Compound Effect",
   "Identity-Based Habits", "The 10-Year Rule of Mastery",
@@ -852,7 +827,7 @@ export const inspirationTags = [
   // Creativity & Innovation
   "Creative Thinking", "Lateral Thinking", "Thinking Outside the Box",
   "First Principles Thinking", "Reverse Engineering Success",
-  "Mind Mapping for Creativity", "Socratic Questioning",
+  "Mind Mapping for Creativity",
   "The Power of Asking Why", "How to Develop Intuition",
   "Divergent vs Convergent Thinking", "Design Thinking",
   "The Power of Constraints", "Minimalism in Code",
@@ -866,7 +841,7 @@ export const inspirationTags = [
   "Stoicism in Tech", "The Zen of Programming",
   "Coding as a Mindfulness Practice", "Simplicity is the Ultimate Sophistication",
   "Learn by Doing", "The Power of Beginners Mind",
-  "Minimalism in Life and Code", "Essentialism",
+  "Minimalism in Life and Code",
   "Meditative Problem Solving", "Enjoying the Process",
   "How to Avoid Burnout", "Tao of Programming",
   "Kaizen: Continuous Improvement", "The 80/20 Rule in Learning",

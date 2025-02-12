@@ -82,7 +82,7 @@ const CreatePost = () => {
   return (
     <div className="container mt-5">
       <h1>Create a New Post</h1>
-      <form onSubmit={handleSubmit} noValidate>
+      <form onSubmit={handleSubmit} noValidate >
         {/* Naslov */}
         <div className="mb-3">
           <label htmlFor="title" className="form-label">
