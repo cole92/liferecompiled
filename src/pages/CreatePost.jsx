@@ -43,19 +43,31 @@ const CreatePost = () => {
     }
 
     // Validacija za kategoriju
+    const validCategories = [
+      "Frontend",
+      "Backend",
+      "Database & Data Management",
+      "DevOps & Cloud",
+      "AI & Machine Learning",
+      "Career & Freelance",
+      "Personal Development",
+      "Lifestyle & Productivity",
+      "Education & Learning",
+      "Developer Health",
+      "Soft Skills & Networking",
+      "Inspiration & Motivation",
+    ];
+
     if (category.trim() === "") {
       newErrors.category = "Please select a category";
-    } else {
-      const validCategories = ["Frontend", "Backend", "Full Stack", "DevOps"];
-      if (!validCategories.includes(category)) {
-        newErrors.category = "Invalid category selected";
-      }
+    } else if (!validCategories.includes(category)) {
+      newErrors.category = "Invalid category selected";
     }
 
     // Proveravamo ima li gresaka
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors); // Postavljamo greske u state
-      return; // Prekidamo proces ako ima gresaka 
+      return; // Prekidamo proces ako ima gresaka
     }
 
     // Ako nema gresaka, nastavljamo
@@ -78,11 +90,20 @@ const CreatePost = () => {
     // Logika za cuvanje posta u Firestore-u dolazi kasnije
     console.log({ title, description, content, category, tags });
   };
+  // Funkcija za resetovanje forme (Cancel btn)
+  const hadnleReset = () => {
+    setTitle("");
+    setDescripton("");
+    setContent("");
+    setTags([]);
+    setCategory("");
+    setErrors({});
+  };
 
   return (
     <div className="container mt-5">
       <h1>Create a New Post</h1>
-      <form onSubmit={handleSubmit} noValidate >
+      <form onSubmit={handleSubmit} noValidate>
         {/* Naslov */}
         <div className="mb-3">
           <label htmlFor="title" className="form-label">
@@ -172,8 +193,24 @@ const CreatePost = () => {
             <option value="">Select a category</option>
             <option value="Frontend">Frontend</option>
             <option value="Backend">Backend</option>
-            <option value="Full Stack">Full Stack</option>
-            <option value="DevOps">DevOps</option>
+            <option value="Database & Data Management">
+              Database & Data Management
+            </option>
+            <option value="DevOps & Cloud">DevOps & Cloud</option>
+            <option value="AI & Machine Learning">AI & Machine Learning</option>
+            <option value="Career & Freelance">Career & Freelance</option>
+            <option value="Personal Development">Personal Development</option>
+            <option value="Lifestyle & Productivity">
+              Lifestyle & Productivity
+            </option>
+            <option value="Education & Learning">Education & Learning</option>
+            <option value="Developer Health">Developer Health</option>
+            <option value="Soft Skills & Networking">
+              Soft Skills & Networking
+            </option>
+            <option value="Inspiration & Motivation">
+              Inspiration & Motivation
+            </option>
           </select>
           {errors.category && (
             <div className="invalid-feedback">{errors.category}</div>
@@ -184,7 +221,11 @@ const CreatePost = () => {
         <button type="submit" className="btn btn-primary">
           Save Post
         </button>
-        <button type="button" className="btn btn-secondary ms-3">
+        <button
+          type="button"
+          className="btn btn-secondary ms-3"
+          onClick={hadnleReset}
+        >
           Cancel
         </button>
       </form>
