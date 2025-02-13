@@ -13,6 +13,13 @@ const TagsInput = ({ tags, setTags }) => {
   const [inputValue, setInputValue] = useState(""); // State za pracenje trenutne vrednosti input polja
   const containerRef = useRef(null);
 
+  // Resetujemo error kada se tagovi resetuju
+  useEffect(() => {
+    if (tags.length === 0) {
+      setError(null);
+    }
+  }, [tags]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -122,7 +129,6 @@ const TagsInput = ({ tags, setTags }) => {
 
   const filterTags = (inputValue) => {
     if (inputValue === "") return [];
-    
 
     return Object.entries(categorizedTags)
       .map(([category, tags]) => ({
@@ -137,7 +143,7 @@ const TagsInput = ({ tags, setTags }) => {
   const renderFilteredTags = () => {
     const filtered = filterTags(inputValue); // Filtriramo tagove na osnovu inputa
     if (filtered.length === 0) return <p>No matching tags found</p>; // Ako nema rezultata
-    
+
     return (
       <div className="dropdown-container">
         {filtered.map(({ name, tags }) => (
