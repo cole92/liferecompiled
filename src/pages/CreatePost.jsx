@@ -1,3 +1,8 @@
+import { db } from "../firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 import { useState } from "react";
 import TagsInput from "../components/TagsInput";
 
@@ -9,12 +14,37 @@ const CreatePost = () => {
   const [tags, setTags] = useState([]); // Tagovi posta
   const [category, setCategory] = useState(""); // Kategorija
   const [errors, setErrors] = useState({}); // State za greske u validaciji
+  const { user } = useContext(AuthContext); // Dohvatamo trenutno prijavljenog korisnika
 
   // Regex za validaciju naslova
   const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u;
 
+  // Funkcija za dodavanje posta u Firestore
+  const createPost = async (postData) => {
+    try {
+      // Provera da li je korisnik autentifikovan
+      if (!user) {
+        showErrorToast("You must be logged in to create a post.");
+        return;
+      }
+
+      // Dodavanje posta u Firestore bazu
+      const docRef = await addDoc(collection(db, "posts"), {
+        ...postData, // Podaci iz forme
+        userId: user.uid, // Povezujemo post sa korisnikom
+        createdAt: serverTimestamp(), // Timestamp iz Firestore-a
+      });
+
+      showSuccessToast("Post successfully created!");
+      console.log("Post added with ID:", docRef.id);
+    } catch (error) {
+      showErrorToast("Error creating post. Please try again.");
+      console.error("Error adding document:", error);
+    }
+  };
+
   // Funkcija za slanje forme
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {}; // Objekat za cuvanje gresaka
 
@@ -70,28 +100,19 @@ const CreatePost = () => {
       return; // Prekidamo proces ako ima gresaka
     }
 
-    // Ako nema gresaka, nastavljamo
-    console.log("Form is valid, submitting data:", {
+    // Kreiramo objekat sa podacima posta
+    const postData = {
       title,
       description,
       content,
       category,
       tags,
-    });
+    };
 
-    // Resetovanje forme nakon uspesnog slanja
-    setTitle("");
-    setDescripton("");
-    setContent("");
-    setTags([]);
-    setCategory("");
-    setErrors({}); // Resetujemo greske
+    // Sada pozivamo `createPost` funkciju kako bismo sacuvali post u Firestore
+    await createPost(postData);
 
-    // Logika za cuvanje posta u Firestore-u dolazi kasnije
-    console.log({ title, description, content, category, tags });
-  };
-  // Funkcija za resetovanje forme (Cancel btn)
-  const hadnleReset = () => {
+    // Ako je uspesno dodato, resetujemo formu
     setTitle("");
     setDescripton("");
     setContent("");
@@ -100,6 +121,17 @@ const CreatePost = () => {
     setErrors({});
   };
 
+  // Funkcija za resetovanje forme (Cancel btn)
+  const handleReset = () => {
+    setTitle("");
+    setDescripton("");
+    setContent("");
+    setTags([]);
+    setCategory("");
+    setErrors({});
+  };
+
+ 
   return (
     <div className="container mt-5">
       <h1>Create a New Post</h1>
@@ -224,7 +256,7 @@ const CreatePost = () => {
         <button
           type="button"
           className="btn btn-secondary ms-3"
-          onClick={hadnleReset}
+          onClick={handleReset}
         >
           Cancel
         </button>
