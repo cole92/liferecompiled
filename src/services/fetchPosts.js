@@ -1,24 +1,30 @@
 import { db } from "../firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
 
 export const getPosts = async () => {
     try {
-        // Pravljenje upita za kolekciju "posts"
         const postsRef = collection(db, "posts");
-        const q = query(postsRef, orderBy("createdAt", "desc")) // Sortiramo najnovije prve
+        const q = query(postsRef, orderBy("createdAt", "desc"));
 
-        // Dohvatanje podataka
         const querySnapshot = await getDocs(q);
-        const posts = querySnapshot.docs.map((doc) => ({
-            id: doc.id, // ID dokumenta
-            ...doc.data(), // Ostali podaci iz firestora
+        const posts = await Promise.all(querySnapshot.docs.map(async (docSnap) => {
+            const postData = docSnap.data();
+            const userRef = doc(db, "users", postData.userId); // Referenca na korisnika
+            const userSnap = await getDoc(userRef); // Dohvati korisnika
+
+            return {
+                id: docSnap.id,
+                ...postData,
+                author: userSnap.exists()
+                    ? userSnap.data()
+                    : { name: "Unknown" }
+            };
         }));
 
-        return posts // Vracamo niz postova
+        return posts;
 
     } catch (error) {
         console.log("Error fetching posts:", error);
         throw new Error("Failed to fetch posts.");
-        
     }
 };
