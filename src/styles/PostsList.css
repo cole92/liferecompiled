@@ -1,10 +1,10 @@
 /* GRID layout u `PostsList.css` */
 .posts-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    padding: 20px;
-  }
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Tacno 2 u redu */
+  gap: 20px;
+  padding: 20px;
+}
   
   /* Stil za post karticu */
   .post-card {
@@ -34,19 +34,13 @@
     margin-right: 10px;
   }
   
-  /* Dugme "View More" */
-  .view-more {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 8px 12px;
-    background-color: #007bff;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    font-size: 14px;
-  }
-  
   .view-more:hover {
     background-color: #0056b3;
+  }
+
+  @media (max-width: 768px) {
+    .posts-list {
+      grid-template-columns: 1fr; /* Samo 1 u redu na mobilnim */
+    }
   }
   
