@@ -5,6 +5,7 @@ import { AuthContext } from "../context/AuthContext";
 import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 import { useState } from "react";
 import TagsInput from "../components/TagsInput";
+import { validCategories } from "../constants/postCategories";
 
 const CreatePost = () => {
   // State za polja forme
@@ -71,22 +72,6 @@ const CreatePost = () => {
     } else if (content.trim().length < 20) {
       newErrors.content = "Content must be at least 20 characters long";
     }
-
-    // Validacija za kategoriju
-    const validCategories = [
-      "Frontend",
-      "Backend",
-      "Database & Data Management",
-      "DevOps & Cloud",
-      "AI & Machine Learning",
-      "Career & Freelance",
-      "Personal Development",
-      "Lifestyle & Productivity",
-      "Education & Learning",
-      "Developer Health",
-      "Soft Skills & Networking",
-      "Inspiration & Motivation",
-    ];
 
     if (category.trim() === "") {
       newErrors.category = "Please select a category";

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { getPosts } from "../services/fetchPosts"; // Import funkcije
 import PostsList from "../components/PostsList";
+import { validCategories } from "../constants/postCategories";
 
 const Home = () => {
   const [posts, setPosts] = useState([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -18,10 +20,76 @@ const Home = () => {
     fetchData(); // Pozivamo funkciju kada se komponenta mount-uje
   }, []);
 
+  const toggleFilterPanel = () => {
+    setIsFilterOpen(!isFilterOpen);
+  };
+
   return (
     <div>
-      <h1>Home Page</h1>
-      <PostsList posts={posts} />
+      <div className="p-4">
+        {/* Filter Bar */}
+        <div className="flex items-center gap-4 bg-white p-4 z-10 rounded-lg shadow-md sticky top-0 ">
+          {/* Search Input */}
+          <input
+            type="text"
+            placeholder="Search posts..."
+            value={undefined}
+            onChange={undefined}
+            className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {/* Sort Dropdown */}
+          <select
+            value={undefined}
+            onChange={undefined}
+            className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="comments">Most Comments</option>
+            <option value="likes">Most Likes</option>
+          </select>
+          {/* Filter Button */}
+          <button
+            onClick={toggleFilterPanel} // Kasnije dodajemo funkcionalnost
+            className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Filters
+          </button>
+        </div>
+        {isFilterOpen && (
+          <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg p-4 transition-transform duration-300">
+            <h2 className="text-lg font-bold">Filter Options</h2>
+            {/* Kategorije */}
+            <h3 className="text-md font-semibold mt-4">Categories</h3>
+            <div className="mt-2">
+            {validCategories.map((categoryItem) => (
+              <label key={categoryItem} className="flex items-center space-x-2">
+                <input 
+                type="checkbox"
+                value={categoryItem}
+                />
+                <span>{categoryItem}</span>
+              </label>
+            ))}
+              
+            </div>
+            <button
+              onClick={toggleFilterPanel}
+              className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Close
+            </button>
+          </div>
+        )}
+        {/* Lista postova (placeholder) */}
+        <div className="mt-4">
+          {/* Ovde cemo kasnije prikazivati filtrirane postove */}
+          <h2 className="text-xl font-bold">
+            {" "}
+            <PostsList posts={posts} />
+          </h2>
+        </div>
+      </div>
     </div>
   );
 };

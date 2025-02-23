@@ -17,7 +17,8 @@ export const getPosts = async () => {
                 ...postData,
                 author: userSnap.exists()
                     ? userSnap.data()
-                    : { name: "Unknown" }
+                    : { name: "Unknown" },
+                comments: postData.comments || [], // Ako nema komentara, stavljamo prazan niz
             };
         }));
 

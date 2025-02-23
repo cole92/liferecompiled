@@ -1,3 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
 #root {
   padding: 0rem;
   text-align: center;
