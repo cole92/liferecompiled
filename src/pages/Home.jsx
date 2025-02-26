@@ -5,6 +5,8 @@ import { validCategories } from "../constants/postCategories";
 
 const Home = () => {
   const [posts, setPosts] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [filteredPosts, setFilteredPosts] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
@@ -22,6 +24,37 @@ const Home = () => {
 
   const toggleFilterPanel = () => {
     setIsFilterOpen(!isFilterOpen);
+  };
+
+  const handleCategoryChange = (event) => {
+    const { value, checked } = event.target; // Dobijamo vrednost (naziv kategorije) i stanje (true ili false)
+
+    if (checked) {
+      // Ako je selektovano, dodaj u listu
+      setSelectedCategories((prev) => [...prev, value]);
+    } else {
+      // Ako nije selektovano, ukloni iz liste
+      setSelectedCategories((prev) =>
+        prev.filter((category) => category !== value)
+      );
+    }
+  };
+
+  const handleApplyFilters = () => {
+    if (selectedCategories.length === 0) {
+      setFilteredPosts(posts); // Ako nema filtera, prikazujemo sve postove
+    } else {
+      const filtered = posts.filter(
+        (post) => selectedCategories.includes(post.category) // OVO MORA DA VRATI TRUE/FALSE
+      );
+
+      setFilteredPosts(filtered); // Ažuriramo state sa filtriranim postovima
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSelectedCategories([]); // Resetujemo odabrane kategorije
+    setFilteredPosts(posts); // Vracamo sve postove
   };
 
   return (
@@ -62,23 +95,41 @@ const Home = () => {
             {/* Kategorije */}
             <h3 className="text-md font-semibold mt-4">Categories</h3>
             <div className="mt-2">
-            {validCategories.map((categoryItem) => (
-              <label key={categoryItem} className="flex items-center space-x-2">
-                <input 
-                type="checkbox"
-                value={categoryItem}
-                />
-                <span>{categoryItem}</span>
-              </label>
-            ))}
-              
+              {validCategories.map((categoryItem) => (
+                <label
+                  key={categoryItem}
+                  className="flex items-center space-x-2"
+                >
+                  <input
+                    type="checkbox"
+                    value={categoryItem}
+                    onChange={handleCategoryChange}
+                  />
+                  <span>{categoryItem}</span>
+                </label>
+              ))}
             </div>
             <button
-              onClick={toggleFilterPanel}
+              onClick={handleApplyFilters}
               className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
             >
-              Close
+              Apply
             </button>
+            <button
+              onClick={handleResetFilters}
+              className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Reset
+            </button>
+
+            <div>
+              <button
+                onClick={toggleFilterPanel}
+                className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
         {/* Lista postova (placeholder) */}
@@ -86,7 +137,9 @@ const Home = () => {
           {/* Ovde cemo kasnije prikazivati filtrirane postove */}
           <h2 className="text-xl font-bold">
             {" "}
-            <PostsList posts={posts} />
+            <PostsList
+              posts={filteredPosts.length > 0 ? filteredPosts : posts}
+            />
           </h2>
         </div>
       </div>
