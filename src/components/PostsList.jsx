@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
-
 import PostCard from "./PostCard";
+import "../styles/PostsList.css"
 
 const PostsList = ({ posts }) => {
   if (!posts || posts.length === 0) {
@@ -8,7 +8,7 @@ const PostsList = ({ posts }) => {
   }
 
   return (
-    <div>
+    <div className="posts-list">
       {posts.map((post) => (
         <PostCard key={post.id} post={post} />
       ))}

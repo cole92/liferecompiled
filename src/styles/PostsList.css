@@ -1,0 +1,46 @@
+/* GRID layout u `PostsList.css` */
+.posts-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Tacno 2 u redu */
+  gap: 20px;
+  padding: 20px;
+}
+  
+  /* Stil za post karticu */
+  .post-card {
+    border: 1px solid #ddd;
+    padding: 16px;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-in-out;
+  }
+  
+  .post-card:hover {
+    transform: scale(1.02);
+  }
+  
+  /* Profilna slika */
+  .post-author {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .post-author img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+  }
+  
+  .view-more:hover {
+    background-color: #0056b3;
+  }
+
+  @media (max-width: 768px) {
+    .posts-list {
+      grid-template-columns: 1fr; /* Samo 1 u redu na mobilnim */
+    }
+  }
+  
