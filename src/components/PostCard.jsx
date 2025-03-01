@@ -1,8 +1,9 @@
 import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
-import "../styles/PostCard.css";
+import "../styles/PostCard.css"; // Stilovi za karticu posta
 
 const PostCard = ({ post }) => {
+  // Ekstrakcija podataka iz `post` objekta radi citljivosti
   const { title, description, createdAt, tags, author, comments } = post;
 
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ const PostCard = ({ post }) => {
   return (
     <div
       className="post-card"
-      onClick={() => navigate(`/post/${post.id}`)}
+      onClick={() => navigate(`/post/${post.id}`)} // Klik otvara detalje posta
       style={{ cursor: "pointer" }}
     >
       {/* Profilna slika i ime autora */}
@@ -18,15 +19,15 @@ const PostCard = ({ post }) => {
         <img src={author.profilePicture} alt="Author" />
         <span>{author?.name || "Unknown"}</span>
       </div>
-      
+
       {/* Naslov, opis i datum objave */}
       <h2 className="post-title">{title}</h2>
       <p className="post-description">{description}</p>
       <span className="post-date">
-        {createdAt.toDate().toLocaleDateString()}
+        {createdAt.toDate().toLocaleDateString()} {/* Formatiramo datum objave */}
       </span>
 
-      {/* Tagovi */}
+      {/* Tagovi posta */}
       <div className="post-tags">
         {tags.map((tag, index) => (
           <span key={index} className="post-tag">
@@ -34,6 +35,11 @@ const PostCard = ({ post }) => {
           </span>
         ))}
       </div>
+      {/* Kategorija posta */}
+      <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+        {post.category}
+      </span>
+      
       {/* Broj komentara */}
       <p className="post-comments">{comments?.length || 0} comments</p>
 
@@ -50,6 +56,7 @@ const PostCard = ({ post }) => {
 PostCard.propTypes = {
   post: PropTypes.shape({
     id: PropTypes.string.isRequired, // Firebase ID posta
+    category: PropTypes.string.isRequired, // Kategrija
     title: PropTypes.string.isRequired, // Naslov posta
     description: PropTypes.string.isRequired, // Opis posta
     createdAt: PropTypes.object.isRequired, // Firestore Timestamp
