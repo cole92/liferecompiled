@@ -1,3 +1,4 @@
+// Definisanje svih dostupnih kategorija za postove
 export const validCategories = [
     "Frontend",
     "Backend",
