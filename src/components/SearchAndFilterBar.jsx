@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories"; // Predefinisane kategorije za filtere
 
@@ -23,7 +24,31 @@ const SearchAndFilterBar = ({
   const toggleFilterPanel = () => {
     setIsFilterOpen(!isFilterOpen);
   };
-
+  
+  // Definisemo animaciju za SearchAndFilterBar
+  const filterPanelVariants = {
+    hidden: {
+      opacity: 0,
+      x: 50, // Blago pomeren udesno na startu
+    },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.5,
+        ease: "easeInOut", // Glatka i ravnomerna tranzicija
+      },
+    },
+    exit: {
+      opacity: 0,
+      x: 50, // Odlazi blago udesno
+      transition: {
+        duration: 0.5, // 📌 Sporije zatvaranje
+        ease: "easeInOut",
+      },
+    },
+  };
+  
   /**
    * - Funkcija koja azurira selektovane kategorije pri promeni checkbox-a.
    * - Kada korisnik cekira opciju, dodaje se u listu `selectedCategories`.
@@ -97,9 +122,17 @@ const SearchAndFilterBar = ({
             Filters
           </button>
         </div>
-        {/* Filter Panel - prikazuje dodatne opcije filtera */}
+        {/* Filter Panel sa animacijom */}
+        <AnimatePresence>
         {isFilterOpen && (
-          <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg p-4 transition-transform duration-300">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={filterPanelVariants}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg p-4"
+          >
             <h2 className="text-lg font-bold">Filter Options</h2>
             {/* ✅ Checkbox opcije za kategorije */}
             <h3 className="text-md font-semibold mt-4">Categories</h3>
@@ -135,8 +168,9 @@ const SearchAndFilterBar = ({
                 Close
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
     </div>
   );
