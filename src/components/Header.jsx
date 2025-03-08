@@ -19,14 +19,14 @@ const Header = () => {
   const searchBarVariants = {
     hidden: {
       opacity: 0,
-      y: -15, // 📌 Blago podignuto gore
+      y: -15, // Blago podignuto gore
     },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
         duration: 0.6,
-        ease: "easeInOut", // 📌 Glatka tranzicija bez bounce efekta
+        ease: "easeInOut", // Glatka tranzicija bez bounce efekta
       },
     },
   };
@@ -45,8 +45,8 @@ const Header = () => {
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        {/* Logo ili naslov aplikacije */}
-        <h1 className="fs-4 m-0">Blog App</h1>
+        {/* Logo ili naslov aplikacije se ne prikazuje kada smo na Home strani */}
+        {location.pathname !== "/" && <h1 className="fs-4 m-0">Blog App</h1>}
 
         {/* Desno dugme - otvara desni offcanvas meni */}
         <button
@@ -71,7 +71,7 @@ const Header = () => {
           animate="visible"
           exit="hidden"
           variants={searchBarVariants}
-          transition={{ duration: 0.5, ease: "easeInOut" }} // 📌 Trajanje i tip animacije
+          transition={{ duration: 0.5, ease: "easeInOut" }} // Trajanje i tip animacije
         >
           <SearchAndFilterBar
             onSearchChange={setSearchTerm} // Prosledjujemo funkciju za postavljanje pretrage

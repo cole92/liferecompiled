@@ -3,11 +3,6 @@ import PostCard from "./PostCard"; // Uvoz PostCard komponente
 import "../styles/PostsList.css"; // Stilovi za listu postova
 
 const PostsList = ({ posts }) => {
-  // Ako nema postova, prikazujemo poruku umesto prazne liste
-  if (!posts || posts.length === 0) {
-    return <p>No posts yet</p>;
-  }
-
   return (
     <div className="posts-list">
       {/* Mapiramo kroz niz postova i prikazujemo PostCard komponentu za svaki */}
