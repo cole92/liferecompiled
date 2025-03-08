@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getPosts } from "../services/fetchPosts"; // Dohvatanje postova iz baze
 import PostsList from "../components/PostsList"; // Komponenta koja prikazuje postove
 import useSearch from "../context/useSearch"; // Importujemo SearchContext
+import NoResultsMessage from "../components/NoResultsMessage";
 
 const Home = () => {
   const [posts, setPosts] = useState([]); // Cuva sve postove iz baze
@@ -67,8 +68,16 @@ const Home = () => {
 
   return (
     <div className="mt-4">
-      {/* Prosledjujemo konacnu listu postova u komponentu PostsList */}
-      <PostsList posts={finalPosts} />
+      {/* Ako nema rezultata, prikazujemo NoResultsMessage */}
+      {finalPosts.length === 0 ? (
+        <NoResultsMessage
+          posts={finalPosts}
+          searchTerm={searchTerm}
+          selectedCategories={selectedCategories}
+        />
+      ) : (
+        <PostsList posts={finalPosts} />
+      )}
     </div>
   );
 };

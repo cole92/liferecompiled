@@ -24,7 +24,7 @@ const SearchAndFilterBar = ({
   const toggleFilterPanel = () => {
     setIsFilterOpen(!isFilterOpen);
   };
-  
+
   // Definisemo animaciju za SearchAndFilterBar
   const filterPanelVariants = {
     hidden: {
@@ -48,7 +48,7 @@ const SearchAndFilterBar = ({
       },
     },
   };
-  
+
   /**
    * - Funkcija koja azurira selektovane kategorije pri promeni checkbox-a.
    * - Kada korisnik cekira opciju, dodaje se u listu `selectedCategories`.
@@ -117,59 +117,62 @@ const SearchAndFilterBar = ({
           {/* Filter Button - otvara/zatvara filter panel */}
           <button
             onClick={toggleFilterPanel}
-            className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`p-2 rounded-lg text-white ${
+              selectedCategories.length > 0 ? "bg-blue-600" : "bg-blue-500"
+            }`}
           >
-            Filters
+            Filters{" "}
+            {selectedCategories.length > 0 && `(${selectedCategories.length})`} {/* Prikaz broja selektovanih filtera*/}
           </button>
         </div>
         {/* Filter Panel sa animacijom */}
         <AnimatePresence>
-        {isFilterOpen && (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={filterPanelVariants}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg p-4"
-          >
-            <h2 className="text-lg font-bold">Filter Options</h2>
-            {/* ✅ Checkbox opcije za kategorije */}
-            <h3 className="text-md font-semibold mt-4">Categories</h3>
-            <div className="mt-2">
-              {validCategories.map((categoryItem) => (
-                <label
-                  key={categoryItem}
-                  className="flex items-center space-x-2"
-                >
-                  <input
-                    type="checkbox"
-                    value={categoryItem}
-                    checked={selectedCategories.includes(categoryItem)}
-                    onChange={handleCategoryChange}
-                  />
-                  <span>{categoryItem}</span>
-                </label>
-              ))}
-            </div>
-            {/* Reset Button - resetuje sve filtere */}
-            <button
-              onClick={onResetFilters}
-              className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+          {isFilterOpen && (
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={filterPanelVariants}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg p-4"
             >
-              Reset
-            </button>
-            <div>
-              {/* Close Button - zatvara filter panel */}
+              <h2 className="text-lg font-bold">Filter Options</h2>
+              {/* ✅ Checkbox opcije za kategorije */}
+              <h3 className="text-md font-semibold mt-4">Categories</h3>
+              <div className="mt-2">
+                {validCategories.map((categoryItem) => (
+                  <label
+                    key={categoryItem}
+                    className="flex items-center space-x-2"
+                  >
+                    <input
+                      type="checkbox"
+                      value={categoryItem}
+                      checked={selectedCategories.includes(categoryItem)}
+                      onChange={handleCategoryChange}
+                    />
+                    <span>{categoryItem}</span>
+                  </label>
+                ))}
+              </div>
+              {/* Reset Button - resetuje sve filtere */}
               <button
-                onClick={toggleFilterPanel}
-                className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                onClick={onResetFilters}
+                className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
               >
-                Close
+                Reset
               </button>
-            </div>
-          </motion.div>
-        )}
+              <div>
+                {/* Close Button - zatvara filter panel */}
+                <button
+                  onClick={toggleFilterPanel}
+                  className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>
