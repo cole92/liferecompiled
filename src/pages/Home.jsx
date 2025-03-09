@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { getPosts } from "../services/fetchPosts"; // Dohvatanje postova iz baze
 import PostsList from "../components/PostsList"; // Komponenta koja prikazuje postove
 import useSearch from "../context/useSearch"; // Importujemo SearchContext
+import Spinner from "../components/Spinner";
 import NoResultsMessage from "../components/NoResultsMessage";
 
 const Home = () => {
   const [posts, setPosts] = useState([]); // Cuva sve postove iz baze
   const { searchTerm, sortBy, selectedCategories } = useSearch(); // Dobijamo globalna stanja iz SearchContext-a
+  const [isLoading, setIsLoading] = useState(true);
 
   // Dohvatanje postova iz Firestore-a pri prvom renderovanju
   useEffect(() => {
@@ -14,6 +16,7 @@ const Home = () => {
       try {
         const postsData = await getPosts(); // Pozivamo API funkciju za dohvatanje postova
         setPosts(postsData); // Postavljamo postove u state
+        setIsLoading(false) // Postavljamo loader na false (Podaci ucitani)
       } catch (error) {
         console.error("Error fetching posts:", error);
       }
@@ -68,14 +71,18 @@ const Home = () => {
 
   return (
     <div className="mt-4">
-      {/* Ako nema rezultata, prikazujemo NoResultsMessage */}
-      {finalPosts.length === 0 ? (
+      {/* Proveravamo da li se podaci ucitavaju */}
+      {isLoading ? (
+        <Spinner message=""/>
+      ) : finalPosts.length === 0 ? (
+        /* Ako su podaci ucitani, ali nema postova, prikazujemo poruku */
         <NoResultsMessage
           posts={finalPosts}
           searchTerm={searchTerm}
           selectedCategories={selectedCategories}
         />
       ) : (
+        /* Ako su postovi ucitani i postoje, prikazujemo ih */
         <PostsList posts={finalPosts} />
       )}
     </div>
