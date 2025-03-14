@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
 import "../styles/PostCard.css"; // Stilovi za karticu posta
+import PostReactions from "./PostReactions";
 
 const PostCard = ({ post }) => {
   // Ekstrakcija podataka iz `post` objekta radi citljivosti
@@ -24,7 +25,8 @@ const PostCard = ({ post }) => {
       <h2 className="post-title">{title}</h2>
       <p className="post-description">{description}</p>
       <span className="post-date">
-        {createdAt.toDate().toLocaleDateString()} {/* Formatiramo datum objave */}
+        {createdAt.toDate().toLocaleDateString()}{" "}
+        {/* Formatiramo datum objave */}
       </span>
 
       {/* Tagovi posta */}
@@ -35,11 +37,15 @@ const PostCard = ({ post }) => {
           </span>
         ))}
       </div>
+
+      {/* Sekcija za reakcije */}
+      <PostReactions postId={post.id} reactions={post.reactions} />
+
       {/* Kategorija posta */}
       <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
         {post.category}
       </span>
-      
+
       {/* Broj komentara */}
       <p className="post-comments">{comments?.length || 0} comments</p>
 
@@ -71,6 +77,7 @@ PostCard.propTypes = {
         text: PropTypes.string.isRequired, // Tekst komentara
       })
     ).isRequired, // Komentari su niz objekata sa tekstom
+    reactions: PropTypes.object, // Reakcije moraju biti objekat
   }).isRequired,
 };
 
