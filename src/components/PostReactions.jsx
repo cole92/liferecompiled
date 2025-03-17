@@ -1,15 +1,19 @@
+import Spinner from "./Spinner";
+import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { useState } from "react";
 import { FaRegLightbulb, FaFire, FaRocket, FaSave, FaBolt, FaThumbtack, FaKeyboard } from "react-icons/fa";
+import { collection, query, where, getDocs, onSnapshot, setDoc, deleteDoc, doc, } from "firebase/firestore";
+import { db, auth } from "../firebase";
 
-// Komponenta za prikaz i upravljanje reakcijama korisnika na postove
-const PostReactions = ({ postId, reactions = {} }) => {
-  console.log("Post ID:", postId);
-  /**
-   * Drzi informacije o tome da li je korisnik kliknuo na odredjenu reakciju (true/false).
-   * Ovo koristimo za vizuelni prikaz aktivne/neaktivne reakcije.
+// Komponenta koja upravlja reakcijama na postove
+const PostReactions = ({ postId }) => {
+
+   /**
+   * State za pracenje korisnickih reakcija (da li je korisnik kliknuo na neku reakciju).
+   * Popunjava se nakon sto ucitamo podatke iz Firestore-a putem `onSnapshot()`.
    */
-  const [userReactions, setUserReaction] = useState({
+  
+  const [userReactions, setUserReactions] = useState({
     idea: false,
     hot: false,
     boost: false,
@@ -20,23 +24,22 @@ const PostReactions = ({ postId, reactions = {} }) => {
   });
 
    /**
-   * State za broj reakcija - prikazuje koliko puta je svaka reakcija dodata.
-   * Pocetne vrednosti dolaze iz `reactions`, ako postoje podaci iz Firestore-a.
+   * State za brojanje reakcija po tipu.
+   * Pocetno stanje je 0 za svaku reakciju, ali se azurira iz Firestore-a.
    */
   const [reactionCounts, setReactionCounts] = useState({
-    idea: 2,
+    idea: 0,
     hot: 0,
-    boost: 4,
+    boost: 0,
     save: 0,
-    powerup: 6,
-    pinned: 1,
+    powerup: 0,
+    pinned: 0,
     coding: 0,
-    ...reactions, // Ako postoje Firestore podaci, prepisi default vrednosti
   });
 
    /**
-   * Objekat koji mapira vrste reakcija na odgovarajuce ikonice.
-   * Ovo omogucava dinamicko renderovanje ispravne ikonice za svaku reakciju.
+   * Mapa koja povezuje naziv reakcije sa odgovarajucom ikonicom.
+   * Ovo omogucava dinamicko prikazivanje odgovarajuce ikonice u UI-u.
    */
   const reactionComponents = {
     idea: FaRegLightbulb,
@@ -48,45 +51,130 @@ const PostReactions = ({ postId, reactions = {} }) => {
     coding: FaKeyboard,
   };
 
+  // State za pracnje ucitavanja 
+  const [isLoading, setIsLoading] = useState(true);
+
+   /**
+   * `useEffect` slusa promene u Firestore-u i azurira UI u realnom vremenu.
+   * Kada se komponenta mount-uje ili `postId` promeni, preuzimamo reakcije iz Firestore-a.
+   * Koristimo `onSnapshot()` da slusamo promene u bazi (real-time update).
+   */
+  useEffect(() => {
+    if (!postId) return; // Ako postId ne postoji, ne radimo nista.
+
+    // Kreiramo upit za sve reakcije koje pripadaju ovom postId
+    const q = query(
+      collection(db, "reactions"),
+      where("postId", "==", postId)
+    );
+
+      // Pretplacujemo se na real-time azuriranja
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Resetujemo brojace i korisnicke reakcije pre nego sto ih azuriramo
+      const newCounts = {
+        idea: 0,
+        hot: 0,
+        boost: 0,
+        save: 0,
+        powerup: 0,
+        pinned: 0,
+        coding: 0,
+      };
+      const newUserReactions = {
+        idea: false,
+        hot: false,
+        boost: false,
+        save: false,
+        powerup: false,
+        pinned: false,
+        coding: false,
+      };
+       // Prolazimo kroz sve dokumente u snapshot-u i racunamo reakcije
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const rType = data.reactionType;
+
+        // Ako postoji validna reakcija, povecavamo njen brojac
+        if (newCounts[rType] !== undefined) {
+          newCounts[rType]++;
+        }
+
+        // Ako je reakciju dodao trenutno prijavljeni korisnik, oznacavamo je
+        if (data.userId === auth.currentUser?.uid) {
+          newUserReactions[rType] = true;
+        }
+      });
+
+      // Azuriramo state sa najnovijim podacima iz Firestore-a
+      setReactionCounts(newCounts);
+      setUserReactions(newUserReactions);
+      setIsLoading(false); // Podaci su stigli, prekidamo loading
+    });
+
+    // Cleanup funkcija – prekidamo pretplatu kada se komponenta unmount-uje ili `postId` promeni
+    return () => unsubscribe();
+  }, [postId]);
+
   /**
    * Funkcija koja se poziva kada korisnik klikne na reakciju.
-   * Azurira `userReactions` da oznaci da li je korisnik kliknuo na reakciju.
-   * Azurira `reactionCounts` kako bi povecala/smanjila broj reakcija.
+   * Ako je reakcija vec dodata, brisemo je iz Firestore-a.
+   * Ako reakcija ne postoji, dodajemo novi dokument u Firestore.
    */
 
-  const handleReactionClick = (event, reactionType) => {
-    event.stopPropagation();  // Sprecava prebacivanje na stranicu posta
+  const handleReactionClick = async (event, reactionType) => {
+    event.stopPropagation(); // Sprecava prebacivanje na stranicu posta pri kliku
 
-    // Azuriranje userReactions - menja true/false stanje za kliknutu reakciju
-    setUserReaction((prevState) => ({
-      ...prevState,
-      [reactionType]: !prevState[reactionType],
-    }));
-    // Azuriranje brojaca reakcija - povecava ili smanjuje broj na osnovu korisnickog klika
-    setReactionCounts((prevCounts) => ({
-      ...prevCounts,
-      [reactionType]: userReactions[reactionType]
-        ? prevCounts[reactionType] - 1  // Ako je vec kliknuto, smanjujemo
-        : prevCounts[reactionType] + 1, // Ako nije kliknuto, povecavamo
-    }));
+    if (!auth.currentUser) return; // Ako korisnik nije prijavljen, ne dozvoljavamo reakciju
+    const userId = auth.currentUser.uid;
+
+    try {
+      // Proveravamo da li korisnik vec ima ovu reakciju
+      const q = query(
+        collection(db, "reactions"),
+        where("postId", "==", postId),
+        where("userId", "==", userId),
+        where("reactionType", "==", reactionType)
+      );
+      const querySnapshot = await getDocs(q);
+
+      
+      if (!querySnapshot.empty) {
+       // Ako reakcija vec postoji, brisemo je
+        const docId = querySnapshot.docs[0].id;
+        await deleteDoc(doc(db, "reactions", docId));
+      } else {
+         // Ako reakcija ne postoji, dodajemo novi dokument
+        const newDocRef = doc(collection(db, "reactions"));
+        await setDoc(newDocRef, {
+          postId: postId,
+          userId: userId,
+          reactionType: reactionType,
+          createdAt: new Date()
+        });
+      }
+       // `onSnapshot()` ce automatski azurirati state, pa ne moramo rucno menjati `useState`.
+    } catch (error) {
+      console.error("Greška pri ažuriranju reakcije:", error);
+    }
   };
 
   return (
     <div className="post-reactions">
-      {/* Renderujemo sve reakcije */}
       <div className="reactions-container">
         {Object.entries(reactionCounts).map(([reactionType, count]) => {
-          const IconComponent = reactionComponents[reactionType]; // Dohvatamo odgovarajucu ikonicu
+          const IconComponent = reactionComponents[reactionType];
+          const isActive = userReactions[reactionType];
 
           return (
             <button
               key={reactionType}
               onClick={(event) => handleReactionClick(event, reactionType)}
-              className="reaction-button"
+              className={`reaction-button ${isActive ? "active" : ""}`}
               style={{ fontSize: "1.2rem", padding: "10px 15px" }}
             >
-              <IconComponent className="reaction-icon" /> {/* Prikaz ikonice */}
-              {count}  {/* Prikaz broja reakcija */}
+              <IconComponent className="reaction-icon" />
+              {isLoading ? <Spinner style={{ width: "25px", height: "15px", borderWidth: "2px", borderColor: "red" }}
+               message="" /> : count} {/* Prikazuje spinner dok se podaci ucitavaju */}
             </button>
           );
         })}
@@ -96,8 +184,7 @@ const PostReactions = ({ postId, reactions = {} }) => {
 };
 
 PostReactions.propTypes = {
-  postId: PropTypes.string.isRequired, // ID posta koji povezuje reakcije sa odredjenim postom
-  reactions: PropTypes.object, // Objekat koji sadrzi pocetne vrednosti broja reakcija
+  postId: PropTypes.string.isRequired,
 };
 
 export default PostReactions;
