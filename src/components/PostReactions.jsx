@@ -154,7 +154,7 @@ const PostReactions = ({ postId }) => {
       }
        // `onSnapshot()` ce automatski azurirati state, pa ne moramo rucno menjati `useState`.
     } catch (error) {
-      console.error("Greška pri ažuriranju reakcije:", error);
+      console.error("Greska pri azuriranju reakcije:", error);
     }
   };
 
