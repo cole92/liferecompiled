@@ -1,7 +1,9 @@
 import PropTypes from "prop-types";
+import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import "../styles/PostCard.css"; // Stilovi za karticu posta
 import PostReactions from "./PostReactions";
+import Comments from "./comments/Comments";
 
 const PostCard = ({ post }) => {
   // Ekstrakcija podataka iz `post` objekta radi citljivosti
@@ -54,7 +56,9 @@ const PostCard = ({ post }) => {
         <p key={index} className="post-comment">
           &quot;{comment.text}
         </p>
+        
       ))}
+      <Comments postId={post.id} userId={auth.currentUser?.uid} />
     </div>
   );
 };
