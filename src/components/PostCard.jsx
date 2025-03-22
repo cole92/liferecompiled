@@ -6,59 +6,66 @@ import PostReactions from "./PostReactions";
 import Comments from "./comments/Comments";
 
 const PostCard = ({ post }) => {
-  // Ekstrakcija podataka iz `post` objekta radi citljivosti
-  const { title, description, createdAt, tags, author, comments } = post;
-
+  const { title, description, createdAt, tags, author, category } = post;
   const navigate = useNavigate();
 
   return (
     <div
       className="post-card"
-      onClick={() => navigate(`/post/${post.id}`)} // Klik otvara detalje posta
-      style={{ cursor: "pointer" }}
+      onClick={() => navigate(`/post/${post.id}`)}
+      style={{
+        cursor: "pointer",
+        //maxHeight: "450px",
+        overflow: "hidden",
+        position: "relative",
+      }}
     >
-      {/* Profilna slika i ime autora */}
+      {/* Autor posta */}
       <div className="post-author">
         <img src={author.profilePicture} alt="Author" />
         <span>{author?.name || "Unknown"}</span>
       </div>
 
-      {/* Naslov, opis i datum objave */}
+      {/* Naslov i opis */}
       <h2 className="post-title">{title}</h2>
       <p className="post-description">{description}</p>
+
+      {/* Datum */}
       <span className="post-date">
-        {createdAt.toDate().toLocaleDateString()}{" "}
-        {/* Formatiramo datum objave */}
+        {createdAt.toDate().toLocaleDateString()}
       </span>
 
-      {/* Tagovi posta */}
+      {/* Tagovi */}
       <div className="post-tags">
         {tags.map((tag, index) => (
           <span key={index} className="post-tag">
-            #{tag.text}{" "}
+            #{tag.text}
           </span>
         ))}
       </div>
 
-      {/* Sekcija za reakcije */}
+      {/* Reakcije */}
       <PostReactions postId={post.id} reactions={post.reactions} />
 
-      {/* Kategorija posta */}
+      {/* Kategorija */}
       <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
-        {post.category}
+        {category}
       </span>
 
-      {/* Broj komentara */}
-      <p className="post-comments">{comments?.length || 0} comments</p>
+      {/* Komentari */}
+      <Comments postID={post.id} userId={auth.currentUser?.uid} />
 
-      {/* Prikaz 1-2 komentara ako ih ima */}
-      {comments?.slice(0, 2).map((comment, index) => (
-        <p key={index} className="post-comment">
-          &quot;{comment.text}
-        </p>
-        
-      ))}
-      <Comments postId={post.id} userId={auth.currentUser?.uid} />
+      {/* View More dugme */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(`/post/${post.id}`);
+        }}
+        className="view-more"
+        style={{ position: "absolute", bottom: "10px", right: "10px" }}
+      >
+        View Full Post →
+      </button>
     </div>
   );
 };
