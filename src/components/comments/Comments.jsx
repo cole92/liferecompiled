@@ -3,18 +3,19 @@ import CommentForm from "./CommentForm";
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, orderBy, } from "firebase/firestore";
 import { db } from "../../firebase";
+import CommentItem from "./CommentItem";
 
 
 /**
  * Komponenta za prikaz i dodavanje komentara na post.
- * U okviru ove komponente prikazuju se prva dva komentara (preview),
- * kao i forma za unos novog komentara.
+ * Koristi se kao preview u post karticama (prva 2 komentara) ili
+ * za prikaz svih komentara na stranici pojedinacnog posta.
  *
  * @param {string} postID - ID posta na koji se komentari odnose.
- * @param {string} userId - ID trenutno prijavljenog korisnika (potreban za formu).
+ * @param {string} userId - ID trenutno prijavljenog korisnika (za formu).
  */
 
-const Comments = ({  postID, userId }) => {
+const Comments = ({ postID, userId }) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
 
@@ -25,21 +26,20 @@ const Comments = ({  postID, userId }) => {
     // Kreiramo Firestore upit:
     // Uzimamo komentare koji pripadaju ovom postu, sortirane po vremenu unazad
     const q = query(
-      collection(db, "comments"),            // Kolekcija komentara
-      where("postID", "==", postID),         // Filtriramo po ID-ju posta
-      orderBy("timestamp", "desc")           // Sortiramo po vremenu opadajuće (najnoviji prvi)
+      collection(db, "comments"), // Kolekcija komentara
+      where("postID", "==", postID), // Filtriramo po ID-ju posta
+      orderBy("timestamp", "desc") // Sortiramo po vremenu opadajuće (najnoviji prvi)
     );
     // Subscribujemo se na real-time promene pomocu onSnapshot
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const results = snapshot.docs.map((doc) => ({
-        id: doc.id,          // Dodajemo ID dokumenta
-        ...doc.data(),       // Kombinujemo sa podacima iz Firestore-a
+        id: doc.id, // Dodajemo ID dokumenta
+        ...doc.data(), // Kombinujemo sa podacima iz Firestore-a
       }));
-      setComments(results);  // Azuriramo state sa novim komentarima
+      setComments(results); // Azuriramo state sa novim komentarima
     });
     // Cleanup funkcija – prekida listener kada komponenta unmount-uje
     return unsubscribe;
-
   }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
   return (
@@ -49,12 +49,12 @@ const Comments = ({  postID, userId }) => {
 
       {/* Prikaz prva dva komentara (preview prikaz) */}
       {comments.slice(0, 2).map((comment) => (
-        <div key={comment.id} className="comment-item"> 
-          <p><strong>User:</strong> {comment.userID}</p>
-          <p>{comment.content}</p>
-           {/* Vreme prikaza komentara se trenutno ne koristi */}
-          {/* <small>{comment.timestamp?.toDate().toLocaleString()}</small> */}
-        </div>
+        <CommentItem
+          key={comment.id}                   // Jedinstveni ID komentara (Firestore doc.id)
+          userId={comment.userID}            // ID korisnika (koristi se za dohvat imena i slike)
+          content={comment.content}          // Tekst komentara
+          timestamp={comment.timestamp}      // Vreme kada je komentar dodat
+        />
       ))}
     </div>
   );
