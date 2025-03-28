@@ -15,7 +15,7 @@ import CommentItem from "./CommentItem";
  * @param {string} userId - ID trenutno prijavljenog korisnika (za formu).
  */
 
-const Comments = ({ postID, userId }) => {
+const Comments = ({ postID, userId, showAll = false }) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
 
@@ -28,7 +28,7 @@ const Comments = ({ postID, userId }) => {
     const q = query(
       collection(db, "comments"), // Kolekcija komentara
       where("postID", "==", postID), // Filtriramo po ID-ju posta
-      orderBy("timestamp", "desc") // Sortiramo po vremenu opadajuće (najnoviji prvi)
+      orderBy("timestamp", "desc") // Sortiramo po vremenu opadajuce (najnoviji prvi)
     );
     // Subscribujemo se na real-time promene pomocu onSnapshot
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -48,7 +48,7 @@ const Comments = ({ postID, userId }) => {
       <CommentForm postId={postID} userId={userId} parentId={null} />
 
       {/* Prikaz prva dva komentara (preview prikaz) */}
-      {comments.slice(0, 2).map((comment) => (
+      {(showAll? comments : comments.slice(0, 2)).map((comment) => (
         <CommentItem
           key={comment.id}                   // Jedinstveni ID komentara (Firestore doc.id)
           userId={comment.userID}            // ID korisnika (koristi se za dohvat imena i slike)
@@ -63,7 +63,8 @@ const Comments = ({ postID, userId }) => {
 // Validacija props-a
 Comments.propTypes = {
   postID: PropTypes.string.isRequired, // Obavezno postID mora biti string
-  userId: PropTypes.string.isRequired, // Obavezno userID mora biti string
+  userId: PropTypes.string,            // Moze biti undefined ako korisnik nije ulogovan
+  showAll: PropTypes.bool,             // True za prikaz svih komentara
 };
 
 export default Comments;

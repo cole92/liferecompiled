@@ -8,6 +8,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
+import PostDetails from "./pages/PostDetails";
 import { ToastContainer } from "react-toastify";
 import "./App.css";
 
@@ -18,6 +19,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/post/:postId" element={<PostDetails />} />
         {/* Zasticene ruta */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
