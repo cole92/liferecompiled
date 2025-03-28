@@ -2,9 +2,12 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 /**
- * Dohvata korisnicke podatke iz Firestore-a na osnovu userID-ja.
- * @param {string} userId - ID korisnika
- * @returns {object|null} - Podaci o korisniku (ime, slika...) ili null ako ne postoji
+ * Dohvata korisničke podatke iz Firestore-a na osnovu userID-ja.
+ *
+ * @async
+ * @function getUserById
+ * @param {string} userId - ID korisnika.
+ * @returns {Promise<object|null>} Podaci o korisniku (ime, slika...) ili null ako ne postoji.
  */
 
 export const getUserById = async (userId) => {
