@@ -2,7 +2,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 /**
- * Dohvata korisničke podatke iz Firestore-a na osnovu userID-ja.
+ * Dohvata korisnicke podatke iz Firestore-a na osnovu userID-ja.
  *
  * @async
  * @function getUserById
