@@ -1,12 +1,16 @@
 import { useParams } from "react-router-dom";
+import { auth } from "../firebase";
 import { useEffect, useState } from "react";
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+import PostReactions from "../components/PostReactions";
+import Comments from "../components/comments/Comments";
 import Spinner from "../components/Spinner";
 
 /**
  * Prikazuje detalje o pojedinacnom blog postu na osnovu ID-ja iz URL-a.
+ * Prikazuje naslov, sadržaj, informacije o autoru, tagove, reakcije i komentare.
  *
  * @component
  * @returns {JSX.Element} Komponenta sa detaljima posta ili fallback porukom/spinerom.
@@ -21,6 +25,7 @@ const PostDetails = () => {
   const [post, setPost] = useState(null); // State za podatke o postu
   const [isLoading, setIsLoading] = useState(true); // State za prikaz ucitavanja
   const [author, setAuthor] = useState(null);
+  const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     // Dohvata podatke o postu kada se komponenta montira ili promeni postId
@@ -38,8 +43,8 @@ const PostDetails = () => {
     fetchPost();
   }, [postId]);
 
-  
   useEffect(() => {
+    // Kada se post ucita, dohvatamo podatke o autoru
     if (post?.userId) {
       const fetchUser = async () => {
         const data = await getUserById(post.userId);
@@ -68,6 +73,7 @@ const PostDetails = () => {
           />
           <span>{author?.name}</span>
           <span className="mx-1">·</span>
+          {/* Pretvaramo Firestore timestamp u lokalni string */}
           <span>{post?.createdAt?.toDate().toLocaleString()}</span>
         </div>
         <span className="mt-2 md:mt-0">📂 Category: {post?.category}</span>
@@ -91,14 +97,9 @@ const PostDetails = () => {
       </div>
 
       {/* Reakcije */}
-      <div className="sticky bottom-0 bg-white py-3 border-t shadow">
+      <div className="bg-white py-3 border-t shadow mt-4">
         <div className="flex gap-2 justify-center">
-          <button className="border px-3 py-1 rounded-full text-sm">
-            💡 Idea (5)
-          </button>
-          <button className="border px-3 py-1 rounded-full text-sm">
-            🔥 Hot (3)
-          </button>
+          <PostReactions postId={postId} />
         </div>
       </div>
 
@@ -108,51 +109,7 @@ const PostDetails = () => {
           💬 Comments
         </h3>
 
-        {/* Primer komentara 1 */}
-        <div className="mb-4 border-b pb-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-            <img
-              src="https://via.placeholder.com/30"
-              alt="Korisnik avatar"
-              className="w-6 h-6 rounded-full"
-            />
-            <span>Korisnik 1</span>
-            <span className="mx-1">·</span>
-            <span>pre 2 sata</span>
-          </div>
-          <p className="text-gray-700 ml-8">
-            Ovo je placeholder za sadržaj prvog komentara.
-          </p>
-        </div>
-
-        {/* Primer komentara 2 */}
-        <div className="mb-4 border-b pb-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-            <img
-              src="https://via.placeholder.com/30"
-              alt="Korisnik avatar"
-              className="w-6 h-6 rounded-full"
-            />
-            <span>Korisnik 2</span>
-            <span className="mx-1">·</span>
-            <span>pre 3 sata</span>
-          </div>
-          <p className="text-gray-700 ml-8">
-            Ovo je placeholder za sadržaj drugog komentara.
-          </p>
-        </div>
-
-        {/* Forma za dodavanje komentara */}
-        <div className="mt-6">
-          <textarea
-            placeholder="Dodaj komentar..."
-            className="w-full border rounded-lg p-2 mb-2 focus:outline-none"
-            rows={3}
-          ></textarea>
-          <button className="px-4 py-1 bg-blue-500 text-white rounded-lg text-sm">
-            Pošalji komentar
-          </button>
-        </div>
+        <Comments postID={postId} userId={userId} showAll={true} />
       </div>
     </div>
   );

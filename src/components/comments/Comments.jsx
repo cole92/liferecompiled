@@ -1,10 +1,15 @@
 import PropTypes from "prop-types";
 import CommentForm from "./CommentForm";
 import { useEffect, useState } from "react";
-import { collection, query, where, onSnapshot, orderBy, } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+} from "firebase/firestore";
 import { db } from "../../firebase";
 import CommentItem from "./CommentItem";
-
 
 /**
  * Komponenta za prikaz i dodavanje komentara na post.
@@ -13,11 +18,13 @@ import CommentItem from "./CommentItem";
  *
  * @param {string} postID - ID posta na koji se komentari odnose.
  * @param {string} userId - ID trenutno prijavljenog korisnika (za formu).
+ * @param {boolean} [showAll=false] - Ako je true, prikazuje sve komentare sa "See more" funkcijom.
  */
 
 const Comments = ({ postID, userId, showAll = false }) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   useEffect(() => {
     // Ako ne postoji postID, ne pokrecemo nista
@@ -43,19 +50,31 @@ const Comments = ({ postID, userId, showAll = false }) => {
   }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
   return (
-    <div>
+    <div className="max-h-[400px] overflow-y-auto pr-1">
+      {/* Prikaz prva dva komentara (preview prikaz) */}
+      {(showAll ? comments.slice(0, visibleCount) : comments.slice(0, 2)).map(
+        (comment) => (
+          <CommentItem
+            key={comment.id} // Jedinstveni ID komentara (Firestore doc.id)
+            userId={comment.userID} // ID korisnika (koristi se za dohvat imena i slike)
+            content={comment.content} // Tekst komentara
+            timestamp={comment.timestamp} // Vreme kada je komentar dodat
+          />
+        )
+      )}
+      {/* Dugme za prikaz dodatnih komentara (5 po kliku) */}
+      {showAll && visibleCount < comments.length && (
+        <div className="text-center mt-4">
+          <button
+            onClick={() => setVisibleCount((prev) => prev + 5)}
+            className="text-sm text-blue-500 hover:underline"
+          >
+            See more comments
+          </button>
+        </div>
+      )}
       {/* Forma za dodavanje komentara */}
       <CommentForm postId={postID} userId={userId} parentId={null} />
-
-      {/* Prikaz prva dva komentara (preview prikaz) */}
-      {(showAll? comments : comments.slice(0, 2)).map((comment) => (
-        <CommentItem
-          key={comment.id}                   // Jedinstveni ID komentara (Firestore doc.id)
-          userId={comment.userID}            // ID korisnika (koristi se za dohvat imena i slike)
-          content={comment.content}          // Tekst komentara
-          timestamp={comment.timestamp}      // Vreme kada je komentar dodat
-        />
-      ))}
     </div>
   );
 };
@@ -63,8 +82,8 @@ const Comments = ({ postID, userId, showAll = false }) => {
 // Validacija props-a
 Comments.propTypes = {
   postID: PropTypes.string.isRequired, // Obavezno postID mora biti string
-  userId: PropTypes.string,            // Moze biti undefined ako korisnik nije ulogovan
-  showAll: PropTypes.bool,             // True za prikaz svih komentara
+  userId: PropTypes.string, // Moze biti undefined ako korisnik nije ulogovan
+  showAll: PropTypes.bool, // True za prikaz svih komentara
 };
 
 export default Comments;
