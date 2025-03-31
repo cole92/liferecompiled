@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { getUserById } from "../../services/userService";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 
 /**
@@ -12,6 +14,8 @@ import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
  * @param {string} content - Tekst komentara
  * @param {object} timestamp - Firestore timestamp (datum i vreme komentara)
  */
+
+dayjs.extend(relativeTime);
 
 const CommentItem = ({ userId, content, timestamp }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
@@ -47,9 +51,9 @@ const CommentItem = ({ userId, content, timestamp }) => {
           {/* Tekst komentara */}
           <p className="text-sm text-gray-700 mt-1">{content}</p>
 
-          {/* Vreme postavljanja komentara */}
+          {/* Vreme postavljanja komentara koristeci 'relativeTime plugin' */}
           <small className="text-xs text-gray-500">
-            {timestamp?.toDate().toLocaleString()}
+          <span>{dayjs(timestamp?.toDate()).fromNow()}</span>
           </small>
         </div>
       </div>

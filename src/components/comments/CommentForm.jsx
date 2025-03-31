@@ -13,7 +13,7 @@ import { addComment } from "./commentsService";
 
 const CommentForm = ({ postId, userId, parentId }) => {
   // State za pracenje unetog teksta komentara
-  const [commentContent, setcommentContent] = useState("");
+  const [commentContent, setCommentContent] = useState("");
 
   /**
    * Obradjuje submit forme.
@@ -31,25 +31,32 @@ const CommentForm = ({ postId, userId, parentId }) => {
       if (!commentContent.trim()) return; // Sprecava slanje praznog komentara
 
       await addComment(postId, userId, commentContent, parentId);
-      setcommentContent(""); // Resetuje textarea nakon uspesnog slanja
+      setCommentContent(""); // Resetuje textarea nakon uspesnog slanja
     } catch (error) {
       console.error("Error adding comment:", error);
     }
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
-        {/* Textarea za unos komentara */}
-        <textarea
-          value={commentContent}
-          onChange={(e) => setcommentContent(e.target.value)}
-          placeholder="Write comment..."
-        ></textarea>
-        {/* Dugme za slanje komentara */}
-        <button type="submit">Send</button>
-      </form>
-    </div>
+    <form
+      onSubmit={handleSubmit}
+      onClick={(e) => e.stopPropagation()}
+      className="mt-6"
+    >
+      <textarea
+        placeholder="Add comment..."
+        className="w-full border rounded-lg p-2 mb-2 focus:outline-none"
+        rows={3}
+        value={commentContent}
+        onChange={(e) => setCommentContent(e.target.value)}
+      ></textarea>
+      <button
+        type="submit"
+        className="px-4 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition"
+      >
+        Send comment
+      </button>
+    </form>
   );
 };
 
