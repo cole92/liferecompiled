@@ -24,6 +24,7 @@ import CommentItem from "./CommentItem";
 const Comments = ({ postID, userId, showAll = false }) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
+  // Broj komentara koji se prikazuju kada je showAll aktivan
   const [visibleCount, setVisibleCount] = useState(5);
 
   useEffect(() => {
@@ -50,15 +51,17 @@ const Comments = ({ postID, userId, showAll = false }) => {
   }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
   return (
-    <div className="max-h-[400px] overflow-y-auto pr-1">
+    <div className={`${showAll ? "max-h-[400px] overflow-y-auto scrollbar-hide pr-1" : ""}`}>
       {/* Prikaz prva dva komentara (preview prikaz) */}
       {(showAll ? comments.slice(0, visibleCount) : comments.slice(0, 2)).map(
         (comment) => (
           <CommentItem
             key={comment.id} // Jedinstveni ID komentara (Firestore doc.id)
+            commentId={comment.id}
             userId={comment.userID} // ID korisnika (koristi se za dohvat imena i slike)
             content={comment.content} // Tekst komentara
             timestamp={comment.timestamp} // Vreme kada je komentar dodat
+            postID={comment.postID} 
           />
         )
       )}

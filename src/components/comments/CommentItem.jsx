@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { auth } from "../../firebase";
 import PropTypes from "prop-types";
 import { getUserById } from "../../services/userService";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
+import CommentForm from "./CommentForm";
 
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
@@ -12,13 +14,14 @@ import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
  *
  * @param {string} userId - ID korisnika koji je ostavio komentar
  * @param {string} content - Tekst komentara
- * @param {object} timestamp - Firestore timestamp (datum i vreme komentara)
+ * @param {firebase.firestore.Timestamp} timestamp - Firestore timestamp objekat
  */
 
 dayjs.extend(relativeTime);
 
-const CommentItem = ({ userId, content, timestamp }) => {
+const CommentItem = ({ userId, content, timestamp, postID, commentId }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
+  const [isReplaying, setIsReplaying] = useState(false);
 
   useEffect(() => {
     // Ako nemamo userId, ne pokrecemo dohvat
@@ -30,7 +33,7 @@ const CommentItem = ({ userId, content, timestamp }) => {
     };
 
     fetchUser(); // Poziv funkcije prilikom mountovanja komponente
-  }, [userId]);  // useEffect se pokrece kad se userId promeni
+  }, [userId]); // useEffect se pokrece kad se userId promeni
 
   return (
     <div className="comment-item p-4 bg-white rounded-md shadow-sm mb-4">
@@ -45,7 +48,7 @@ const CommentItem = ({ userId, content, timestamp }) => {
         <div>
           {/* Ime korisnika */}
           <span className="font-semibold text-sm text-gray-800 block">
-          {user && user.name}
+            {user && user.name}
           </span>
 
           {/* Tekst komentara */}
@@ -53,8 +56,26 @@ const CommentItem = ({ userId, content, timestamp }) => {
 
           {/* Vreme postavljanja komentara koristeci 'relativeTime plugin' */}
           <small className="text-xs text-gray-500">
-          <span>{dayjs(timestamp?.toDate()).fromNow()}</span>
+            <span>{dayjs(timestamp?.toDate()).fromNow()}</span>
           </small>
+          {isReplaying && (
+            <div className="mt-2">
+              <CommentForm
+                postId={postID}
+                userId={auth.currentUser?.uid}
+                parentId={commentId}
+              />
+            </div>
+          )}
+          <div>
+            {/* Dugme za prikaz forme za odgovor */}
+            <button
+              onClick={() => setIsReplaying(!isReplaying)}
+              className="text-sm text-blue-500 hover:underline mt-1"
+            >
+              Reply
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -65,6 +86,8 @@ CommentItem.propTypes = {
   userId: PropTypes.string.isRequired,
   content: PropTypes.string.isRequired,
   timestamp: PropTypes.object,
+  postID: PropTypes.string.isRequired,
+  commentId: PropTypes.string.isRequired,
 };
 
 export default CommentItem;
