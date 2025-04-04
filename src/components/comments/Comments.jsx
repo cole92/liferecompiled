@@ -50,23 +50,32 @@ const Comments = ({ postID, userId, showAll = false }) => {
     return unsubscribe;
   }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
+  // Izdvajamo samo glavne komentare (oni koji nisu odgovori)
+  const mainComments = comments.filter((c) => c.parentID === null);
+
   return (
-    <div className={`${showAll ? "max-h-[400px] overflow-y-auto scrollbar-hide pr-1" : ""}`}>
+    <div
+      className={`${
+        showAll ? "max-h-[400px] overflow-y-auto scrollbar-hide pr-1" : ""
+      }`}
+    >
       {/* Prikaz prva dva komentara (preview prikaz) */}
-      {(showAll ? comments.slice(0, visibleCount) : comments.slice(0, 2)).map(
-        (comment) => (
-          <CommentItem
-            key={comment.id} // Jedinstveni ID komentara (Firestore doc.id)
-            commentId={comment.id}
-            userId={comment.userID} // ID korisnika (koristi se za dohvat imena i slike)
-            content={comment.content} // Tekst komentara
-            timestamp={comment.timestamp} // Vreme kada je komentar dodat
-            postID={comment.postID} 
-          />
-        )
-      )}
+      {(showAll
+        ? mainComments.slice(0, visibleCount)
+        : mainComments.slice(0, 2)
+      ).map((comment) => (
+        <CommentItem
+          key={comment.id} // Jedinstveni ID komentara (Firestore doc.id)
+          commentId={comment.id}
+          userId={comment.userID} // ID korisnika (koristi se za dohvat imena i slike)
+          content={comment.content} // Tekst komentara
+          timestamp={comment.timestamp} // Vreme kada je komentar dodat
+          postID={comment.postID}
+          comments={comments}
+        />
+      ))}
       {/* Dugme za prikaz dodatnih komentara (5 po kliku) */}
-      {showAll && visibleCount < comments.length && (
+      {showAll && visibleCount < mainComments.length && (
         <div className="text-center mt-4">
           <button
             onClick={() => setVisibleCount((prev) => prev + 5)}

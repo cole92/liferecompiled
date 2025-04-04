@@ -9,17 +9,28 @@ import CommentForm from "./CommentForm";
 
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
- * Prima ID korisnika, sadrzaj komentara i timestamp.
- * Dohvata korisniccke podatke (ime i sliku) iz Firestore-a pomocu `getUserById`.
+ * Prikazuje i odgovore (replies) na komentar ako postoje.
+ *
+ * Dohvata korisnicke podatke (ime i sliku) iz Firestore-a pomocu `getUserById`.
  *
  * @param {string} userId - ID korisnika koji je ostavio komentar
  * @param {string} content - Tekst komentara
  * @param {firebase.firestore.Timestamp} timestamp - Firestore timestamp objekat
+ * @param {string} postID - ID posta na koji komentar pripada
+ * @param {string} commentId - ID ovog komentara
+ * @param {Array<Object>} comments - Svi komentari vezani za post (za pronalazenje odgovora)
  */
 
 dayjs.extend(relativeTime);
 
-const CommentItem = ({ userId, content, timestamp, postID, commentId }) => {
+const CommentItem = ({
+  userId,
+  content,
+  timestamp,
+  postID,
+  commentId,
+  comments,
+}) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
   const [isReplaying, setIsReplaying] = useState(false);
 
@@ -34,6 +45,8 @@ const CommentItem = ({ userId, content, timestamp, postID, commentId }) => {
 
     fetchUser(); // Poziv funkcije prilikom mountovanja komponente
   }, [userId]); // useEffect se pokrece kad se userId promeni
+
+  const replies = comments.filter((c) => c.parentID === commentId);
 
   return (
     <div className="comment-item p-4 bg-white rounded-md shadow-sm mb-4">
@@ -78,6 +91,22 @@ const CommentItem = ({ userId, content, timestamp, postID, commentId }) => {
           </div>
         </div>
       </div>
+      {/* Odgovori (deca) */}
+      {replies.length > 0 && (
+        <div className="pl-6 mt-2 border-l border-gray-200 ml-3">
+          {replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              commentId={reply.id}
+              postID={reply.postID}
+              userId={reply.userID}
+              content={reply.content}
+              timestamp={reply.timestamp}
+              comments={comments}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -88,6 +117,14 @@ CommentItem.propTypes = {
   timestamp: PropTypes.object,
   postID: PropTypes.string.isRequired,
   commentId: PropTypes.string.isRequired,
+  comments: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    userID: PropTypes.string.isRequired,
+    content: PropTypes.string.isRequired,
+    timestamp: PropTypes.object,
+    postID: PropTypes.string.isRequired,
+    parentID: PropTypes.string,
+  })).isRequired,
 };
 
 export default CommentItem;
