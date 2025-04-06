@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { auth } from "../../firebase";
+import { auth, db } from "../../firebase";
 import PropTypes from "prop-types";
 import { getUserById } from "../../services/userService";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
+import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import CommentForm from "./CommentForm";
+import { deleteDoc, doc } from "firebase/firestore";
+import ConfirmModal from "../../utils/ConfirmModal";
 
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
@@ -32,7 +35,8 @@ const CommentItem = ({
   comments,
 }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
-  const [isReplaying, setIsReplaying] = useState(false);
+  const [isReplaying, setIsReplaying] = useState(false); // Na osnovu ovog state-a znamo da li je odgovor na komentar
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     // Ako nemamo userId, ne pokrecemo dohvat
@@ -47,6 +51,17 @@ const CommentItem = ({
   }, [userId]); // useEffect se pokrece kad se userId promeni
 
   const replies = comments.filter((c) => c.parentID === commentId);
+
+  // Metoda za brisanje komentara
+  const handleDelete = async (commentId) => {
+    try {
+      await deleteDoc(doc(db, "comments", commentId));
+      showSuccessToast("Comment deleted successfully");
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      showErrorToast("Failed to delete comment");
+    }
+  };
 
   return (
     <div className="comment-item p-4 bg-white rounded-md shadow-sm mb-4">
@@ -88,6 +103,27 @@ const CommentItem = ({
             >
               Reply
             </button>
+            {/* Uslovno prikazivanje dugmeta za brisanje komentara*/}
+            {auth.currentUser?.uid === userId && (
+              <button
+                onClick={() => setShowConfirmModal(true)}
+                className="text-sm text-blue-500 hover:underline mt-1"
+              >
+                Delete
+              </button>
+            )}
+            {/* Modal komponenta */}
+
+            <ConfirmModal
+              isOpen={showConfirmModal}
+              title="Delete Comment"
+              message="Are you sure you want to delete this comment?"
+              onCancel={() => setShowConfirmModal(false)}
+              onConfirm={() => {
+                handleDelete(commentId);
+                setShowConfirmModal(false);
+              }}
+            />
           </div>
         </div>
       </div>
@@ -117,14 +153,16 @@ CommentItem.propTypes = {
   timestamp: PropTypes.object,
   postID: PropTypes.string.isRequired,
   commentId: PropTypes.string.isRequired,
-  comments: PropTypes.arrayOf(PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    userID: PropTypes.string.isRequired,
-    content: PropTypes.string.isRequired,
-    timestamp: PropTypes.object,
-    postID: PropTypes.string.isRequired,
-    parentID: PropTypes.string,
-  })).isRequired,
+  comments: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      userID: PropTypes.string.isRequired,
+      content: PropTypes.string.isRequired,
+      timestamp: PropTypes.object,
+      postID: PropTypes.string.isRequired,
+      parentID: PropTypes.string,
+    })
+  ).isRequired,
 };
 
 export default CommentItem;
