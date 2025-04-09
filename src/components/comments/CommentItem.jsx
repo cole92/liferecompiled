@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { auth, db } from "../../firebase";
 import PropTypes from "prop-types";
-import { getUserById } from "../../services/userService";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { auth } from "../../firebase";
+import { getUserById } from "../../services/userService";
+import { deleteComment } from "../../firebase/functions";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import CommentForm from "./CommentForm";
-import { deleteDoc, doc } from "firebase/firestore";
 import ConfirmModal from "../../utils/ConfirmModal";
 
 /**
@@ -55,11 +55,13 @@ const CommentItem = ({
   // Metoda za brisanje komentara
   const handleDelete = async (commentId) => {
     try {
-      await deleteDoc(doc(db, "comments", commentId));
-      showSuccessToast("Comment deleted successfully");
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-      showErrorToast("Failed to delete comment");
+      const result = await deleteComment({ commentId });
+      if (result.data.success) {
+        showSuccessToast("Komentar i svi odgovori su obrisani.");
+      }
+    } catch (err) {
+      console.error("Greska pri brisanju:", err);
+      showErrorToast("Greska pri brisanju komentara.");
     }
   };
 
