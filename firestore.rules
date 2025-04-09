@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ✅ Proverava da li je korisnik vlasnik roditelja komentara
+    function isOwnerOfParent(parentID) {
+      return get(/databases/$(database)/documents/comments/$(parentID)).data.userID == request.auth.uid;
+    }
+
+    // Pravila za postove
+    match /posts/{postId} {
+      allow read: if true; // Svako može čitati postove (ulogovani i gosti)
+      allow write: if request.auth != null; // Samo ulogovani mogu kreirati/editovati
+    }
+
+    // Pravila za korisničke profile
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+    }
+
+    // Pravila za reakcije
+    match /reactions/{reactionId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Pravila za komentare
+    match /comments/{commentId} {
+      allow read: if true; // Svi mogu čitati komentare
+      allow create: if request.auth != null; // Samo prijavljeni korisnici mogu dodavati komentare
+
+      // Dozvoli brisanje ako je:
+      // - korisnik autor komentara
+      // - ili je korisnik autor roditelja tog komentara
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.userID ||
+        (resource.data.parentID != null && isOwnerOfParent(resource.data.parentID))
+      );
+
+      allow update: if request.auth != null && request.auth.uid == resource.data.userID;
+    }
+  }
+}
