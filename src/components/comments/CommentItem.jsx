@@ -12,9 +12,9 @@ import ConfirmModal from "../../utils/ConfirmModal";
 
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
- * Prikazuje i odgovore (replies) na komentar ako postoje.
- *
- * Dohvata korisnicke podatke (ime i sliku) iz Firestore-a pomocu `getUserById`.
+ * Prikazuje odgovore (replies), omogucava odgovaranje i brisanje komentara.
+ * 
+ * Dohvata korisnicke podatke (ime i sliku) iz Firestore-a pomoću `getUserById`.
  *
  * @param {string} userId - ID korisnika koji je ostavio komentar
  * @param {string} content - Tekst komentara
@@ -22,6 +22,7 @@ import ConfirmModal from "../../utils/ConfirmModal";
  * @param {string} postID - ID posta na koji komentar pripada
  * @param {string} commentId - ID ovog komentara
  * @param {Array<Object>} comments - Svi komentari vezani za post (za pronalazenje odgovora)
+ * @param {number} [depth=0] - Trenutna dubina komentara; koristi se za hijerarhijsko uvlacenje i ogranicenje rekurzije.
  */
 
 dayjs.extend(relativeTime);
@@ -33,10 +34,12 @@ const CommentItem = ({
   postID,
   commentId,
   comments,
+  depth = 0,
 }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
   const [isReplaying, setIsReplaying] = useState(false); // Na osnovu ovog state-a znamo da li je odgovor na komentar
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     // Ako nemamo userId, ne pokrecemo dohvat
@@ -54,6 +57,7 @@ const CommentItem = ({
 
   // Metoda za brisanje komentara
   const handleDelete = async (commentId) => {
+    setIsDeleting(true);
     try {
       const result = await deleteComment({ commentId });
       if (result.data.success) {
@@ -62,11 +66,16 @@ const CommentItem = ({
     } catch (err) {
       console.error("Greska pri brisanju:", err);
       showErrorToast("Greska pri brisanju komentara.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
-    <div className="comment-item p-4 bg-white rounded-md shadow-sm mb-4">
+    <div
+      className="comment-item p-4 bg-white rounded-md shadow-sm mb-4"
+      style={{ marginLeft: `${Math.min(depth, 4) * 16}px` }} // max 64px margine
+    >
       <div className="flex items-start gap-3">
         {/* Profilna slika korisnika */}
         <img
@@ -94,41 +103,62 @@ const CommentItem = ({
                 postId={postID}
                 userId={auth.currentUser?.uid}
                 parentId={commentId}
+                onSubmitSuccess={() => setIsReplaying(false)}
               />
             </div>
           )}
           <div>
-            {/* Dugme za prikaz forme za odgovor */}
-            <button
-              onClick={() => setIsReplaying(!isReplaying)}
-              className="text-sm text-blue-500 hover:underline mt-1"
-            >
-              Reply
-            </button>
-            {/* Uslovno prikazivanje dugmeta za brisanje komentara*/}
-            {auth.currentUser?.uid === userId && (
+            {/*Uslovni prikaz dugmeta za prikaz forme za odgovor */}
+            {depth < 4 ? (
               <button
-                onClick={() => setShowConfirmModal(true)}
+                onClick={() => setIsReplaying(!isReplaying)}
                 className="text-sm text-blue-500 hover:underline mt-1"
               >
-                Delete
+                Reply
+              </button>
+            ) : (
+              <button
+                disabled
+                className="text-sm text-gray-400 cursor-not-allowed mt-1"
+                title="Maximum depth reached"
+              >
+                Reply (disabled)
               </button>
             )}
-            {/* Modal komponenta */}
+            {/* Uslovno prikazivanje dugmeta za brisanje komentara*/}
+            {auth.currentUser?.uid === userId && (
+              <>
+                {!isDeleting ? (
+                  <button
+                    onClick={() => setShowConfirmModal(true)}
+                    className="text-sm text-blue-500 hover:underline ml-3"
+                  >
+                    Delete
+                  </button>
+                ) : (
+                  // <Spinner />
+                  <span className="text-sm text-gray-500 ml-3">
+                    Deleting...
+                  </span>
+                )}
 
-            <ConfirmModal
-              isOpen={showConfirmModal}
-              title="Delete Comment"
-              message="Are you sure you want to delete this comment?"
-              onCancel={() => setShowConfirmModal(false)}
-              onConfirm={() => {
-                handleDelete(commentId);
-                setShowConfirmModal(false);
-              }}
-            />
+                {/* Confirm modal komponenta */}
+                <ConfirmModal
+                  isOpen={showConfirmModal}
+                  title="Delete Comment"
+                  message="Are you sure you want to delete this comment?"
+                  onCancel={() => setShowConfirmModal(false)}
+                  onConfirm={() => {
+                    handleDelete(commentId);
+                    setShowConfirmModal(false);
+                  }}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
+
       {/* Odgovori (deca) */}
       {replies.length > 0 && (
         <div className="pl-6 mt-2 border-l border-gray-200 ml-3">
@@ -141,6 +171,7 @@ const CommentItem = ({
               content={reply.content}
               timestamp={reply.timestamp}
               comments={comments}
+              depth={depth + 1}
             />
           ))}
         </div>
@@ -165,6 +196,7 @@ CommentItem.propTypes = {
       parentID: PropTypes.string,
     })
   ).isRequired,
+  depth: PropTypes.number,
 };
 
 export default CommentItem;

@@ -3,15 +3,24 @@ import { useState } from "react";
 import { addComment } from "./commentsService";
 
 /**
- * Komponenta za unos komentara.
- * Omogucava korisniku da napise komentar i posalje ga u Firestore.
- *
- * @param {string} postId - ID posta na koji se dodaje komentar.
- * @param {string} userId - ID trenutno prijavljenog korisnika koji unosi komentar.
- * @param {string | null} parentId - Ako je komentar odgovor, ovo je ID roditeljskog komentara; ako nije, ostaje null.
- */
 
-const CommentForm = ({ postId, userId, parentId }) => {
+Komponenta za unos komentara.
+
+Omogucava korisniku da napise komentar i posalje ga u Firestore.
+
+Moze se koristiti za dodavanje glavnih komentara ili odgovora (replies) ako je prosleđen parentId.
+
+@component
+
+@param {string} postId - ID posta na koji se dodaje komentar.
+
+@param {string} userId - ID trenutno prijavljenog korisnika koji unosi komentar.
+
+@param {string | null} parentId - ID roditeljskog komentara ako se radi o odgovoru.
+
+@param {Function} [onSubmitSuccess] - Callback koji se poziva nakon uspesnog unosa komentara. */
+
+const CommentForm = ({ postId, userId, parentId, onSubmitSuccess }) => {
   // State za pracenje unetog teksta komentara
   const [commentContent, setCommentContent] = useState("");
 
@@ -32,6 +41,7 @@ const CommentForm = ({ postId, userId, parentId }) => {
 
       await addComment(postId, userId, commentContent, parentId);
       setCommentContent(""); // Resetuje textarea nakon uspesnog slanja
+      onSubmitSuccess?.(); // Zatvara reply nakon dodatog odgovora na komentar
     } catch (error) {
       console.error("Error adding comment:", error);
     }
@@ -65,6 +75,7 @@ CommentForm.propTypes = {
   postId: PropTypes.string.isRequired, // Obavezno postID mora biti string
   userId: PropTypes.string.isRequired, // Obavezno userID mora biti string
   parentId: PropTypes.string, // parentId moze biti string ili undefined (nije obavezan)
+  onSubmitSuccess: PropTypes.func,
 };
 
 export default CommentForm;
