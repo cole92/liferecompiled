@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { addComment } from "./commentsService";
 
 /**
@@ -7,18 +7,30 @@ import { addComment } from "./commentsService";
  *
  * Omogucava korisniku da napise komentar i posalje ga u Firestore.
  * Moze se koristiti za dodavanje glavnih komentara ili odgovora (replies) ako je prosledjen `parentId`.
+ * Podrzava automatsko fokusiranje i vizuelni indikator preostalog broja karaktera.
  *
  * @component
  * @param {string} postId - ID posta na koji se dodaje komentar.
  * @param {string} userId - ID trenutno prijavljenog korisnika koji unosi komentar.
  * @param {string|null} parentId - ID roditeljskog komentara ako se radi o odgovoru.
- * @param {Function} [onSubmitSuccess] - Callback koji se poziva nakon uspešnog unosa komentara.
+ * @param {Function} [onSubmitSuccess] - Callback koji se poziva nakon uspesnog unosa komentara.
+ * @param {boolean} [autoFocus=false] - Ako je true, automatski fokusira textarea pri mountovanju komponente.
  */
 
-const CommentForm = ({ postId, userId, parentId, onSubmitSuccess }) => {
+const CommentForm = ({ postId, userId, parentId, onSubmitSuccess, autoFocus = false }) => {
   // State za pracenje unetog teksta komentara
   const [commentContent, setCommentContent] = useState("");
   const [error, setError] = useState("");
+  const textareaRef = useRef(null);
+  const isCommentValid = commentContent.trim().length > 0;
+  
+  useEffect(() => {
+    // Ako je autoFocus aktivan, fokusiraj textarea i skroluj je u centar ekrana
+    if (autoFocus && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [autoFocus]);
 
   /**
    * Obradjuje submit forme.
@@ -58,6 +70,7 @@ const CommentForm = ({ postId, userId, parentId, onSubmitSuccess }) => {
       className="mt-6"
     >
       <textarea
+        ref={textareaRef}
         placeholder="Add comment..."
         className="w-full border rounded-lg p-2 mb-2 focus:outline-none"
         rows={3}
@@ -74,7 +87,12 @@ const CommentForm = ({ postId, userId, parentId, onSubmitSuccess }) => {
       </div>
       <button
         type="submit"
-        className="px-4 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition"
+        disabled={!isCommentValid}
+        className={`px-4 py-1 text-sm rounded-lg transition ${
+          isCommentValid
+            ? "bg-blue-500 text-white hover:bg-blue-600"
+            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+        }`}
       >
         Send comment
       </button>
@@ -88,6 +106,7 @@ CommentForm.propTypes = {
   userId: PropTypes.string.isRequired, // Obavezno userID mora biti string
   parentId: PropTypes.string, // parentId moze biti string ili undefined (nije obavezan)
   onSubmitSuccess: PropTypes.func,
+  autoFocus: PropTypes.bool,
 };
 
 export default CommentForm;
