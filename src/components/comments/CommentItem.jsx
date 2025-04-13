@@ -9,20 +9,23 @@ import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import CommentForm from "./CommentForm";
 import ConfirmModal from "../../utils/ConfirmModal";
+import { motion } from "framer-motion";
 
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
- * Prikazuje odgovore (replies), omogucava odgovaranje i brisanje komentara.
- * 
- * Dohvata korisnicke podatke (ime i sliku) iz Firestore-a pomoću `getUserById`.
  *
- * @param {string} userId - ID korisnika koji je ostavio komentar
- * @param {string} content - Tekst komentara
- * @param {firebase.firestore.Timestamp} timestamp - Firestore timestamp objekat
- * @param {string} postID - ID posta na koji komentar pripada
- * @param {string} commentId - ID ovog komentara
- * @param {Array<Object>} comments - Svi komentari vezani za post (za pronalazenje odgovora)
- * @param {number} [depth=0] - Trenutna dubina komentara; koristi se za hijerarhijsko uvlacenje i ogranicenje rekurzije.
+ * Prikazuje odgovore (replies), omogucava odgovaranje i brisanje komentara.
+ * Dohvata korisnicke podatke (ime i sliku) iz Firestore-a pomocu `getUserById`.
+ * Ugradjena animacija prikaza koristi framer-motion.
+ *
+ * @component
+ * @param {string} userId - ID korisnika koji je ostavio komentar.
+ * @param {string} content - Tekst komentara.
+ * @param {firebase.firestore.Timestamp} timestamp - Firestore timestamp objekat.
+ * @param {string} postID - ID posta na koji komentar pripada.
+ * @param {string} commentId - ID ovog komentara.
+ * @param {Array<Object>} comments - Lista svih komentara za dati post (za pronalazenje odgovora).
+ * @param {number} [depth=0] - Trenutna dubina komentara; koristi se za uvlacenje i ogranicenje rekurzije.
  */
 
 dayjs.extend(relativeTime);
@@ -72,9 +75,13 @@ const CommentItem = ({
   };
 
   return (
-    <div
+    // Animacija prikaza komentara prilikom mountovanja
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
       className="comment-item p-4 bg-white rounded-md shadow-sm mb-4"
-      style={{ marginLeft: `${Math.min(depth, 4) * 16}px` }} // max 64px margine
+      style={{ marginLeft: `${Math.min(depth, 4) * 16}px` }}
     >
       <div className="flex items-start gap-3">
         {/* Profilna slika korisnika */}
@@ -104,6 +111,7 @@ const CommentItem = ({
                 userId={auth.currentUser?.uid}
                 parentId={commentId}
                 onSubmitSuccess={() => setIsReplaying(false)}
+                autoFocus={true}
               />
             </div>
           )}
@@ -176,7 +184,7 @@ const CommentItem = ({
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
