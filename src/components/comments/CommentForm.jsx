@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import { useRef, useEffect, useState } from "react";
-import { addComment } from "./commentsService";
+import { addCommentSecure } from "../../firebase/functions";
 
 /**
  * Komponenta za unos komentara.
@@ -17,18 +17,26 @@ import { addComment } from "./commentsService";
  * @param {boolean} [autoFocus=false] - Ako je true, automatski fokusira textarea pri mountovanju komponente.
  */
 
-const CommentForm = ({ postId, userId, parentId, onSubmitSuccess, autoFocus = false }) => {
+const CommentForm = ({
+  postId,
+  parentId,
+  onSubmitSuccess,
+  autoFocus = false,
+}) => {
   // State za pracenje unetog teksta komentara
   const [commentContent, setCommentContent] = useState("");
   const [error, setError] = useState("");
   const textareaRef = useRef(null);
   const isCommentValid = commentContent.trim().length > 0;
-  
+
   useEffect(() => {
     // Ako je autoFocus aktivan, fokusiraj textarea i skroluj je u centar ekrana
     if (autoFocus && textareaRef.current) {
       textareaRef.current.focus();
-      textareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      textareaRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   }, [autoFocus]);
 
@@ -51,7 +59,11 @@ const CommentForm = ({ postId, userId, parentId, onSubmitSuccess, autoFocus = fa
         return;
       }
 
-      await addComment(postId, userId, commentContent, parentId);
+      await addCommentSecure({
+        postId,
+        content: commentContent,
+        parentId,
+      });
       setCommentContent(""); // Resetuje textarea nakon uspesnog slanja
       onSubmitSuccess?.(); // Poziva se nakon uspesnog unosa komentara (npr. zatvaranje forme kod odgovora)
     } catch (error) {
@@ -81,7 +93,11 @@ const CommentForm = ({ postId, userId, parentId, onSubmitSuccess, autoFocus = fa
         }}
         maxLength={500}
       ></textarea>
-      {error && <p className="text-red-500 text-sm mb-1">{error}</p>}
+      {(!isCommentValid || error) && (
+        <p className="text-gray-500 text-sm mb-1">
+          {error || "Comment cannot be empty."}
+        </p>
+      )}
       <div className={`text-right text-sm ${charCountColor} mb-2`}>
         {commentContent.length} / 500
       </div>
@@ -103,7 +119,6 @@ const CommentForm = ({ postId, userId, parentId, onSubmitSuccess, autoFocus = fa
 // Validacija props-a
 CommentForm.propTypes = {
   postId: PropTypes.string.isRequired, // Obavezno postID mora biti string
-  userId: PropTypes.string.isRequired, // Obavezno userID mora biti string
   parentId: PropTypes.string, // parentId moze biti string ili undefined (nije obavezan)
   onSubmitSuccess: PropTypes.func,
   autoFocus: PropTypes.bool,
