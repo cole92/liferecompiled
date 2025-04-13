@@ -4,3 +4,4 @@ import { app } from "../firebase"; // ← ovo je tvoj app iz firebase.js
 const functions = getFunctions(app);
 
 export const deleteComment = httpsCallable(functions, "deleteCommentAndChildren");
+export const addCommentSecure = httpsCallable(functions, "addCommentSecure");
