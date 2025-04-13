@@ -122,7 +122,7 @@ const CommentItem = ({
                 className="text-sm text-gray-400 cursor-not-allowed mt-1"
                 title="Maximum depth reached"
               >
-                Reply (disabled)
+                Reply
               </button>
             )}
             {/* Uslovno prikazivanje dugmeta za brisanje komentara*/}

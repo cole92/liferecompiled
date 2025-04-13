@@ -3,26 +3,22 @@ import { useState } from "react";
 import { addComment } from "./commentsService";
 
 /**
-
-Komponenta za unos komentara.
-
-Omogucava korisniku da napise komentar i posalje ga u Firestore.
-
-Moze se koristiti za dodavanje glavnih komentara ili odgovora (replies) ako je prosleđen parentId.
-
-@component
-
-@param {string} postId - ID posta na koji se dodaje komentar.
-
-@param {string} userId - ID trenutno prijavljenog korisnika koji unosi komentar.
-
-@param {string | null} parentId - ID roditeljskog komentara ako se radi o odgovoru.
-
-@param {Function} [onSubmitSuccess] - Callback koji se poziva nakon uspesnog unosa komentara. */
+ * Komponenta za unos komentara.
+ *
+ * Omogucava korisniku da napise komentar i posalje ga u Firestore.
+ * Moze se koristiti za dodavanje glavnih komentara ili odgovora (replies) ako je prosledjen `parentId`.
+ *
+ * @component
+ * @param {string} postId - ID posta na koji se dodaje komentar.
+ * @param {string} userId - ID trenutno prijavljenog korisnika koji unosi komentar.
+ * @param {string|null} parentId - ID roditeljskog komentara ako se radi o odgovoru.
+ * @param {Function} [onSubmitSuccess] - Callback koji se poziva nakon uspešnog unosa komentara.
+ */
 
 const CommentForm = ({ postId, userId, parentId, onSubmitSuccess }) => {
   // State za pracenje unetog teksta komentara
   const [commentContent, setCommentContent] = useState("");
+  const [error, setError] = useState("");
 
   /**
    * Obradjuje submit forme.
@@ -37,15 +33,23 @@ const CommentForm = ({ postId, userId, parentId, onSubmitSuccess }) => {
     e.stopPropagation(); // Sprecava klik da pokrene `onClick` event iz PostCard
 
     try {
-      if (!commentContent.trim()) return; // Sprecava slanje praznog komentara
+      if (!commentContent.trim()) {
+        // Sprecava slanje praznog komentara
+        setError("Comment form cannot be empty.");
+        return;
+      }
 
       await addComment(postId, userId, commentContent, parentId);
       setCommentContent(""); // Resetuje textarea nakon uspesnog slanja
-      onSubmitSuccess?.(); // Zatvara reply nakon dodatog odgovora na komentar
+      onSubmitSuccess?.(); // Poziva se nakon uspesnog unosa komentara (npr. zatvaranje forme kod odgovora)
     } catch (error) {
       console.error("Error adding comment:", error);
     }
   };
+
+  const remainingChars = 500 - commentContent.length;
+  const charCountColor =
+    remainingChars <= 50 ? "text-red-500" : "text-gray-500";
 
   return (
     <form
@@ -58,8 +62,16 @@ const CommentForm = ({ postId, userId, parentId, onSubmitSuccess }) => {
         className="w-full border rounded-lg p-2 mb-2 focus:outline-none"
         rows={3}
         value={commentContent}
-        onChange={(e) => setCommentContent(e.target.value)}
+        onChange={(e) => {
+          setCommentContent(e.target.value);
+          if (error) setError("");
+        }}
+        maxLength={500}
       ></textarea>
+      {error && <p className="text-red-500 text-sm mb-1">{error}</p>}
+      <div className={`text-right text-sm ${charCountColor} mb-2`}>
+        {commentContent.length} / 500
+      </div>
       <button
         type="submit"
         className="px-4 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition"
