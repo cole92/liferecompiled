@@ -131,6 +131,24 @@ exports.addCommentSecure = functions
       );
     }
 
+    const now = admin.firestore.Timestamp.now();
+    const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 30_000);
+
+    const recentCommentsQuery = db
+      .collection("comments")
+      .where("userID", "==", context.auth.uid)
+      .where("timestamp", ">", thirtySecondsAgo)
+      .limit(4)
+
+    const recentCommentsSnapshot = await recentCommentsQuery.get();
+
+    if (recentCommentsSnapshot.size >= 4) {
+      throw new functions.https.HttpsError(
+        "resource-exhausted",
+        "You're sending comments too quickly. Please try again in a few seconds."
+      );
+    }
+
     const newComment = {
       postID: postId,
       userID: context.auth.uid,

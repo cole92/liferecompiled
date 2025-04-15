@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
 import { useRef, useEffect, useState } from "react";
 import { addCommentSecure } from "../../firebase/functions";
+import { showErrorToast } from "../../utils/toastUtils";
 
 /**
  * Komponenta za unos komentara.
@@ -67,7 +68,14 @@ const CommentForm = ({
       setCommentContent(""); // Resetuje textarea nakon uspesnog slanja
       onSubmitSuccess?.(); // Poziva se nakon uspesnog unosa komentara (npr. zatvaranje forme kod odgovora)
     } catch (error) {
-      console.error("Error adding comment:", error);
+      if (
+        error.message.includes("too quickly") ||
+        error.message.includes("resource-exhausted")
+      ) {
+        showErrorToast("You're sending comments too quickly. Please try again in a few seconds.");
+      } else {
+        showErrorToast("An error occurred while submitting the comment.");
+      }
     }
   };
 
