@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { motion } from "framer-motion";
+
 import { auth } from "../../firebase";
-import { getUserById } from "../../services/userService";
 import { deleteComment } from "../../firebase/functions";
+import { getUserById } from "../../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
+
 import CommentForm from "./CommentForm";
+import CommentReaction from "./CommentReaction";
 import ConfirmModal from "../../utils/ConfirmModal";
-import { motion } from "framer-motion";
 
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
@@ -39,36 +42,37 @@ const CommentItem = ({
   comments,
   depth = 0,
 }) => {
-  const [user, setUser] = useState(null); // State za podatke korisnika
-  const [isReplaying, setIsReplaying] = useState(false); // Na osnovu ovog state-a znamo da li je odgovor na komentar
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [user, setUser] = useState(null);                           // State za podatke korisnika
+  const [isReplaying, setIsReplaying] = useState(false);            // State za kontrolu prikaza forme za odgovor
+  const [showConfirmModal, setShowConfirmModal] = useState(false);  // State za prikaz modala za potvrdu brisanja
+  const [isDeleting, setIsDeleting] = useState(false);              // State za pracenje procesa brisanja komentara
 
+  // Dohvata podatke o korisniku kada se promeni userId
   useEffect(() => {
-    // Ako nemamo userId, ne pokrecemo dohvat
     if (!userId) return;
-    // Asinhrona funkcija za dohvat podataka korisnika
+
     const fetchUser = async () => {
-      const data = await getUserById(userId); // Koristimo helper funkciju
-      setUser(data); // Azuriramo state sa podacima korisnika
+      const data = await getUserById(userId);
+      setUser(data);
     };
 
-    fetchUser(); // Poziv funkcije prilikom mountovanja komponente
-  }, [userId]); // useEffect se pokrece kad se userId promeni
+    fetchUser();
+  }, [userId]);
 
+  // Izdvajamo odgovore (decu) za ovaj komentar
   const replies = comments.filter((c) => c.parentID === commentId);
 
-  // Metoda za brisanje komentara
+  // Metoda za brisanje komentara i svih njegovih odgovora
   const handleDelete = async (commentId) => {
     setIsDeleting(true);
     try {
       const result = await deleteComment({ commentId });
       if (result.data.success) {
-        showSuccessToast("Komentar i svi odgovori su obrisani.");
+        showSuccessToast("Comment and all replies have been deleted.");
       }
     } catch (err) {
-      console.error("Greska pri brisanju:", err);
-      showErrorToast("Greska pri brisanju komentara.");
+      console.error("Error while deleting:", err);
+      showErrorToast("Error while deleting the comment.");
     } finally {
       setIsDeleting(false);
     }
@@ -90,7 +94,6 @@ const CommentItem = ({
           alt={`Profile picture of ${user?.name}`}
           className="w-10 h-10 rounded-full object-cover"
         />
-
         <div>
           {/* Ime korisnika */}
           <span className="font-semibold text-sm text-gray-800 block">
@@ -100,10 +103,12 @@ const CommentItem = ({
           {/* Tekst komentara */}
           <p className="text-sm text-gray-700 mt-1">{content}</p>
 
-          {/* Vreme postavljanja komentara koristeci 'relativeTime plugin' */}
+          {/* Vreme postavljanja komentara koristeci 'relativeTime' */}
           <small className="text-xs text-gray-500">
             <span>{dayjs(timestamp?.toDate()).fromNow()}</span>
           </small>
+
+          {/* Prikaz forme za odgovor ako korisnik klikne Reply */}
           {isReplaying && (
             <div className="mt-2">
               <CommentForm
@@ -115,8 +120,9 @@ const CommentItem = ({
               />
             </div>
           )}
+
           <div>
-            {/*Uslovni prikaz dugmeta za prikaz forme za odgovor */}
+            {/* Dugme za odgovor */}
             {depth < 4 ? (
               <button
                 onClick={() => setIsReplaying(!isReplaying)}
@@ -133,7 +139,14 @@ const CommentItem = ({
                 Reply
               </button>
             )}
-            {/* Uslovno prikazivanje dugmeta za brisanje komentara*/}
+
+            {/* Komponenta za reakcije na komentar */}
+            <CommentReaction
+              commentId={commentId}
+              currentUserId={auth.currentUser?.uid}
+            />
+
+            {/* Dugme za brisanje komentara (vidljivo samo autoru) */}
             {auth.currentUser?.uid === userId && (
               <>
                 {!isDeleting ? (
@@ -144,13 +157,12 @@ const CommentItem = ({
                     Delete
                   </button>
                 ) : (
-                  // <Spinner />
                   <span className="text-sm text-gray-500 ml-3">
                     Deleting...
                   </span>
                 )}
 
-                {/* Confirm modal komponenta */}
+                {/* Confirm modal za potvrdu brisanja */}
                 <ConfirmModal
                   isOpen={showConfirmModal}
                   title="Delete Comment"
@@ -167,7 +179,7 @@ const CommentItem = ({
         </div>
       </div>
 
-      {/* Odgovori (deca) */}
+      {/* Prikaz odgovora (dece) rekurzivno */}
       {replies.length > 0 && (
         <div className="pl-6 mt-2 border-l border-gray-200 ml-3">
           {replies.map((reply) => (

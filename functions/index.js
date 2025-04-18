@@ -155,6 +155,7 @@ exports.addCommentSecure = functions
       content: trimmedContent,
       parentID: parentId,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      likes: [],
     };
 
     try {
