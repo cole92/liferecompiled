@@ -41,11 +41,12 @@ const CommentItem = ({
   commentId,
   comments,
   depth = 0,
+  showAll,
 }) => {
-  const [user, setUser] = useState(null);                           // State za podatke korisnika
-  const [isReplaying, setIsReplaying] = useState(false);            // State za kontrolu prikaza forme za odgovor
-  const [showConfirmModal, setShowConfirmModal] = useState(false);  // State za prikaz modala za potvrdu brisanja
-  const [isDeleting, setIsDeleting] = useState(false);              // State za pracenje procesa brisanja komentara
+  const [user, setUser] = useState(null); // State za podatke korisnika
+  const [isReplaying, setIsReplaying] = useState(false); // State za kontrolu prikaza forme za odgovor
+  const [showConfirmModal, setShowConfirmModal] = useState(false); // State za prikaz modala za potvrdu brisanja
+  const [isDeleting, setIsDeleting] = useState(false); // State za pracenje procesa brisanja komentara
 
   // Dohvata podatke o korisniku kada se promeni userId
   useEffect(() => {
@@ -84,7 +85,7 @@ const CommentItem = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="comment-item p-4 bg-white rounded-md shadow-sm mb-4"
+      className="comment-item p-4 bg-white rounded-md shadow-sm mb-4 break-words"
       style={{ marginLeft: `${Math.min(depth, 4) * 16}px` }}
     >
       <div className="flex items-start gap-3">
@@ -94,14 +95,18 @@ const CommentItem = ({
           alt={`Profile picture of ${user?.name}`}
           className="w-10 h-10 rounded-full object-cover"
         />
-        <div>
+        <div className="min-w-0 flex-1">
           {/* Ime korisnika */}
           <span className="font-semibold text-sm text-gray-800 block">
             {user && user.name}
           </span>
 
           {/* Tekst komentara */}
-          <p className="text-sm text-gray-700 mt-1">{content}</p>
+          <p className="text-sm text-gray-700 mt-1 break-words whitespace-pre-wrap">
+            {!showAll && content.length > 150
+              ? content.slice(0, 150) + "…"
+              : content}
+          </p>
 
           {/* Vreme postavljanja komentara koristeci 'relativeTime' */}
           <small className="text-xs text-gray-500">
@@ -122,57 +127,61 @@ const CommentItem = ({
           )}
 
           <div>
-            {/* Dugme za odgovor */}
-            {depth < 4 ? (
-              <button
-                onClick={() => setIsReplaying(!isReplaying)}
-                className="text-sm text-blue-500 hover:underline mt-1"
-              >
-                Reply
-              </button>
-            ) : (
-              <button
-                disabled
-                className="text-sm text-gray-400 cursor-not-allowed mt-1"
-                title="Maximum depth reached"
-              >
-                Reply
-              </button>
-            )}
-
-            {/* Komponenta za reakcije na komentar */}
-            <CommentReaction
-              commentId={commentId}
-              currentUserId={auth.currentUser?.uid}
-            />
-
-            {/* Dugme za brisanje komentara (vidljivo samo autoru) */}
-            {auth.currentUser?.uid === userId && (
+            {showAll && (
               <>
-                {!isDeleting ? (
+                {/* Dugme za odgovor */}
+                {depth < 4 ? (
                   <button
-                    onClick={() => setShowConfirmModal(true)}
-                    className="text-sm text-blue-500 hover:underline ml-3"
+                    onClick={() => setIsReplaying(!isReplaying)}
+                    className="text-sm text-blue-500 hover:underline mt-1"
                   >
-                    Delete
+                    Reply
                   </button>
                 ) : (
-                  <span className="text-sm text-gray-500 ml-3">
-                    Deleting...
-                  </span>
+                  <button
+                    disabled
+                    className="text-sm text-gray-400 cursor-not-allowed mt-1"
+                    title="Maximum depth reached"
+                  >
+                    Reply
+                  </button>
                 )}
 
-                {/* Confirm modal za potvrdu brisanja */}
-                <ConfirmModal
-                  isOpen={showConfirmModal}
-                  title="Delete Comment"
-                  message="Are you sure you want to delete this comment?"
-                  onCancel={() => setShowConfirmModal(false)}
-                  onConfirm={() => {
-                    handleDelete(commentId);
-                    setShowConfirmModal(false);
-                  }}
+                {/* Komponenta za reakcije na komentar */}
+                <CommentReaction
+                  commentId={commentId}
+                  currentUserId={auth.currentUser?.uid}
                 />
+
+                {/* Dugme za brisanje komentara (vidljivo samo autoru) */}
+                {auth.currentUser?.uid === userId && (
+                  <>
+                    {!isDeleting ? (
+                      <button
+                        onClick={() => setShowConfirmModal(true)}
+                        className="text-sm text-blue-500 hover:underline ml-3"
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      <span className="text-sm text-gray-500 ml-3">
+                        Deleting...
+                      </span>
+                    )}
+
+                    {/* Confirm modal za potvrdu brisanja */}
+                    <ConfirmModal
+                      isOpen={showConfirmModal}
+                      title="Delete Comment"
+                      message="Are you sure you want to delete this comment?"
+                      onCancel={() => setShowConfirmModal(false)}
+                      onConfirm={() => {
+                        handleDelete(commentId);
+                        setShowConfirmModal(false);
+                      }}
+                    />
+                  </>
+                )}
               </>
             )}
           </div>
@@ -192,6 +201,7 @@ const CommentItem = ({
               timestamp={reply.timestamp}
               comments={comments}
               depth={depth + 1}
+              showAll={showAll}
             />
           ))}
         </div>
@@ -217,6 +227,7 @@ CommentItem.propTypes = {
     })
   ).isRequired,
   depth: PropTypes.number,
+  showAll: PropTypes.bool,
 };
 
 export default CommentItem;
