@@ -72,6 +72,7 @@ const Comments = ({ postID, userId, showAll = false }) => {
           timestamp={comment.timestamp} // Vreme kada je komentar dodat
           postID={comment.postID}
           comments={comments}
+          showAll={showAll}
         />
       ))}
       {/* Dugme za prikaz dodatnih komentara (5 po kliku) */}
