@@ -4,7 +4,8 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { motion } from "framer-motion";
 
-import { auth } from "../../firebase";
+import { auth, db } from "../../firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import { deleteComment } from "../../firebase/functions";
 import { getUserById } from "../../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
@@ -47,6 +48,8 @@ const CommentItem = ({
   const [isReplaying, setIsReplaying] = useState(false); // State za kontrolu prikaza forme za odgovor
   const [showConfirmModal, setShowConfirmModal] = useState(false); // State za prikaz modala za potvrdu brisanja
   const [isDeleting, setIsDeleting] = useState(false); // State za pracenje procesa brisanja komentara
+  const [isEditing, setIsEditing] = useState(false); // State za pracenje izmene postojeceg komentara
+  const [editedContent, setEditedContent] = useState(content); // State za pracenje izmene teksta komentara
 
   // Dohvata podatke o korisniku kada se promeni userId
   useEffect(() => {
@@ -79,6 +82,29 @@ const CommentItem = ({
     }
   };
 
+  // Metoda za cuvanje izmenjenog komentara
+  const handleSave = async () => {
+    if (!editedContent.trim()) {
+      showErrorToast("Comment cannot be empty!");
+      return;
+    }
+
+    try {
+      const commentRef = doc(db, "comments", commentId);
+      await updateDoc(commentRef, { content: editedContent });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to update comment:", error);
+      showErrorToast("Failed to update comment. Please try again.");
+    }
+  };
+
+  // Metoda za odustajanje od izmene komentara
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditedContent(content);
+  };
+
   return (
     // Animacija prikaza komentara prilikom mountovanja
     <motion.div
@@ -100,13 +126,37 @@ const CommentItem = ({
           <span className="font-semibold text-sm text-gray-800 block">
             {user && user.name}
           </span>
-
-          {/* Tekst komentara */}
-          <p className="text-sm text-gray-700 mt-1 break-words whitespace-pre-wrap">
-            {!showAll && content.length > 150
-              ? content.slice(0, 150) + "…"
-              : content}
-          </p>
+          {/* Prikaz forme za editovanje komentara */}
+          {isEditing ? (
+            <div>
+              <textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="w-full p-2 border rounded mt-2"
+              />
+              <div className="flex space-x-2 mt-2">
+                <button
+                  onClick={handleSave}
+                  className="text-green-500 hover:underline"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="text-gray-500 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-700 mt-1 break-words whitespace-pre-wrap">
+              {/* Tekst komentara */}
+              {!showAll && content.length > 150
+                ? content.slice(0, 150) + "…"
+                : content}
+            </p>
+          )}
 
           {/* Vreme postavljanja komentara koristeci 'relativeTime' */}
           <small className="text-xs text-gray-500">
@@ -153,9 +203,19 @@ const CommentItem = ({
                   currentUserId={auth.currentUser?.uid}
                 />
 
-                {/* Dugme za brisanje komentara (vidljivo samo autoru) */}
+                {/* Dugme za brisanje i editovanje komentara (vidljivo samo autoru) */}
                 {auth.currentUser?.uid === userId && (
                   <>
+                    {/* Dugme za Edit */}
+                    {!isEditing && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="text-sm text-blue-500 hover:underline ml-3"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {/* Dugme za Delete */}
                     {!isDeleting ? (
                       <button
                         onClick={() => setShowConfirmModal(true)}
