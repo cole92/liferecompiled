@@ -5,7 +5,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { motion } from "framer-motion";
 
 import { auth, db } from "../../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { deleteComment } from "../../firebase/functions";
 import { getUserById } from "../../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
@@ -30,6 +30,7 @@ import ConfirmModal from "../../utils/ConfirmModal";
  * @param {string} commentId - ID ovog komentara.
  * @param {Array<Object>} comments - Lista svih komentara za dati post (za pronalazenje odgovora).
  * @param {number} [depth=0] - Trenutna dubina komentara; koristi se za uvlacenje i ogranicenje rekurzije.
+ * @param {firebase.firestore.Timestamp} [editedAt] - Vreme poslednje izmene komentara (ako postoji).
  */
 
 dayjs.extend(relativeTime);
@@ -38,6 +39,7 @@ const CommentItem = ({
   userId,
   content,
   timestamp,
+  editedAt,
   postID,
   commentId,
   comments,
@@ -84,14 +86,21 @@ const CommentItem = ({
 
   // Metoda za cuvanje izmenjenog komentara
   const handleSave = async () => {
+    // Validacija: prazno ili identicno postojecom tekstu
     if (!editedContent.trim()) {
       showErrorToast("Comment cannot be empty!");
+      return;
+    } else if (editedContent.trim() === content.trim()) {
+      setIsEditing(false);
       return;
     }
 
     try {
       const commentRef = doc(db, "comments", commentId);
-      await updateDoc(commentRef, { content: editedContent });
+      await updateDoc(commentRef, {
+        content: editedContent,
+        editedAt: serverTimestamp(),
+      });
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update comment:", error);
@@ -160,7 +169,11 @@ const CommentItem = ({
 
           {/* Vreme postavljanja komentara koristeci 'relativeTime' */}
           <small className="text-xs text-gray-500">
-            <span>{dayjs(timestamp?.toDate()).fromNow()}</span>
+            <span>
+              {editedAt
+                ? `Edited ${dayjs(editedAt.toDate()).fromNow()}`
+                : `Posted ${dayjs(timestamp.toDate()).fromNow()}`}
+            </span>
           </small>
 
           {/* Prikaz forme za odgovor ako korisnik klikne Reply */}
@@ -196,6 +209,12 @@ const CommentItem = ({
                     Reply
                   </button>
                 )}
+                <button
+                  onClick={() => {}} // Za sada prazan onClick (Placeholder)
+                  className="text-sm text-red-500 hover:underline ml-3"
+                >
+                  Report
+                </button>
 
                 {/* Komponenta za reakcije na komentar */}
                 <CommentReaction
@@ -260,6 +279,7 @@ const CommentItem = ({
               content={reply.content}
               timestamp={reply.timestamp}
               comments={comments}
+              editedAt={reply.editedAt}
               depth={depth + 1}
               showAll={showAll}
             />
@@ -288,6 +308,7 @@ CommentItem.propTypes = {
   ).isRequired,
   depth: PropTypes.number,
   showAll: PropTypes.bool,
+  editedAt: PropTypes.object,
 };
 
 export default CommentItem;

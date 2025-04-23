@@ -16,6 +16,7 @@ import CommentItem from "./CommentItem";
  * Koristi se kao preview u post karticama (prva 2 komentara) ili
  * za prikaz svih komentara na stranici pojedinacnog posta.
  *
+ * @component
  * @param {string} postID - ID posta na koji se komentari odnose.
  * @param {string} userId - ID trenutno prijavljenog korisnika (za formu).
  * @param {boolean} [showAll=false] - Ako je true, prikazuje sve komentare sa "See more" funkcijom.
@@ -27,6 +28,7 @@ const Comments = ({ postID, userId, showAll = false }) => {
   // Broj komentara koji se prikazuju kada je showAll aktivan
   const [visibleCount, setVisibleCount] = useState(5);
 
+  // Firestore subscription: slusamo sve komentare za dati post u realnom vremenu
   useEffect(() => {
     // Ako ne postoji postID, ne pokrecemo nista
     if (!postID) return;
@@ -70,6 +72,7 @@ const Comments = ({ postID, userId, showAll = false }) => {
           userId={comment.userID} // ID korisnika (koristi se za dohvat imena i slike)
           content={comment.content} // Tekst komentara
           timestamp={comment.timestamp} // Vreme kada je komentar dodat
+          editedAt={comment.editedAt}
           postID={comment.postID}
           comments={comments}
           showAll={showAll}
