@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -52,6 +52,13 @@ const CommentItem = ({
   const [isDeleting, setIsDeleting] = useState(false); // State za pracenje procesa brisanja komentara
   const [isEditing, setIsEditing] = useState(false); // State za pracenje izmene postojeceg komentara
   const [editedContent, setEditedContent] = useState(content); // State za pracenje izmene teksta komentara
+  const [showEditHint, setShowEditHint] = useState(false);
+
+  const hintShownRef = useRef(false);
+
+  // Korisnik moze editovati komentar u roku od 10 minuta nakon postavljanja
+  const canEdit =
+    timestamp && Date.now() - timestamp.toDate().getTime() <= 10 * 60 * 1000;
 
   // Dohvata podatke o korisniku kada se promeni userId
   useEffect(() => {
@@ -64,6 +71,27 @@ const CommentItem = ({
 
     fetchUser();
   }, [userId]);
+
+  // Prikazuje hint balon za editovanje ako korisnik ima pravo i jos ga nije video 3 puta
+  useEffect(() => {
+    if (!auth.currentUser?.uid || auth.currentUser.uid !== userId || !canEdit)
+      return;
+
+    if (hintShownRef.current) return;
+    hintShownRef.current = true;
+
+    const storageKey = `editedHintCount_${auth.currentUser.uid}`;
+    const count = parseInt(localStorage.getItem(storageKey) || "0", 10);
+
+    if (count >= 3) return;
+
+    setShowEditHint(true);
+    localStorage.setItem(storageKey, (count + 1).toString());
+
+    const timerId = setTimeout(() => setShowEditHint(false), 10_000);
+
+    return () => clearTimeout(timerId);
+  }, [userId, canEdit]);
 
   // Izdvajamo odgovore (decu) za ovaj komentar
   const replies = comments.filter((c) => c.parentID === commentId);
@@ -223,16 +251,25 @@ const CommentItem = ({
                 />
 
                 {/* Dugme za brisanje i editovanje komentara (vidljivo samo autoru) */}
-                {auth.currentUser?.uid === userId && (
+                {auth.currentUser?.uid === userId && canEdit && (
                   <>
                     {/* Dugme za Edit */}
                     {!isEditing && (
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="text-sm text-blue-500 hover:underline ml-3"
-                      >
-                        Edit
-                      </button>
+                      <div className="relative inline-block">
+                        {showEditHint && (
+                          <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 shadow-md z-10">
+                            You can edit this comment for 10 minutes
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => setIsEditing(true)}
+                          className="text-sm text-blue-500 hover:underline ml-3"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     )}
                     {/* Dugme za Delete */}
                     {!isDeleting ? (
