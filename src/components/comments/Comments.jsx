@@ -52,7 +52,7 @@ const Comments = ({ postID, userId, showAll = false }) => {
     return unsubscribe;
   }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
-  // Izdvajamo samo glavne komentare (oni koji nisu odgovori)
+  // Filtriramo glavne komentare (parentID je null, znaci nisu odgovori)
   const mainComments = comments.filter((c) => c.parentID === null);
 
   return (
@@ -76,9 +76,10 @@ const Comments = ({ postID, userId, showAll = false }) => {
           postID={comment.postID}
           comments={comments}
           showAll={showAll}
+          deleted={comment.deleted}
         />
       ))}
-      {/* Dugme za prikaz dodatnih komentara (5 po kliku) */}
+      {/* Dugme za prikaz sledecih 5 komentara */}
       {showAll && visibleCount < mainComments.length && (
         <div className="text-center mt-4">
           <button

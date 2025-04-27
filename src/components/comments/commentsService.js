@@ -1,4 +1,5 @@
-import { db } from "../../firebase";
+import { db, functions } from "../../firebase";
+import { httpsCallable } from "firebase/functions";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 /**
@@ -37,3 +38,17 @@ export const addComment = async (postId, userId, content, parentId) => {
         throw new Error("Failed to add comment");
     }
 };
+
+/**
+ * Poziva Firebase Cloud Function za soft brisanje komentara.
+ *
+ * @param {Object} params
+ * @param {string} params.commentId - ID komentara koji se soft delete-uje.
+ * @returns {Promise<Object>} - Odgovor Cloud Function poziva.
+ */
+
+// Metoda za softDelete poziv
+export const softDeleteComment = async ({ commentId }) => {
+    const softDeleteFn = httpsCallable(functions, "softDeleteComment");
+    return await softDeleteFn({ commentId });
+}

@@ -87,6 +87,45 @@ async function deleteCommentBatch(rootId) {
   }
 }
 
+// Nova soft delete metoda (delete commentAndChidlren i deleteCommentBatch nisam dirao jos uvek!)
+
+exports.softDeleteComment = functions.https.onCall(
+  async (data, context) => {
+    const { commentId } = data;
+
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "You must be logged in to delete a comment."
+      );
+    }
+
+    const docSnap = await db.collection("comments").doc(commentId).get();
+
+    if (!docSnap.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        `Comment with ID ${commentId} does not exist.`
+      );
+    }
+
+    const commentData = docSnap.data();
+    if (commentData.userID !== context.auth.uid) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "You are not authorized to delete this comment."
+      );
+    }
+    await db.collection("comments").doc(commentId).update({
+      deleted: true,
+      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  }
+
+);
+
 /**
  * Firebase Cloud Function za dodavanje komentara uz validaciju i autentifikaciju.
  *
@@ -130,10 +169,10 @@ exports.addCommentSecure = functions
         "Comment must not exceed 500 characters."
       );
     }
-
+    // Odredjujemo vreme pre 30 sekundi za rate limiting prozor
     const now = admin.firestore.Timestamp.now();
     const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 30_000);
-
+    // Proveravamo da li je korisnik poslao vise od 3 komentara u zadnjih 30 sekundi
     const recentCommentsQuery = db
       .collection("comments")
       .where("userID", "==", context.auth.uid)
@@ -141,7 +180,7 @@ exports.addCommentSecure = functions
       .limit(4)
 
     const recentCommentsSnapshot = await recentCommentsQuery.get();
-
+    // Ako korisnik salje vise od 3 komentara u 30 sekundi, odbijamo zahtev
     if (recentCommentsSnapshot.size >= 4) {
       throw new functions.https.HttpsError(
         "resource-exhausted",
