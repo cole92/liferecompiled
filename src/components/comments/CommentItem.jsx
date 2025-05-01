@@ -6,7 +6,8 @@ import { motion } from "framer-motion";
 
 import { auth, db } from "../../firebase";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { deleteComment } from "../../firebase/functions";
+//import { deleteComment } from "../../firebase/functions"; 'Kanije cemo koristiti za Hard delete'
+import { softDeleteComment } from "./commentsService";
 import { getUserById } from "../../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
@@ -45,6 +46,7 @@ const CommentItem = ({
   comments,
   depth = 0,
   showAll,
+  deleted,
 }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
   const [isReplaying, setIsReplaying] = useState(false); // State za kontrolu prikaza forme za odgovor
@@ -55,6 +57,9 @@ const CommentItem = ({
   const [showEditHint, setShowEditHint] = useState(false);
 
   const hintShownRef = useRef(false);
+
+  // Status da li je komentar obrisan (soft delete)
+  const isDeleted = deleted;
 
   // Korisnik moze editovati komentar u roku od 10 minuta nakon postavljanja
   const canEdit =
@@ -72,7 +77,7 @@ const CommentItem = ({
     fetchUser();
   }, [userId]);
 
-  // Prikazuje hint balon za editovanje ako korisnik ima pravo i jos ga nije video 3 puta
+  // Prikazuje hint za editovanje komentara samo ako korisnik ima pravo i nije video vise od 3 puta
   useEffect(() => {
     if (!auth.currentUser?.uid || auth.currentUser.uid !== userId || !canEdit)
       return;
@@ -100,9 +105,9 @@ const CommentItem = ({
   const handleDelete = async (commentId) => {
     setIsDeleting(true);
     try {
-      const result = await deleteComment({ commentId });
+      const result = await softDeleteComment({ commentId });
       if (result.data.success) {
-        showSuccessToast("Comment and all replies have been deleted.");
+        showSuccessToast("Comment removed.");
       }
     } catch (err) {
       console.error("Error while deleting:", err);
@@ -186,9 +191,12 @@ const CommentItem = ({
                 </button>
               </div>
             </div>
+          ) : isDeleted ? (
+            <p className="italic text-gray-500 mt-1">
+              This comment has been removed.
+            </p>
           ) : (
             <p className="text-sm text-gray-700 mt-1 break-words whitespace-pre-wrap">
-              {/* Tekst komentara */}
               {!showAll && content.length > 150
                 ? content.slice(0, 150) + "…"
                 : content}
@@ -218,7 +226,7 @@ const CommentItem = ({
           )}
 
           <div>
-            {showAll && (
+            {showAll && !isDeleted && (
               <>
                 {/* Dugme za odgovor */}
                 {depth < 4 ? (
@@ -251,7 +259,7 @@ const CommentItem = ({
                 />
 
                 {/* Dugme za brisanje i editovanje komentara (vidljivo samo autoru) */}
-                {auth.currentUser?.uid === userId && canEdit && (
+                {!isDeleted && auth.currentUser?.uid === userId && canEdit && (
                   <>
                     {/* Dugme za Edit */}
                     {!isEditing && (
@@ -317,6 +325,7 @@ const CommentItem = ({
               timestamp={reply.timestamp}
               comments={comments}
               editedAt={reply.editedAt}
+              deleted={reply.deleted}
               depth={depth + 1}
               showAll={showAll}
             />
@@ -346,6 +355,7 @@ CommentItem.propTypes = {
   depth: PropTypes.number,
   showAll: PropTypes.bool,
   editedAt: PropTypes.object,
+  deleted: PropTypes.bool,
 };
 
 export default CommentItem;
