@@ -325,6 +325,7 @@ const CommentItem = ({
               timestamp={reply.timestamp}
               comments={comments}
               editedAt={reply.editedAt}
+              deleted={reply.deleted}
               depth={depth + 1}
               showAll={showAll}
             />
