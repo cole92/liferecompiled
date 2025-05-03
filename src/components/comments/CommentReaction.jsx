@@ -87,15 +87,29 @@ const CommentReaction = ({ commentId, currentUserId }) => {
       setTopLikers(users);
       setShowLikesModal(true);
     } catch (err) {
-      console.error("Greska pri ucitavanju korisnika:", err);
+      console.error("Error loading user:", err);
     }
   };
 
   // Tekst za prikaz imena korisnika i dodatnih brojeva
-  const names = topLikers.map((u) => u.name);
-  const extraCount = likeCount > 3 ? likeCount - 3 : 0;
-  const likeText =
-    names.join(", ") + (extraCount > 0 ? ` and ${extraCount} more...` : "");
+  const otherCount = liked ? likeCount - 1 : likeCount;
+
+  let likeText = "";
+
+  if (liked) {
+    if (otherCount === 0) {
+      likeText = "You";
+    } else if (otherCount === 1) {
+      likeText = "You and 1 other";
+    } else {
+      likeText = `You and ${otherCount} others`;
+    }
+  } else {
+    likeText =
+      likeCount === 1
+        ? "1 person liked this"
+        : `${likeCount} people liked this`;
+  }
 
   return (
     <div>
@@ -103,6 +117,12 @@ const CommentReaction = ({ commentId, currentUserId }) => {
         <button onClick={handleLike} className="flex items-center space-x-1">
           {liked ? <FaHeart className="text-red-500" /> : <FaRegHeart />}
         </button>
+
+        {likeCount === 0 && (
+          <p className="text-sm text-gray-500 italic">
+            No one has liked this comment yet.
+          </p>
+        )}
 
         {likeCount > 0 && (
           <button
