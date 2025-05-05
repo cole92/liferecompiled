@@ -32,6 +32,7 @@ const CommentReaction = ({ commentId, currentUserId }) => {
   const [showLikesModal, setShowLikesModal] = useState(false); // Prikaz modala
   const [topLikers, setTopLikers] = useState([]); // Do 3 korisnika za prikaz
   const [loadingUsers, setLoadingUsers] = useState(false); //
+  const [visibleCount, setVisibleCount] = useState(10);
 
   // Real-time listener za Firestore polje 'likes'
   useEffect(() => {
@@ -85,6 +86,7 @@ const CommentReaction = ({ commentId, currentUserId }) => {
   // Otvaranje modala sa svim lajkovima
   const handleOpenLikesModal = async () => {
     try {
+      setVisibleCount(10);
       setShowLikesModal(true);
       setLoadingUsers(true);
       const users = await Promise.all(likeList.map(getUserById));
@@ -144,7 +146,15 @@ const CommentReaction = ({ commentId, currentUserId }) => {
       </div>
       {/* Modal sa listom korisnika koji su lajkovali */}
       {showLikesModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            // Zatvaranje modala na backdrop
+            if (e.target === e.currentTarget) {
+              setShowLikesModal(false);
+            }
+          }}
+        >
           <div className="bg-white p-6 rounded-lg w-full max-w-md flex flex-col items-center">
             <h3 className="text-base font-medium mb-4">
               People who liked this
@@ -158,7 +168,7 @@ const CommentReaction = ({ commentId, currentUserId }) => {
               </p>
             ) : (
               <ul className="w-full max-h-72 overflow-y-auto">
-                {topLikers.map((user) => (
+                {topLikers.slice(0, visibleCount).map((user) => (
                   <li
                     key={user.id}
                     className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-md"
@@ -174,6 +184,14 @@ const CommentReaction = ({ commentId, currentUserId }) => {
                   </li>
                 ))}
               </ul>
+            )}
+            {visibleCount < topLikers.length && (
+              <button
+                onClick={() => setVisibleCount((prev) => prev + 10)}
+                className="mt-4 text-sm text-blue-500 hover:underline"
+              >
+                Load more
+              </button>
             )}
             {/* Dugme za zatvaranje modala */}
             <button
