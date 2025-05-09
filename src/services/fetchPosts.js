@@ -8,7 +8,7 @@ import { collection, query, orderBy, getDocs, doc, getDoc } from "firebase/fires
  * @async
  * @function getPosts
  * @returns {Promise<Array<Object>>} Lista postova sa informacijama o autoru.
- * Svaki post uključuje: `id`, `author`, `postData`, i eventualno `comments`.
+ * Svaki post ukljucuje: `id`, `author`, `postData`, i eventualno `comments`.
  * @throws {Error} Ako dodje do greske prilikom dohvatanja.
  */
 
