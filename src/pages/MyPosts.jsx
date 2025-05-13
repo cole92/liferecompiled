@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Spinner from "../components/Spinner";
 
 // Dashboard komponenta za prikaz podataka korisnika
-const Dashboard = () => {
+const MyPosts = () => {
   // Preuzimamo stanja i metode iz AuthContext-a
   const { user, isLoggingOut, logout } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -36,4 +36,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default MyPosts;
