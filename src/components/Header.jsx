@@ -8,7 +8,6 @@ import useSearch from "../context/useSearch";
 
 const Header = () => {
   const { user, isLoggingOut, logout } = useContext(AuthContext);
-  console.log(user);
   const location = useLocation();
   const {
     setSearchTerm,
