@@ -15,12 +15,12 @@ const MyPosts = () => {
   const navigate = useNavigate();
 
   const [posts, setPosts] = useState([]);
-  const [isLoading, setIsLoading] =  useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     const fetchPost = async () => {
       try {
         const postRef = collection(db, "posts");
-
         const q = query(
           postRef,
           where("userId", "==", user.uid),
@@ -28,10 +28,22 @@ const MyPosts = () => {
         );
         const querySnapshot = await getDocs(q);
 
-        const userPosts = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        // Uzimamo uvek najnovije korisničke podatke iz AuthContext
+        const author = {
+          name: user.name || "Anonymous",
+          profilePicture: user.profilePicture || "/default-avatar.png",
+        };
+
+        // Mapiramo svaki doc i dodajemo author + fallback za comments
+        const userPosts = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            author,
+            comments: data.comments || [], // default na prazan niz
+          };
+        });
 
         setPosts(userPosts);
       } catch (error) {
@@ -40,10 +52,11 @@ const MyPosts = () => {
         setIsLoading(false);
       }
     };
+
     if (user?.uid) {
       fetchPost();
     }
-  }, [user?.uid]);
+  }, [user]);
 
   // Prikaz korisnickog interfejsa
   return (
