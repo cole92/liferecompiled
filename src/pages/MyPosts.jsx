@@ -1,13 +1,15 @@
-import { useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import Spinner from "../components/Spinner";
-import EmptyState from "./dashboard/components/EmptyState";
-import { useEffect } from "react";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+
 import { db } from "../firebase";
+import { AuthContext } from "../context/AuthContext";
+
+import Spinner from "../components/Spinner";
+import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+import { showErrorToast } from "../utils/toastUtils";
 import PostsList from "../components/PostsList";
+import EmptyState from "./dashboard/components/EmptyState";
 
 // Dashboard komponenta za prikaz podataka korisnika
 const MyPosts = () => {
@@ -18,7 +20,8 @@ const MyPosts = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchPost = async () => {
+    // Funkcija za dohvatanje postova korisnika iz Firestore baze
+    const fetchPosts = async () => {
       try {
         const postRef = collection(db, "posts");
         const q = query(
@@ -31,10 +34,12 @@ const MyPosts = () => {
         // Uzimamo uvek najnovije korisničke podatke iz AuthContext
         const author = {
           name: user.name || "Anonymous",
-          profilePicture: user.profilePicture || "/default-avatar.png",
+          profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
         };
 
-        // Mapiramo svaki doc i dodajemo author + fallback za comments
+        // Mapiramo svaki dokument:
+        // - Dodajemo author iz AuthContext (bez dodatnih poziva ka Firestore)
+        // - Dodajemo fallback za comments ako nije definisan
         const userPosts = querySnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
@@ -48,19 +53,21 @@ const MyPosts = () => {
         setPosts(userPosts);
       } catch (error) {
         console.error("Error fetching posts:", error);
+        showErrorToast("Failed to load your posts. Please try again.");
       } finally {
         setIsLoading(false);
       }
     };
 
     if (user?.uid) {
-      fetchPost();
+      fetchPosts();
     }
   }, [user]);
 
   // Prikaz korisnickog interfejsa
   return (
     <div className="mb-6">
+      {/* Pozdravna poruka i dugme za dodavanje posta */}
       <h2 className="text-2xl font-semibold mb-2">
         Welcome, {user ? user.email : "Guest"}
       </h2>
@@ -78,6 +85,7 @@ const MyPosts = () => {
       {!isLoading && posts.length === 0 && (
         <EmptyState message="You haven't created any posts yet." />
       )}
+      {/* Prikaz liste postova korisnika */}
       {!isLoading && posts.length > 0 && <PostsList posts={posts} />}
     </div>
   );
