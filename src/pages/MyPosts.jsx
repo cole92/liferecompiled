@@ -31,7 +31,7 @@ const MyPosts = () => {
         );
         const querySnapshot = await getDocs(q);
 
-        // Uzimamo uvek najnovije korisničke podatke iz AuthContext
+        // Uzimamo uvek najnovije korisnicke podatke iz AuthContext
         const author = {
           name: user.name || "Anonymous",
           profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,

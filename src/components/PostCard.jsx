@@ -5,6 +5,19 @@ import "../styles/PostCard.css"; // Stilovi za karticu posta
 import PostReactions from "./PostReactions";
 import Comments from "./comments/Comments";
 
+/**
+ * Vizuelna kartica za prikaz blog posta.
+ *
+ * - Prikazuje osnovne informacije: naslov, opis, datum, autor, tagovi, kategorija
+ * - Uključuje interaktivne elemente: reakcije, komentare, dugme za otvaranje celog posta
+ * - Navigacija ka detaljnom prikazu (`/post/:id`) se aktivira klikom na karticu
+ *
+ * @component
+ * @param {Object} post - Objekat koji predstavlja jedan blog post
+ * @returns {JSX.Element} Interaktivna kartica blog posta
+ */
+
+
 const PostCard = ({ post }) => {
   const { title, description, createdAt, tags, author, category } = post;
   const navigate = useNavigate();
