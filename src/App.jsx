@@ -5,7 +5,10 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
+import MyPosts from "./pages/MyPosts";
+import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
+import SavedPosts from "./pages/dashboard/SavedPosts";
+import Stats from "./pages/dashboard/Stats";
 import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
 import PostDetails from "./pages/PostDetails";
@@ -22,7 +25,11 @@ function App() {
         <Route path="/post/:postId" element={<PostDetails />} />
         {/* Zasticene ruta */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/*" element={<DashboardLayout />}>
+            <Route index element={<MyPosts />} />
+            <Route path="saved" element={<SavedPosts />} />
+            <Route path="stats" element={<Stats />} />
+          </Route>
           <Route path="/dashboard/create-post" element={<CreatePost />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
