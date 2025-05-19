@@ -86,7 +86,7 @@ const MyPosts = () => {
         <EmptyState message="You haven't created any posts yet." />
       )}
       {/* Prikaz liste postova korisnika */}
-      {!isLoading && posts.length > 0 && <PostsList posts={posts} />}
+      {!isLoading && posts.length > 0 && <PostsList posts={posts} showDeleteButton={true} onDelete={null}/>}
     </div>
   );
 };

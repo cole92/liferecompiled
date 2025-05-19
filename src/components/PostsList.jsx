@@ -2,12 +2,17 @@ import PropTypes from "prop-types";
 import PostCard from "./PostCard"; // Uvoz PostCard komponente
 import "../styles/PostsList.css"; // Stilovi za listu postova
 
-const PostsList = ({ posts }) => {
+const PostsList = ({ posts, showDeleteButton = false, onDelete }) => {
   return (
     <div className="posts-list">
       {/* Mapiramo kroz niz postova i prikazujemo PostCard komponentu za svaki */}
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard
+          key={post.id}
+          post={post}
+          showDeleteButton={showDeleteButton}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   );
@@ -24,6 +29,9 @@ PostsList.propTypes = {
         .isRequired,
     })
   ).isRequired,
+
+  showDeleteButton: PropTypes.bool,
+  onDelete: PropTypes.func,
 };
 
 export default PostsList;
