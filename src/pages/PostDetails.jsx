@@ -10,7 +10,7 @@ import Spinner from "../components/Spinner";
 
 /**
  * Prikazuje detalje o pojedinacnom blog postu na osnovu ID-ja iz URL-a.
- * Prikazuje naslov, sadržaj, informacije o autoru, tagove, reakcije i komentare.
+ * Prikazuje naslov, sadrzaj, informacije o autoru, tagove, reakcije i komentare.
  *
  * @component
  * @returns {JSX.Element} Komponenta sa detaljima posta ili fallback porukom/spinerom.

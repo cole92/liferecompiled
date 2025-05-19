@@ -5,7 +5,19 @@ import "../styles/PostCard.css"; // Stilovi za karticu posta
 import PostReactions from "./PostReactions";
 import Comments from "./comments/Comments";
 
-const PostCard = ({ post }) => {
+/**
+ * Vizuelna kartica za prikaz blog posta.
+ *
+ * - Prikazuje osnovne informacije: naslov, opis, datum, autor, tagovi, kategorija
+ * - Uključuje interaktivne elemente: reakcije, komentare, dugme za otvaranje celog posta
+ * - Navigacija ka detaljnom prikazu (`/post/:id`) se aktivira klikom na karticu
+ *
+ * @component
+ * @param {Object} post - Objekat koji predstavlja jedan blog post
+ * @returns {JSX.Element} Interaktivna kartica blog posta
+ */
+
+const PostCard = ({ post, showDeleteButton = false, onDelete }) => {
   const { title, description, createdAt, tags, author, category } = post;
   const navigate = useNavigate();
 
@@ -25,6 +37,18 @@ const PostCard = ({ post }) => {
         <img src={author.profilePicture} alt="Author" />
         <span>{author?.name || "Unknown"}</span>
       </div>
+      {showDeleteButton && (
+        <button
+          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600
+          text-white text-xs font-medium px-3 py-1 rounded shadow transition"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(post.id);
+          }}
+        >
+          Delete
+        </button>
+      )}
 
       {/* Naslov i opis */}
       <h2 className="post-title">{title}</h2>
@@ -90,6 +114,9 @@ PostCard.propTypes = {
     ).isRequired, // Komentari su niz objekata sa tekstom
     reactions: PropTypes.object, // Reakcije moraju biti objekat
   }).isRequired,
+
+  showDeleteButton: PropTypes.bool,
+  onDelete: PropTypes.func,
 };
 
 export default PostCard;

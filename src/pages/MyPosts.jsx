@@ -31,7 +31,7 @@ const MyPosts = () => {
         );
         const querySnapshot = await getDocs(q);
 
-        // Uzimamo uvek najnovije korisničke podatke iz AuthContext
+        // Uzimamo uvek najnovije korisnicke podatke iz AuthContext
         const author = {
           name: user.name || "Anonymous",
           profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
@@ -86,7 +86,7 @@ const MyPosts = () => {
         <EmptyState message="You haven't created any posts yet." />
       )}
       {/* Prikaz liste postova korisnika */}
-      {!isLoading && posts.length > 0 && <PostsList posts={posts} />}
+      {!isLoading && posts.length > 0 && <PostsList posts={posts} showDeleteButton={true} onDelete={null}/>}
     </div>
   );
 };
