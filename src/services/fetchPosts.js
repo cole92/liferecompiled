@@ -1,21 +1,28 @@
 import { db } from "../firebase";
-import { collection, query, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, doc, getDoc, where } from "firebase/firestore";
 
 /**
- * Dohvata sve postove iz Firestore baze, sortirane po datumu kreiranja (najnoviji prvi).
- * Za svaki post se dodatno dohvatiti podaci o autoru iz 'users' kolekcije.
+ * Dohvata sve aktivne postove iz Firestore baze, sortirane po datumu kreiranja (najnoviji prvi).
+ *
+ * - Ukljucuje samo postove koji nisu soft-obrisani (`deleted === false`)
+ * - Za svaki post dodatno dohvata podatke o autoru iz 'users' kolekcije
+ * - Ako nema komentara, koristi prazan niz kao fallback
  *
  * @async
  * @function getPosts
  * @returns {Promise<Array<Object>>} Lista postova sa informacijama o autoru.
- * Svaki post ukljucuje: `id`, `author`, `postData`, i eventualno `comments`.
+ * Svaki post ukljucuje: `id`, `author`, ostala polja iz posta, i eventualno `comments`.
  * @throws {Error} Ako dodje do greske prilikom dohvatanja.
  */
 
 export const getPosts = async () => {
     try {
         const postsRef = collection(db, "posts");
-        const q = query(postsRef, orderBy("createdAt", "desc"));
+        const q = query(
+            postsRef,
+            where("deleted", "==", false), // Dohvatamo samo postove koji nisu oznaceni kao obrisani
+            orderBy("createdAt", "desc")
+        );
 
         const querySnapshot = await getDocs(q);
         const posts = await Promise.all(querySnapshot.docs.map(async (docSnap) => {
