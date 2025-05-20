@@ -34,6 +34,8 @@ const CreatePost = () => {
         ...postData, // Podaci iz forme
         userId: user.uid, // Povezujemo post sa korisnikom
         createdAt: serverTimestamp(), // Timestamp iz Firestore-a
+        deleted: false,
+        deletedAt: null,
       });
 
       showSuccessToast("Post successfully created!");
@@ -116,7 +118,6 @@ const CreatePost = () => {
     setErrors({});
   };
 
- 
   return (
     <div className="container mt-5">
       <h1>Create a New Post</h1>

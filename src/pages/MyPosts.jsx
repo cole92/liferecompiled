@@ -24,13 +24,14 @@ const MyPosts = () => {
   const [postToDelete, setPostToDelete] = useState(null);
 
   useEffect(() => {
-    // Funkcija za dohvatanje postova korisnika iz Firestore baze
+    // Funkcija za dohvatanje postova korisnika iz Firestore baze koji nisu obrisani
     const fetchPosts = async () => {
       try {
         const postRef = collection(db, "posts");
         const q = query(
           postRef,
           where("userId", "==", user.uid),
+          where("deleted", "==", false), // Dohvatamo samo postove koji nisu oznaceni kao obrisani
           orderBy("createdAt", "desc")
         );
         const querySnapshot = await getDocs(q);
@@ -87,7 +88,7 @@ const MyPosts = () => {
         });
       });
       showSuccessToast("Post moved to Trash.");
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setPosts((prev) => prev.filter((p) => p.id !== postId)); // Lokalno uklanjamo post iz prikaza (ne refetchujemo celu listu)
     } catch (error) {
       console.error("Error during soft delete:", error);
       showErrorToast("Failed to delete post.");
