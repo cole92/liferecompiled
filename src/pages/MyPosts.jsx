@@ -1,13 +1,15 @@
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { runTransaction, doc, serverTimestamp } from "firebase/firestore";
 import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 
 import { db } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
 
 import Spinner from "../components/Spinner";
+import ConfirmModal from "../utils/ConfirmModal";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
-import { showErrorToast } from "../utils/toastUtils";
+import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import PostsList from "../components/PostsList";
 import EmptyState from "./dashboard/components/EmptyState";
 
@@ -18,6 +20,8 @@ const MyPosts = () => {
 
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState(null);
 
   useEffect(() => {
     // Funkcija za dohvatanje postova korisnika iz Firestore baze
@@ -64,6 +68,35 @@ const MyPosts = () => {
     }
   }, [user]);
 
+  // Soft-delete funkcija za post:
+  // - Pokrece Firestore transakciju da osigura integritet (npr. dvoklik / race conditions)
+  // - Postavlja `deleted: true` i `deletedAt` (timestamp) u dokumentu
+  // - Nakon uspeha, uklanja post iz lokalnog state-a i prikazuje toast
+  // - U slucaju greske, prikazuje error toast i resetuje modal
+  const handleDelete = async (postId) => {
+    try {
+      await runTransaction(db, async (tx) => {
+        const postRef = doc(db, "posts", postId);
+        const snapshot = await tx.get(postRef);
+        if (!snapshot.exists()) throw "Post does not exist.";
+        if (snapshot.data().deleted) throw "Already deleted.";
+
+        tx.update(postRef, {
+          deleted: true,
+          deletedAt: serverTimestamp(),
+        });
+      });
+      showSuccessToast("Post moved to Trash.");
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch (error) {
+      console.error("Error during soft delete:", error);
+      showErrorToast("Failed to delete post.");
+    } finally {
+      setIsModalOpen(false);
+      setPostToDelete(null);
+    }
+  };
+
   // Prikaz korisnickog interfejsa
   return (
     <div className="mb-6">
@@ -86,7 +119,26 @@ const MyPosts = () => {
         <EmptyState message="You haven't created any posts yet." />
       )}
       {/* Prikaz liste postova korisnika */}
-      {!isLoading && posts.length > 0 && <PostsList posts={posts} showDeleteButton={true} onDelete={null}/>}
+      {!isLoading && posts.length > 0 && (
+        <PostsList
+          posts={posts}
+          showDeleteButton={true}
+          onDelete={(postId) => {
+            setPostToDelete(postId);
+            setIsModalOpen(true);
+          }}
+        />
+      )}
+      <ConfirmModal
+        isOpen={isModalOpen}
+        title="Delete Post?"
+        message="Are you sure you want to delete this post? It will be moved to Trash and can be restored within 30 days."
+        onCancel={() => {
+          setIsModalOpen(false);
+          setPostToDelete(null);
+        }}
+        onConfirm={() => handleDelete(postToDelete)}
+      />
     </div>
   );
 };
