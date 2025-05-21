@@ -9,6 +9,7 @@ import MyPosts from "./pages/MyPosts";
 import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
 import SavedPosts from "./pages/dashboard/SavedPosts";
 import Stats from "./pages/dashboard/Stats";
+import Trash from "./pages/dashboard/Trash";
 import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
 import PostDetails from "./pages/PostDetails";
@@ -29,6 +30,7 @@ function App() {
             <Route index element={<MyPosts />} />
             <Route path="saved" element={<SavedPosts />} />
             <Route path="stats" element={<Stats />} />
+            <Route path="trash" element={<Trash />} />
           </Route>
           <Route path="/dashboard/create-post" element={<CreatePost />} />
           <Route path="/profile" element={<Profile />} />
