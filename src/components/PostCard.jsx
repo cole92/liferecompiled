@@ -17,14 +17,24 @@ import Comments from "./comments/Comments";
  * @returns {JSX.Element} Interaktivna kartica blog posta
  */
 
-const PostCard = ({ post, showDeleteButton = false, onDelete }) => {
+const PostCard = ({
+  post,
+  showDeleteButton = false,
+  onDelete,
+  isTrashMode = false,
+}) => {
   const { title, description, createdAt, tags, author, category } = post;
   const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (isTrashMode) return; // ako smo u Trash modu → ne radi nista
+    navigate(`/post/${post.id}`);
+  };
 
   return (
     <div
       className="post-card"
-      onClick={() => navigate(`/post/${post.id}`)}
+      onClick={handleClick}
       style={{
         cursor: "pointer",
         //maxHeight: "450px",
@@ -69,7 +79,9 @@ const PostCard = ({ post, showDeleteButton = false, onDelete }) => {
       </div>
 
       {/* Reakcije */}
-      <PostReactions postId={post.id} reactions={post.reactions} />
+      {!isTrashMode && (
+        <PostReactions postId={post.id} reactions={post.reactions} />
+      )}
 
       {/* Kategorija */}
       <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
@@ -77,19 +89,23 @@ const PostCard = ({ post, showDeleteButton = false, onDelete }) => {
       </span>
 
       {/* Komentari */}
-      <Comments postID={post.id} userId={auth.currentUser?.uid} />
+      {!isTrashMode && (
+        <Comments postID={post.id} userId={auth.currentUser?.uid} />
+      )}
 
       {/* View More dugme */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          navigate(`/post/${post.id}`);
-        }}
-        className="view-more"
-        style={{ position: "absolute", bottom: "10px", right: "10px" }}
-      >
-        View Full Post →
-      </button>
+      {!isTrashMode && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/post/${post.id}`);
+          }}
+          className="view-more"
+          style={{ position: "absolute", bottom: "10px", right: "10px" }}
+        >
+          View Full Post →
+        </button>
+      )}
     </div>
   );
 };
@@ -117,6 +133,7 @@ PostCard.propTypes = {
 
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
+    isTrashMode: PropTypes.bool,
 };
 
 export default PostCard;

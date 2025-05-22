@@ -67,7 +67,7 @@ const Trash = () => {
       {!isLoading && deletedPosts.length > 0 && (
         <div className="grid gap-4">
           {deletedPosts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <PostCard key={post.id} post={post} isTrashMode={true}/>
           ))}
         </div>
       )}
