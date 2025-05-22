@@ -6,16 +6,15 @@ import { AuthContext } from "../../context/AuthContext";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showErrorToast } from "../../utils/toastUtils";
 
+import PostCard from "../../components/PostCard";
 import Spinner from "../../components/Spinner";
 import EmptyState from "./components/EmptyState";
-
 
 const Trash = () => {
   const { user } = useContext(AuthContext);
   const [deletedPosts, setDeletedPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   console.log(deletedPosts);
-  
 
   useEffect(() => {
     const fetchDeletedPosts = async () => {
@@ -41,10 +40,9 @@ const Trash = () => {
             ...data,
             author,
             comments: data.comments || [],
-          }
+          };
         });
         setDeletedPosts(posts);
-
       } catch (error) {
         console.error("Error fetching posts:", error);
         showErrorToast("Failed to load deleted posts. Please try again.");
@@ -53,14 +51,26 @@ const Trash = () => {
       }
     };
     if (user?.uid) {
-       fetchDeletedPosts();
-     }
-   }, [user]);
+      fetchDeletedPosts();
+    }
+  }, [user]);
 
   return (
     <div>
-      <EmptyState message="Trash is emtpy" />
+      {/* Empty state */}
+      {!isLoading && deletedPosts.length === 0 && (
+        <EmptyState message="You haven't deleted any posts yet." />
+      )}
+      {/* Loading state */}
       {isLoading && <Spinner message="Loading deleted posts..." />}
+
+      {!isLoading && deletedPosts.length > 0 && (
+        <div className="grid gap-4">
+          {deletedPosts.map((post) => (
+            <PostCard key={post.id} post={post} isTrashMode={true}/>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
