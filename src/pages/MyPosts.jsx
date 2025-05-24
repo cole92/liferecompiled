@@ -1,16 +1,27 @@
+// Paketi
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { runTransaction, doc, serverTimestamp } from "firebase/firestore";
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
-
+import {
+  collection,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  runTransaction,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
+// Konfiguracija i kontekst
 import { db } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
-
-import Spinner from "../components/Spinner";
-import ConfirmModal from "../utils/ConfirmModal";
+// Util funkcije i konstante
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
+import ConfirmModal from "../utils/ConfirmModal";
+// Komponente
+import Spinner from "../components/Spinner";
 import PostsList from "../components/PostsList";
+// Dashboard komponente
 import EmptyState from "./dashboard/components/EmptyState";
 
 // Dashboard komponenta za prikaz podataka korisnika

@@ -1,9 +1,14 @@
-import PropTypes from "prop-types";
-import { auth } from "../firebase";
+// Paketi
 import { useNavigate } from "react-router-dom";
-import "../styles/PostCard.css"; // Stilovi za karticu posta
+import PropTypes from "prop-types";
+// Konfiguracija
+import { auth } from "../firebase";
+// Komponente
 import PostReactions from "./PostReactions";
 import Comments from "./comments/Comments";
+// Stilovi
+import "../styles/PostCard.css";
+
 
 /**
  * Vizuelna kartica za prikaz blog posta.
@@ -11,6 +16,7 @@ import Comments from "./comments/Comments";
  * - Prikazuje osnovne informacije: naslov, opis, datum, autor, tagovi, kategorija
  * - Uključuje interaktivne elemente: reakcije, komentare, dugme za otvaranje celog posta
  * - Navigacija ka detaljnom prikazu (`/post/:id`) se aktivira klikom na karticu
+ * - U Trash modu prikazuje dugmad za Restore i Delete Permanently (pasivni prikaz)
  *
  * @component
  * @param {Object} post - Objekat koji predstavlja jedan blog post
@@ -21,6 +27,7 @@ const PostCard = ({
   post,
   showDeleteButton = false,
   onDelete,
+  onRestore,
   isTrashMode = false,
 }) => {
   const { title, description, createdAt, tags, author, category } = post;
@@ -106,6 +113,24 @@ const PostCard = ({
           View Full Post →
         </button>
       )}
+      {/* Restore & Delete Permanently dugme */}
+      {isTrashMode && (
+        <div className="flex gap-2 mt-4">
+          {/* Dugmad dostupna samo u Trash prikazu – za vracanje posta ili trajno brisanje */}
+          <button
+            onClick={onRestore}
+            className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+          >
+            Restore
+          </button>
+          <button
+            onClick={() => {}}
+            className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+          >
+            Delete Permanently
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -133,7 +158,8 @@ PostCard.propTypes = {
 
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
-    isTrashMode: PropTypes.bool,
+  isTrashMode: PropTypes.bool,
+  onRestore: PropTypes.func,
 };
 
 export default PostCard;
