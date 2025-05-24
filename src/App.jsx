@@ -1,19 +1,23 @@
-import { Routes, Route } from "react-router-dom";
+// Paketi
+import { Routes, Route, Navigate } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+// Komponente
 import ProtectedRoute from "./components/ProtectedRoute";
-import { Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
+// Stranice
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import MyPosts from "./pages/MyPosts";
+import CreatePost from "./pages/CreatePost";
+import PostDetails from "./pages/PostDetails";
+import Profile from "./pages/Profile";
+// Dashboard stranice
 import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
 import SavedPosts from "./pages/dashboard/SavedPosts";
 import Stats from "./pages/dashboard/Stats";
 import Trash from "./pages/dashboard/Trash";
-import Profile from "./pages/Profile";
-import CreatePost from "./pages/CreatePost";
-import PostDetails from "./pages/PostDetails";
-import { ToastContainer } from "react-toastify";
+// Stilovi
 import "./App.css";
 
 function App() {

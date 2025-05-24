@@ -8,10 +8,20 @@ import PropTypes from "prop-types";
  * @param {string} title - Naslov u modalu
  * @param {string} message - Poruka unutar modala
  * @param {Function} onConfirm - Funkcija koja se poziva kad korisnik potvrdi
- * @param {Function} onCancel - Funkcija koja se poziva kad korisnik otkaže
+ * @param {Function} onCancel - Funkcija koja se poziva kad korisnik otkaze
+ * @param {string} confirmText - Tekst za dugme potvrde (default: "Delete")
+ * @param {string} confirmButtonClass - Tailwind klasa za dugme potvrde (opciono)
  */
 
-const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
+const ConfirmModal = ({
+  isOpen,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmText = "Delete",
+  confirmButtonClass = "bg-red-500 hover:bg-red-600",
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -28,9 +38,9 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+            className={`px-4 py-1 text-white rounded transition ${confirmButtonClass}`}
           >
-            Delete
+            {confirmText}
           </button>
         </div>
       </div>
@@ -44,6 +54,8 @@ ConfirmModal.propTypes = {
   message: PropTypes.string.isRequired,
   onConfirm: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
+  confirmText: PropTypes.string,
+  confirmButtonClass: PropTypes.string,
 };
 
 export default ConfirmModal;
