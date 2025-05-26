@@ -10,6 +10,7 @@
     "node": "18"
   },
   "dependencies": {
+    "cloudinary": "^2.6.1",
     "firebase-admin": "^11.10.1",
     "firebase-functions": "^4.3.0"
   },
