@@ -10,6 +10,8 @@ import {
   updateDoc,
 } from "firebase/firestore";
 // Konfiguracija i kontekst
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../firebase";
 import { db } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
 // Util funkcije i konstante
@@ -21,7 +23,6 @@ import PostCard from "../../components/PostCard";
 import Spinner from "../../components/Spinner";
 // Dashboard komponente
 import EmptyState from "./components/EmptyState";
-
 
 /**
  * Trash komponenta
@@ -40,6 +41,8 @@ const Trash = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [postIdToDelete, setPostIdToDelete] = useState(null);
 
   // Subscribujemo se na real-time promene za obrisane postove korisnika
   useEffect(() => {
@@ -102,6 +105,22 @@ const Trash = () => {
       showErrorToast("Failed to restore post.");
     }
   };
+  // Poziva Cloud Function `deletePostCascade` za trajno brisanje posta
+  const handleDeletePermanent = async () => {
+    if (!postIdToDelete) return;
+
+    try {
+      const deletePost = httpsCallable(functions, "deletePostCascade");
+      await deletePost({ postId: postIdToDelete });
+      showSuccessToast("Post permanently deleted.");
+    } catch (error) {
+      console.error("Delete error:", error);
+      showErrorToast("Failed to delete post.");
+    } finally {
+      setDeleteModalOpen(false);
+      setPostIdToDelete(null);
+    }
+  };
   // UI prikaz: loading, empty state ili lista obrisanih postova
   return (
     <div>
@@ -114,6 +133,7 @@ const Trash = () => {
 
       {!isLoading && deletedPosts.length > 0 && (
         <div className="grid gap-4">
+          {/* Prikaz liste obrisanih postova sa opcijama za Restore i Delete */}
           {deletedPosts.map((post) => (
             <PostCard
               key={post.id}
@@ -122,6 +142,10 @@ const Trash = () => {
               onRestore={() => {
                 setSelectedPostId(post.id);
                 setRestoreModalOpen(true);
+              }}
+              onDeletePermanently={() => {
+                setPostIdToDelete(post.id);
+                setDeleteModalOpen(true);
               }}
             />
           ))}
@@ -140,6 +164,15 @@ const Trash = () => {
           setRestoreModalOpen(false);
           setSelectedPostId(null);
         }}
+      />
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Post Permanently"
+        message="Are you sure you want to permanently delete this post? This action cannot be undone."
+        confirmText="Delete"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        onCancel={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeletePermanent}
       />
     </div>
   );

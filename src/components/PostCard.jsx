@@ -1,20 +1,18 @@
-// Paketi
 import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
-// Konfiguracija
+
 import { auth } from "../firebase";
-// Komponente
+
 import PostReactions from "./PostReactions";
 import Comments from "./comments/Comments";
-// Stilovi
-import "../styles/PostCard.css";
 
+import "../styles/PostCard.css";
 
 /**
  * Vizuelna kartica za prikaz blog posta.
  *
  * - Prikazuje osnovne informacije: naslov, opis, datum, autor, tagovi, kategorija
- * - Uključuje interaktivne elemente: reakcije, komentare, dugme za otvaranje celog posta
+ * - Ukljucuje interaktivne elemente: reakcije, komentare, dugme za otvaranje celog posta
  * - Navigacija ka detaljnom prikazu (`/post/:id`) se aktivira klikom na karticu
  * - U Trash modu prikazuje dugmad za Restore i Delete Permanently (pasivni prikaz)
  *
@@ -22,19 +20,19 @@ import "../styles/PostCard.css";
  * @param {Object} post - Objekat koji predstavlja jedan blog post
  * @returns {JSX.Element} Interaktivna kartica blog posta
  */
-
 const PostCard = ({
   post,
   showDeleteButton = false,
   onDelete,
   onRestore,
+  onDeletePermanently,
   isTrashMode = false,
 }) => {
   const { title, description, createdAt, tags, author, category } = post;
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (isTrashMode) return; // ako smo u Trash modu → ne radi nista
+    if (isTrashMode) return; // Ako smo u Trash modu, kartica nije klikabilna
     navigate(`/post/${post.id}`);
   };
 
@@ -44,7 +42,6 @@ const PostCard = ({
       onClick={handleClick}
       style={{
         cursor: "pointer",
-        //maxHeight: "450px",
         overflow: "hidden",
         position: "relative",
       }}
@@ -54,10 +51,11 @@ const PostCard = ({
         <img src={author.profilePicture} alt="Author" />
         <span>{author?.name || "Unknown"}</span>
       </div>
+
+      {/* Dugme za Delete ako nije u Trash modu */}
       {showDeleteButton && (
         <button
-          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600
-          text-white text-xs font-medium px-3 py-1 rounded shadow transition"
+          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1 rounded shadow transition"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(post.id);
@@ -71,7 +69,7 @@ const PostCard = ({
       <h2 className="post-title">{title}</h2>
       <p className="post-description">{description}</p>
 
-      {/* Datum */}
+      {/* Datum kreiranja */}
       <span className="post-date">
         {createdAt.toDate().toLocaleDateString()}
       </span>
@@ -85,7 +83,7 @@ const PostCard = ({
         ))}
       </div>
 
-      {/* Reakcije */}
+      {/* Reakcije (sakriva se u Trash modu) */}
       {!isTrashMode && (
         <PostReactions postId={post.id} reactions={post.reactions} />
       )}
@@ -95,12 +93,12 @@ const PostCard = ({
         {category}
       </span>
 
-      {/* Komentari */}
+      {/* Komentari (sakriva se u Trash modu) */}
       {!isTrashMode && (
         <Comments postID={post.id} userId={auth.currentUser?.uid} />
       )}
 
-      {/* View More dugme */}
+      {/* View Full Post dugme (sakriva se u Trash modu) */}
       {!isTrashMode && (
         <button
           onClick={(e) => {
@@ -113,10 +111,10 @@ const PostCard = ({
           View Full Post →
         </button>
       )}
-      {/* Restore & Delete Permanently dugme */}
+
+      {/* Dugmad dostupna samo u Trash prikazu */}
       {isTrashMode && (
         <div className="flex gap-2 mt-4">
-          {/* Dugmad dostupna samo u Trash prikazu – za vracanje posta ili trajno brisanje */}
           <button
             onClick={onRestore}
             className="bg-green-500 text-white px-3 py-1 rounded text-sm"
@@ -124,7 +122,7 @@ const PostCard = ({
             Restore
           </button>
           <button
-            onClick={() => {}}
+            onClick={onDeletePermanently}
             className="bg-red-600 text-white px-3 py-1 rounded text-sm"
           >
             Delete Permanently
@@ -137,29 +135,30 @@ const PostCard = ({
 
 PostCard.propTypes = {
   post: PropTypes.shape({
-    id: PropTypes.string.isRequired, // Firebase ID posta
-    category: PropTypes.string.isRequired, // Kategrija
-    title: PropTypes.string.isRequired, // Naslov posta
-    description: PropTypes.string.isRequired, // Opis posta
-    createdAt: PropTypes.object.isRequired, // Firestore Timestamp
+    id: PropTypes.string.isRequired,
+    category: PropTypes.string.isRequired,
+    title: PropTypes.string.isRequired,
+    description: PropTypes.string.isRequired,
+    createdAt: PropTypes.object.isRequired,
     tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
       .isRequired, // Tagovi
     author: PropTypes.shape({
-      name: PropTypes.string.isRequired, // Ime autora
-      profilePicture: PropTypes.string.isRequired, // URL slike autora
-    }).isRequired, // Autor je objekat i obavezno mora imati ove vrednosti
+      name: PropTypes.string.isRequired,
+      profilePicture: PropTypes.string.isRequired,
+    }).isRequired,
     comments: PropTypes.arrayOf(
       PropTypes.shape({
-        text: PropTypes.string.isRequired, // Tekst komentara
+        text: PropTypes.string.isRequired,
       })
-    ).isRequired, // Komentari su niz objekata sa tekstom
-    reactions: PropTypes.object, // Reakcije moraju biti objekat
+    ).isRequired,
+    reactions: PropTypes.object,
   }).isRequired,
 
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
   isTrashMode: PropTypes.bool,
   onRestore: PropTypes.func,
+  onDeletePermanently: PropTypes.func,
 };
 
 export default PostCard;
