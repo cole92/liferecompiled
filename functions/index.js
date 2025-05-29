@@ -8,11 +8,89 @@ admin.initializeApp();
 const db = admin.firestore();
 
 /**
+ * Privatna pomocna funkcija koja obavlja kompletno kaskadno brisanje posta.
+ * - Brise sve komentare, reakcije i sliku ako postoji
+ * - Ne koristi context.auth – mora se eksplicitno proslediti `uid`
+ *
+ * @param {Object} params
+ * @param {string} params.postId - ID posta koji se brise
+ * @param {string} params.uid - ID korisnika koji je vlasnik posta
+ */
+
+async function deletePostCascadeInternal({ postId, uid }) {
+  const postRef = db.collection('posts').doc(postId);
+  const postSnap = await postRef.get();
+
+  if (!postSnap.exists) {
+    throw new Error(`Post ${postId} does not exist.`);
+  }
+
+  const postData = postSnap.data();
+  if (postData.userId !== uid) {
+    throw new Error('Permission denied: user is not the owner of the post.');
+  }
+
+  // Brisanje komentara po postID (bez parent hijerarhije)
+  let lastComment = null;
+  do {
+    let q = db.collection('comments')
+      .where('postID', '==', postId)
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(500);
+
+    if (lastComment) q = q.startAfter(lastComment);
+
+    const snap = await q.get();
+    if (snap.empty) break;
+
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+
+    lastComment = snap.docs[snap.docs.length - 1];
+  } while (true);
+
+  // Brisanje reakcija
+  let last = null;
+  do {
+    let q = db
+      .collection('reactions')
+      .where('postId', '==', postId)
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(500);
+    if (last) q = q.startAfter(last);
+
+    const snap = await q.get();
+    if (snap.empty) break;
+
+    const batch = db.batch();
+    snap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+
+    last = snap.docs[snap.docs.length - 1];
+  } while (true);
+
+  // Brisanje slike sa Cloudinary ako postoji
+  if (postData.imagePublicId) {
+    try {
+      await cloudinary.uploader.destroy(postData.imagePublicId);
+    } catch (err) {
+      console.warn('[Cloudinary] delete error:', err);
+    }
+  }
+
+  // Na kraju brisemo post dokument
+  await postRef.delete();
+}
+
+
+/**
  * Rekurzivno brise komentar i sve njegove potomke (koristi BFS + batcheve).
  *
  * @param {string} commentId - ID komentara koji treba obrisati
  * @returns {Promise<{ success: boolean }>}
  */
+
 exports.deleteCommentAndChildren = functions
   .region("europe-central2")
   .https.onCall(async (data, context) => {
@@ -41,6 +119,7 @@ exports.deleteCommentAndChildren = functions
  *
  * @param {string} rootId - ID korenskog komentara
  */
+
 async function deleteCommentBatch(rootId) {
   const toDelete = [rootId];
 
@@ -68,6 +147,7 @@ async function deleteCommentBatch(rootId) {
  * @param {string} commentId - ID komentara koji se soft-brise
  * @returns {Promise<{ success: boolean }>}
  */
+
 exports.softDeleteComment = functions
   .region("europe-central2")
   .https.onCall(async (data, context) => {
@@ -103,6 +183,7 @@ exports.softDeleteComment = functions
  * @param {string|null} parentId - (opciono) ID roditeljskog komentara
  * @returns {Promise<{ success: boolean, commentId: string }>}
  */
+
 exports.addCommentSecure = functions
   .region("europe-central2")
   .runWith({ memory: '256MB' })
@@ -159,91 +240,65 @@ exports.addCommentSecure = functions
   });
 
 /**
- * Kaskadno brise post, njegove komentare, reakcije i Cloudinary sliku.
- *
- * @param {string} postId - ID posta koji se trajno brise
- * @returns {Promise<{ success: boolean }>}
+ * Cloud Function: Kaskadno brisanje posta i svih povezanih podataka
  */
+
 exports.deletePostCascade = functions
   .region('europe-central2')
   .runWith({ memory: '512MB', timeoutSeconds: 120 })
   .https.onCall(async (data, context) => {
-    const { postId } = data || {};
-
-    // Autentifikacija i validacija
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'You are not logged in.');
     }
+
+    const { postId } = data || {};
     if (!postId) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing postId.');
     }
 
-    // Provera vlasnistva nad postom
-    const postRef = db.collection('posts').doc(postId);
-    const postSnap = await postRef.get();
-
-    if (!postSnap.exists) {
-      throw new functions.https.HttpsError('not-found', `Post ${postId} does not exist.`);
-    }
-
-    const postData = postSnap.data();
-    if (postData.userId !== context.auth.uid) {
-      throw new functions.https.HttpsError('permission-denied', 'You do not have permission to delete this post.');
-    }
-
     try {
-      // Brisanje komentara (paginirano u batch-ovima)
-      let lastComment = null;
-      do {
-        let q = db.collection('comments')
-          .where('postID', '==', postId)
-          .orderBy(admin.firestore.FieldPath.documentId())
-          .limit(500);
-
-        if (lastComment) q = q.startAfter(lastComment);
-        const snap = await q.get();
-        if (snap.empty) break;
-        const batch = db.batch();
-        snap.docs.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit();
-
-        lastComment = snap.docs[snap.docs.length - 1];
-      } while (true);
-
-      // Brisanje reakcija (takođe paginirano)
-      let last = null;
-      do {
-        let q = db
-          .collection('reactions')
-          .where('postId', '==', postId)
-          .orderBy(admin.firestore.FieldPath.documentId())
-          .limit(500);
-
-        if (last) q = q.startAfter(last);
-        const snap = await q.get();
-        if (snap.empty) break;
-        const batch = db.batch();
-        snap.docs.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit();
-
-        last = snap.docs[snap.docs.length - 1];
-      } while (true);
-
-      // Brisanje slike iz Cloudinary-ja ako postoji
-      if (postData.imagePublicId) {
-        try {
-          await cloudinary.uploader.destroy(postData.imagePublicId);
-        } catch (err) {
-          console.warn('[Cloudinary] image delete error:', err);
-        }
-      }
-
-      // Na kraju – brisemo i sam post
-      await postRef.delete();
-
+      await deletePostCascadeInternal({ postId, uid: context.auth.uid });
       return { success: true };
     } catch (err) {
       console.error('deletePostCascade error:', err);
-      throw new functions.https.HttpsError('internal', 'Error during cascading deletion.');
+      throw new functions.https.HttpsError('internal', 'Cascade delete failed.');
     }
   });
+
+exports.cleanupExpiredPosts = functions
+  .region('europe-central2')
+  .runWith({ memory: '512MB', timeoutSeconds: 120 })
+  .pubsub.schedule('every 24 hours')
+  .timeZone('Europe/Belgrade')
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const cutoff = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() - 30 * 24 * 60 * 60 * 1000
+    );
+
+    const snap = await db.collection('posts')
+      .where('deleted', '==', true)
+      .where('deletedAt', '<=', cutoff)
+      .get();
+
+    if (snap.empty) {
+      console.log(' No posts to hard-delete.');
+      return null;
+    }
+
+    console.log(` Hard-deleting ${snap.size} expired post(s)…`);
+
+    for (const doc of snap.docs) {
+      const postId = doc.id;
+      const authorId = doc.get('userId');
+      try {
+        await deletePostCascadeInternal({ postId, uid: authorId });
+        console.log(` Deleted post ${postId}`);
+      } catch (err) {
+        console.error(`Failed to delete post ${postId}:`, err);
+      }
+    }
+
+    return null;
+  });
+
