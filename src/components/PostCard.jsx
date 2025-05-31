@@ -29,14 +29,15 @@ const PostCard = ({
   isTrashMode = false,
   daysLeft,
 }) => {
-  const { title, description, createdAt, tags, author, category } = post;
+  const { title, description, createdAt, deletedAt, tags, author, category } =
+    post;
   const navigate = useNavigate();
 
   const handleClick = () => {
     if (isTrashMode) return; // Ako smo u Trash modu, kartica nije klikabilna
     navigate(`/post/${post.id}`);
   };
-  
+
   // Vizuelna boja badge-a u zavisnosti od broja preostalih dana za restore
   const getBadgeColor = (daysLeft) => {
     if (daysLeft > 20) return "bg-green-100 text-green-800";
@@ -90,11 +91,17 @@ const PostCard = ({
       )}
       <p className="post-description">{description}</p>
 
-      {/* Datum kreiranja */}
-      <span className="post-date">
-        {createdAt.toDate().toLocaleDateString()}
-      </span>
-
+      {/* Datum kreiranja (sakriven u trash modu)*/}
+      {!isTrashMode && (
+        <span className="post-date">
+          {createdAt.toDate().toLocaleDateString()}
+        </span>
+      )}
+      {isTrashMode && deletedAt && (
+        <span className="post-date text-xs text-gray-500">
+          Deleted on: {deletedAt.toDate().toLocaleDateString()}
+        </span>
+      )}
       {/* Tagovi */}
       <div className="post-tags">
         {tags.map((tag, index) => (
@@ -161,6 +168,7 @@ PostCard.propTypes = {
     title: PropTypes.string.isRequired,
     description: PropTypes.string.isRequired,
     createdAt: PropTypes.object.isRequired,
+    deletedAt: PropTypes.object,
     tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
       .isRequired, // Tagovi
     author: PropTypes.shape({
