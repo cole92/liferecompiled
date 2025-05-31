@@ -18,6 +18,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import ConfirmModal from "../../utils/ConfirmModal";
+import { getDaysLeft } from "../../utils/dateUtils";
 // Komponente
 import PostCard from "../../components/PostCard";
 import Spinner from "../../components/Spinner";
@@ -134,21 +135,28 @@ const Trash = () => {
       {!isLoading && deletedPosts.length > 0 && (
         <div className="grid gap-4">
           {/* Prikaz liste obrisanih postova sa opcijama za Restore i Delete */}
-          {deletedPosts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              isTrashMode={true}
-              onRestore={() => {
-                setSelectedPostId(post.id);
-                setRestoreModalOpen(true);
-              }}
-              onDeletePermanently={() => {
-                setPostIdToDelete(post.id);
-                setDeleteModalOpen(true);
-              }}
-            />
-          ))}
+          {deletedPosts.map((post) => {
+            const daysLeft = post.deletedAt // Izracunavamo koliko dana je ostalo do isteka roka za restore
+              ? getDaysLeft(post.deletedAt)
+              : null;
+
+            return (
+              <PostCard
+                key={post.id}
+                post={post}
+                isTrashMode={true}
+                daysLeft={daysLeft}
+                onRestore={() => {
+                  setSelectedPostId(post.id);
+                  setRestoreModalOpen(true);
+                }}
+                onDeletePermanently={() => {
+                  setPostIdToDelete(post.id);
+                  setDeleteModalOpen(true);
+                }}
+              />
+            );
+          })}
         </div>
       )}
       {/* Modal koji potvrdjuje da korisnik zeli da restore-uje post */}
