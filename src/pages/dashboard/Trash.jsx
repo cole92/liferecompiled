@@ -1,5 +1,6 @@
 // Paketi
 import { useContext, useEffect, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import {
   collection,
   doc,
@@ -22,6 +23,7 @@ import { getDaysLeft } from "../../utils/dateUtils";
 // Komponente
 import PostCard from "../../components/PostCard";
 import Spinner from "../../components/Spinner";
+
 // Dashboard komponente
 import EmptyState from "./components/EmptyState";
 
@@ -38,6 +40,8 @@ import EmptyState from "./components/EmptyState";
 
 const Trash = () => {
   const { user } = useContext(AuthContext);
+  const { filterRange } = useOutletContext();
+
   const [deletedPosts, setDeletedPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
@@ -122,6 +126,18 @@ const Trash = () => {
       setPostIdToDelete(null);
     }
   };
+
+  // Ako je aktivan filter (npr. "0-10"), prikazujemo samo postove ciji broj dana do brisanja upada u taj raspon
+  const filteredPosts = filterRange
+    ? deletedPosts.filter((post) => {
+        const days = getDaysLeft(post.deletedAt);
+        if (filterRange === "0-10") return days >= 0 && days <= 10;
+        if (filterRange === "11-20") return days >= 11 && days <= 20;
+        if (filterRange === "21-30") return days >= 21 && days <= 30;
+        return true;
+      })
+    : deletedPosts;
+
   // UI prikaz: loading, empty state ili lista obrisanih postova
   return (
     <div>
@@ -135,7 +151,7 @@ const Trash = () => {
       {!isLoading && deletedPosts.length > 0 && (
         <div className="grid gap-4">
           {/* Prikaz liste obrisanih postova sa opcijama za Restore i Delete */}
-          {deletedPosts.map((post) => {
+          {filteredPosts.map((post) => {
             const daysLeft = post.deletedAt // Izracunavamo koliko dana je ostalo do isteka roka za restore
               ? getDaysLeft(post.deletedAt)
               : null;
