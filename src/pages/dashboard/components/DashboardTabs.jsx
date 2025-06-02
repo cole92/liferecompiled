@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { NavLink } from "react-router-dom";
 
 /**
@@ -10,7 +11,7 @@ import { NavLink } from "react-router-dom";
  * @returns {JSX.Element} Horizontalna navigacija unutar Dashboard interfejsa
  */
 
-const DashboardTabs = () => {
+const DashboardTabs = ({ trashCount = 0 }) => {
   // Tab navigacija za Dashboard sekcije
   return (
     <div className="flex space-x-4 border-b pb-2 mb-4">
@@ -44,10 +45,14 @@ const DashboardTabs = () => {
           isActive ? "font-bold border-b-2 border-blue-500" : ""
         }
       >
-        Trash
+        Trash {trashCount > 0 && `(${trashCount})`}
       </NavLink>
     </div>
   );
+};
+
+DashboardTabs.propTypes = {
+  trashCount: PropTypes.number,
 };
 
 export default DashboardTabs;

@@ -27,13 +27,23 @@ const PostCard = ({
   onRestore,
   onDeletePermanently,
   isTrashMode = false,
+  daysLeft,
 }) => {
-  const { title, description, createdAt, tags, author, category } = post;
+  const { title, description, createdAt, deletedAt, tags, author, category } =
+    post;
   const navigate = useNavigate();
 
   const handleClick = () => {
     if (isTrashMode) return; // Ako smo u Trash modu, kartica nije klikabilna
     navigate(`/post/${post.id}`);
+  };
+
+  // Vizuelna boja badge-a u zavisnosti od broja preostalih dana za restore
+  const getBadgeColor = (daysLeft) => {
+    if (daysLeft > 20) return "bg-green-100 text-green-800";
+    if (daysLeft > 10) return "bg-yellow-100 text-yellow-800";
+    if (daysLeft > 0) return "bg-red-100 text-red-800";
+    return "bg-gray-800 text-white";
   };
 
   return (
@@ -67,13 +77,31 @@ const PostCard = ({
 
       {/* Naslov i opis */}
       <h2 className="post-title">{title}</h2>
+      {isTrashMode && daysLeft !== null && (
+        <span
+          className={`text-xs font-medium px-2.5 py-0.5 rounded w-fit ${getBadgeColor(
+            daysLeft
+          )}`}
+        >
+          ⏳{" "}
+          {daysLeft === 0
+            ? "Last chance to restore!"
+            : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left to restore`}
+        </span>
+      )}
       <p className="post-description">{description}</p>
 
-      {/* Datum kreiranja */}
-      <span className="post-date">
-        {createdAt.toDate().toLocaleDateString()}
-      </span>
-
+      {/* Datum kreiranja (sakriven u trash modu)*/}
+      {!isTrashMode && (
+        <span className="post-date">
+          {createdAt.toDate().toLocaleDateString()}
+        </span>
+      )}
+      {isTrashMode && deletedAt && (
+        <span className="post-date text-xs text-gray-500">
+          Deleted on: {deletedAt.toDate().toLocaleDateString()}
+        </span>
+      )}
       {/* Tagovi */}
       <div className="post-tags">
         {tags.map((tag, index) => (
@@ -140,6 +168,7 @@ PostCard.propTypes = {
     title: PropTypes.string.isRequired,
     description: PropTypes.string.isRequired,
     createdAt: PropTypes.object.isRequired,
+    deletedAt: PropTypes.object,
     tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
       .isRequired, // Tagovi
     author: PropTypes.shape({
@@ -159,6 +188,7 @@ PostCard.propTypes = {
   isTrashMode: PropTypes.bool,
   onRestore: PropTypes.func,
   onDeletePermanently: PropTypes.func,
+  daysLeft: PropTypes.number,
 };
 
 export default PostCard;
