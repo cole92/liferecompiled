@@ -20,6 +20,7 @@ import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import ConfirmModal from "../../utils/ConfirmModal";
 import { getDaysLeft } from "../../utils/dateUtils";
+import { motion, AnimatePresence } from "framer-motion";
 // Komponente
 import PostCard from "../../components/PostCard";
 import Spinner from "../../components/Spinner";
@@ -150,29 +151,38 @@ const Trash = () => {
 
       {!isLoading && deletedPosts.length > 0 && (
         <div className="grid gap-4">
-          {/* Prikaz liste obrisanih postova sa opcijama za Restore i Delete */}
-          {filteredPosts.map((post) => {
-            const daysLeft = post.deletedAt // Izracunavamo koliko dana je ostalo do isteka roka za restore
-              ? getDaysLeft(post.deletedAt)
-              : null;
+          <AnimatePresence>
+            {/* Prikaz liste obrisanih postova sa opcijama za Restore i Delete */}
+            {filteredPosts.map((post) => {
+              const daysLeft = post.deletedAt // Izracunavamo koliko dana je ostalo do isteka roka za restore
+                ? getDaysLeft(post.deletedAt)
+                : null;
 
-            return (
-              <PostCard
-                key={post.id}
-                post={post}
-                isTrashMode={true}
-                daysLeft={daysLeft}
-                onRestore={() => {
-                  setSelectedPostId(post.id);
-                  setRestoreModalOpen(true);
-                }}
-                onDeletePermanently={() => {
-                  setPostIdToDelete(post.id);
-                  setDeleteModalOpen(true);
-                }}
-              />
-            );
-          })}
+              return (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                >
+                  <PostCard
+                    post={post}
+                    isTrashMode={true}
+                    daysLeft={daysLeft}
+                    onRestore={() => {
+                      setSelectedPostId(post.id);
+                      setRestoreModalOpen(true);
+                    }}
+                    onDeletePermanently={() => {
+                      setPostIdToDelete(post.id);
+                      setDeleteModalOpen(true);
+                    }}
+                  />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
       {/* Modal koji potvrdjuje da korisnik zeli da restore-uje post */}
@@ -181,7 +191,8 @@ const Trash = () => {
         title="Restore Post"
         message="Are you sure you want to restore this post?"
         confirmText="Restore"
-        confirmButtonClass="bg-green-500 hover:bg-green-600"
+        confirmButtonClass="bg-green-500 hover:bg-green-600 hover:scale-105 transition duration-200"
+        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
         onCancel={() => setRestoreModalOpen(false)}
         onConfirm={() => {
           handleRestore(selectedPostId);
@@ -194,7 +205,8 @@ const Trash = () => {
         title="Delete Post Permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
         confirmText="Delete"
-        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        confirmButtonClass="bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200"
+        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
         onCancel={() => setDeleteModalOpen(false)}
         onConfirm={handleDeletePermanent}
       />
