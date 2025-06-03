@@ -145,13 +145,13 @@ const PostCard = ({
         <div className="flex gap-2 mt-4">
           <button
             onClick={onRestore}
-            className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+            className="px-3 py-1 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 hover:scale-105 transition duration-200"
           >
             Restore
           </button>
           <button
             onClick={onDeletePermanently}
-            className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+            className="px-3 py-1 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 hover:scale-105 transition duration-200"
           >
             Delete Permanently
           </button>
