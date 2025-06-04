@@ -3,6 +3,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
+import Spinner from "../components/Spinner";
 import { useState } from "react";
 import TagsInput from "../components/TagsInput";
 import { validCategories } from "../constants/postCategories";
@@ -117,6 +118,7 @@ const CreatePost = () => {
     setCategory("");
     setErrors({});
   };
+  if (!user) return <Spinner message="Loading user info..." />;
 
   return (
     <div className="container mt-5">
