@@ -35,8 +35,8 @@ function App() {
             <Route path="saved" element={<SavedPosts />} />
             <Route path="stats" element={<Stats />} />
             <Route path="trash" element={<Trash />} />
+            <Route path="create" element={<CreatePost />} />
           </Route>
-          <Route path="/dashboard/create-post" element={<CreatePost />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
         {/* Default preusmeravanje ako ruta ne postoji */}

@@ -142,7 +142,7 @@ const CreatePost = () => {
           {errors.title && (
             <div className="invalid-feedback">{errors.title}</div>
           )}
-          <small className="form-text text-muted">
+          <small className="form-text  text-light">
             A good title is short and descriptive (e.g., &quot;React
             Tips&quot;).
           </small>
@@ -162,7 +162,7 @@ const CreatePost = () => {
             onChange={(e) => setDescripton(e.target.value)}
             rows="3"
           />
-          <small className="form-text text-muted">
+          <small className="form-text  text-light">
             This field is optional, but if filled, please keep it between 10 and{" "}
             {300 - description.trim().length} characters.
           </small>
@@ -189,7 +189,7 @@ const CreatePost = () => {
           {errors.content && (
             <div className="invalid-feedback">{errors.content}</div>
           )}
-          <small className="form-text text-muted">
+          <small className="form-text  text-light">
             Content should be at least 20 characters and no longer than{" "}
             {5000 - content.trim().length} characters.
           </small>
