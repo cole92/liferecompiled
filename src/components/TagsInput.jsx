@@ -193,7 +193,7 @@ const TagsInput = ({ tags, setTags }) => {
           ))}
         </div>
         {/* Pomocni tekst ispod polja */}
-        <small className="form-text text-muted">
+        <small className="form-text  text-light">
           Add up to 5 tags to describe your post.
         </small>
         {/* ReactTags komponenta za unos tagova */}
@@ -213,7 +213,7 @@ const TagsInput = ({ tags, setTags }) => {
           {inputValue && renderFilteredTags()}
         </div>
         {!error ? (
-          <small className="form-text text-muted">
+          <small className="form-text  text-light">
             Allowed characters: letters, numbers, spaces, dots, underscores,
             plus (+), hyphens (-), hashtags (#).
           </small>

@@ -1,0 +1,16 @@
+{
+  "manualFirestoreBackup": {
+    "status": "done",
+    "description": "Prvi ručni Firestore backup uspešno napravljen.",
+    "date": "2025-06-04",
+    "bucket": "myblogapp-backups",
+    "location": "gs://myblogapp-backups/firestore-backup-2025-06-04"
+  },
+  "automatedFirestoreBackup": {
+    "status": "planned",
+    "description": "Postaviti automatizovani backup Firestore baze uz Cloud Scheduler.",
+    "when": "Pre finalnog deploy-a ili u prvoj produkcijskoj iteraciji",
+    "reason": "Omogućava sigurnosne kopije bez ljudske intervencije i fallback kod grešaka, brisanja ili korupcije podataka.",
+    "implementation": "Kombinacija Cloud Scheduler + gcloud export komandne linije ili Cloud Function"
+  }
+}
