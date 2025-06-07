@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
 
 import { auth } from "../firebase";
 
@@ -27,6 +28,7 @@ const PostCard = ({
   onRestore,
   onDeletePermanently,
   isTrashMode = false,
+  isMyPost = false,
   daysLeft,
 }) => {
   const { title, description, createdAt, deletedAt, tags, author, category } =
@@ -139,6 +141,16 @@ const PostCard = ({
           View Full Post →
         </button>
       )}
+      {/* Uslovni prikaz edit dugmeta u myPosts */}
+      {!isTrashMode && isMyPost && (
+        <Link
+          to={`/dashboard/edit/${post.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-sm text-blue-500 hover:underline ml-2"
+        >
+          Edit
+        </Link>
+      )}
 
       {/* Dugmad dostupna samo u Trash prikazu */}
       {isTrashMode && (
@@ -186,6 +198,7 @@ PostCard.propTypes = {
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
   isTrashMode: PropTypes.bool,
+  isMyPost: PropTypes.bool,
   onRestore: PropTypes.func,
   onDeletePermanently: PropTypes.func,
   daysLeft: PropTypes.number,

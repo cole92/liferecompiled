@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import MyPosts from "./pages/MyPosts";
 import CreatePost from "./pages/CreatePost";
+import EditPost from "./pages/EditPost";
 import PostDetails from "./pages/PostDetails";
 import Profile from "./pages/Profile";
 // Dashboard stranice
@@ -36,6 +37,7 @@ function App() {
             <Route path="stats" element={<Stats />} />
             <Route path="trash" element={<Trash />} />
             <Route path="create" element={<CreatePost />} />
+            <Route path="edit/:postId" element={<EditPost />} />
           </Route>
           <Route path="/profile" element={<Profile />} />
         </Route>

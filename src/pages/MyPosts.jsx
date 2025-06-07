@@ -134,6 +134,7 @@ const MyPosts = () => {
       {!isLoading && posts.length > 0 && (
         <PostsList
           posts={posts}
+          isMyPost={true}
           showDeleteButton={true}
           onDelete={(postId) => {
             setPostToDelete(postId);
