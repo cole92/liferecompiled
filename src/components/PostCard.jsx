@@ -31,8 +31,16 @@ const PostCard = ({
   isMyPost = false,
   daysLeft,
 }) => {
-  const { title, description, createdAt, deletedAt, tags, author, category } =
-    post;
+  const {
+    title,
+    description,
+    createdAt,
+    deletedAt,
+    updatedAt,
+    tags,
+    author,
+    category,
+  } = post;
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -93,15 +101,19 @@ const PostCard = ({
       )}
       <p className="post-description">{description}</p>
 
-      {/* Datum kreiranja (sakriven u trash modu)*/}
+      {/* Datum kreiranja ili izmene (sakriven u trash modu) */}
       {!isTrashMode && (
         <span className="post-date">
-          {createdAt.toDate().toLocaleDateString()}
+          {updatedAt
+            ? `Last edited on: ${updatedAt.toDate().toLocaleDateString()}`
+            : `Posted on: ${createdAt.toDate().toLocaleDateString()}`}
         </span>
       )}
       {isTrashMode && deletedAt && (
         <span className="post-date text-xs text-gray-500">
-          Deleted on: {deletedAt.toDate().toLocaleDateString()}
+          {updatedAt
+            ? `Last edited on: ${updatedAt.toDate().toLocaleDateString()}`
+            : `Posted on: ${createdAt.toDate().toLocaleDateString()}`}
         </span>
       )}
       {/* Tagovi */}
@@ -181,6 +193,7 @@ PostCard.propTypes = {
     description: PropTypes.string.isRequired,
     createdAt: PropTypes.object.isRequired,
     deletedAt: PropTypes.object,
+     updatedAt: PropTypes.object,
     tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
       .isRequired, // Tagovi
     author: PropTypes.shape({

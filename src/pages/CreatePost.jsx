@@ -37,6 +37,7 @@ const CreatePost = () => {
         createdAt: serverTimestamp(), // Timestamp iz Firestore-a
         deleted: false,
         deletedAt: null,
+        updatedAt: null,
       });
 
       showSuccessToast("Post successfully created!");

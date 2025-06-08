@@ -1,9 +1,9 @@
 import { useEffect, useState, useContext } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { useParams } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import { showErrorToast } from "../utils/toastUtils";
+import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import Spinner from "../components/Spinner";
 import TagsInput from "../components/TagsInput";
 import { validCategories } from "../constants/postCategories";
@@ -72,7 +72,7 @@ const EditPost = () => {
     return <Spinner message="Loading post for editing..." />;
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -107,6 +107,23 @@ const EditPost = () => {
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
+    }
+
+    try {
+      const postRef = doc(db, "posts", postToEdit.id);
+      await updateDoc(postRef, {
+        title: title.trim(),
+        description: description.trim(),
+        content: content.trim(),
+        tags,
+        category,
+        updatedAt: serverTimestamp(),
+      });
+
+      showSuccessToast("Post successfully updated!");
+    } catch (error) {
+      console.error("Error updating post:", error);
+      showErrorToast("Failed to update post. Please try again.");
     }
   };
 
