@@ -158,7 +158,7 @@ const PostCard = ({
         <Link
           to={`/dashboard/edit/${post.id}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-sm text-blue-500 hover:underline ml-2"
+          className="inline-block px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition"
         >
           Edit
         </Link>
@@ -193,7 +193,7 @@ PostCard.propTypes = {
     description: PropTypes.string.isRequired,
     createdAt: PropTypes.object.isRequired,
     deletedAt: PropTypes.object,
-     updatedAt: PropTypes.object,
+    updatedAt: PropTypes.object,
     tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
       .isRequired, // Tagovi
     author: PropTypes.shape({
