@@ -1,14 +1,29 @@
 import { useEffect, useState, useContext } from "react";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { useNavigate } from "react-router-dom";
 import { useParams } from "react-router-dom";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+
+import { db } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
+
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
+
 import Spinner from "../components/Spinner";
 import TagsInput from "../components/TagsInput";
+
 import { validCategories } from "../constants/postCategories";
 
+/**
+ * @component EditPost
+ * Komponenta za uredjivanje postojeceg posta.
+ * - Dohvata podatke posta iz Firestore pomocu postId iz URL-a.
+ * - Proverava vlasnistvo i status (da li je post u Trash-u).
+ * - Prikazuje formu sa validacijom i omogucava izmenu naslova, opisa, sadrzaja, tagova i kategorije.
+ * - Nakon uspesnog azuriranja prikazuje toast poruku.
+ */
+
 const EditPost = () => {
+  const navigate = useNavigate();
   const { postId } = useParams();
   const { user } = useContext(AuthContext);
   const [postToEdit, setPostToEdit] = useState(null);
@@ -19,9 +34,10 @@ const EditPost = () => {
   const [tags, setTags] = useState([]);
   const [category, setCategory] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false); // State koji prati da li je forma u procesu slanja (blokira dugmad i sprecava vise klikova)
 
   const [errors, setErrors] = useState({});
-  const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u;
+  const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u; // Dozvoljeni karakteri za naslov (slova, brojevi, razmaci i osnovni interpunkcijski znaci)
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -36,11 +52,13 @@ const EditPost = () => {
         }
         const postData = postSnap.data();
 
+        // Proverava da li trenutni korisnik ima pravo da menja ovaj post
         if (postData.userId !== user.uid) {
           showErrorToast("You are not authorized to edit this post.");
           return;
         }
 
+        // Ako je post obrisan (Trash), zabrani uredjivanje
         if (postData.deleted) {
           showErrorToast("This post is in Trash and cannot be edited.");
           return;
@@ -58,6 +76,7 @@ const EditPost = () => {
     fetchPost();
   }, [postId, user.uid]);
 
+  // Popunjava polja forme podacima iz postojeceg posta
   useEffect(() => {
     if (postToEdit) {
       setTitle(postToEdit.title || "");
@@ -68,14 +87,47 @@ const EditPost = () => {
     }
   }, [postToEdit]);
 
+  // Prikazuje spinner dok se post ucitava
   if (isLoading) {
     return <Spinner message="Loading post for editing..." />;
   }
 
+  /**
+   * @function handleSubmit
+   * Validira podatke iz forme i azurira post u Firestore-u ako je sve ispravno.
+   * Prikazuje odgovarajuce toast poruke u zavisnosti od ishoda.
+   * @param {Event} e - Submit dogadjaj forme.
+   */
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const newErrors = {};
 
+    // Novi podaci iz forme koji ce se uporediti sa originalnim postom
+    const newPostData = {
+      title: title.trim(),
+      description: description.trim(),
+      content: content.trim(),
+      category: category,
+      tags: tags,
+    };
+
+    const originalPostData = {
+      title: postToEdit.title,
+      description: postToEdit.description,
+      content: postToEdit.content,
+      category: postToEdit.category,
+      tags: postToEdit.tags,
+    };
+    // Poredjenje svih relevantnih polja — ako se nista nije promenilo, prekidamo submit
+    const isEqual = Object.keys(newPostData).every(
+      (key) =>
+        JSON.stringify(newPostData[key]) ===
+        JSON.stringify(originalPostData[key])
+    );
+
+    // Validacija naslova
     if (!title.trim()) {
       newErrors.title = "Title is required";
     } else if (title.trim().length < 5) {
@@ -87,16 +139,18 @@ const EditPost = () => {
         "Allowed characters: letters, numbers, spaces, commas, periods, question marks, exclamation points, and hyphens.";
     }
 
+    // Validacija opisa (opciono)
     if (description.trim() && description.trim().length < 10) {
       newErrors.description = "Description must be at least 10 characters long";
     }
-
+    // Validacija sadrzaja
     if (!content.trim()) {
       newErrors.content = "Content is required";
     } else if (content.trim().length < 20) {
       newErrors.content = "Content must be at least 20 characters long";
     }
 
+    // Validacija kategorije
     if (category.trim() === "") {
       newErrors.category = "Please select a category";
     } else if (!validCategories.includes(category)) {
@@ -106,6 +160,14 @@ const EditPost = () => {
     // Proveravamo ima li gresaka
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Ako korisnik nije izmenio nista u odnosu na originalne vrednosti
+    if (isEqual) {
+      showErrorToast("No changes made.");
+      setIsSubmitting(false);
       return;
     }
 
@@ -117,13 +179,19 @@ const EditPost = () => {
         content: content.trim(),
         tags,
         category,
-        updatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(), // Dodajemo vreme izmene
       });
 
       showSuccessToast("Post successfully updated!");
+
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1500);
     } catch (error) {
       console.error("Error updating post:", error);
       showErrorToast("Failed to update post. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -164,7 +232,7 @@ const EditPost = () => {
             id="description"
             className={`form-control ${errors.description ? "is-invalid" : ""}`}
             placeholder="Enter a short description"
-            maxLength={300} // Sprecavamo unos vise od 300 karaktera
+            maxLength={300}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows="3"
@@ -187,7 +255,7 @@ const EditPost = () => {
             id="content"
             className={`form-control ${errors.content ? "is-invalid" : ""}`}
             placeholder="Change the main content of the post"
-            maxLength={5000} // Sprecavamo unos vise od 5000 karaktera
+            maxLength={5000}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows="6"
@@ -202,7 +270,7 @@ const EditPost = () => {
           </small>
         </div>
 
-        {/* Tagovi */}
+        {/* Komponenta za unos tagova (maks 5, podrzan drag & drop) */}
         <TagsInput tags={tags} setTags={setTags} />
 
         {/* Kategorija */}
@@ -244,11 +312,20 @@ const EditPost = () => {
           )}
         </div>
 
-        {/* Dugmad */}
-        <button type="submit" className="btn btn-primary">
-          Save Post
+        {/* Dugmad za cuvanje i odustajanje */}
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={isSubmitting} // Blokira dugme dok traje slanje forme
+        >
+          {/* Prikazuje loading status*/}
+          {isSubmitting ? "Saving..." : "Save Post"}
         </button>
-        <button type="button" className="btn btn-secondary ms-3" onClick={""}>
+        <button
+          type="button"
+          className="btn btn-secondary ms-3"
+          onClick={() => navigate("/dashboard")}
+        >
           Cancel
         </button>
       </form>

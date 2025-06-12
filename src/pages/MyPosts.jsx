@@ -33,6 +33,8 @@ const MyPosts = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
+  const [isLockModalOpen, setIsLockModalOpen] = useState(false);
+  const [postToLock, setPostToLock] = useState(null);
 
   useEffect(() => {
     // Funkcija za dohvatanje postova korisnika iz Firestore baze koji nisu obrisani
@@ -109,6 +111,38 @@ const MyPosts = () => {
     }
   };
 
+  /**
+   * @function handleLock
+   * Zakljucava post tako sto azurira njegovo stanje u Firestore.
+   * - Pokrece transakciju da postavi `locked: true` i `lockedAt`.
+   * - Zatvara modal i prikazuje success toast.
+   * @param {string} postId - ID posta koji se zakljucava.
+   */
+
+  const handleLock = async (postId) => {
+    try {
+      await runTransaction(db, async (transaction) => {
+        const postRef = doc(db, "posts", postId);
+        const snapshot = await transaction.get(postRef);
+        if (!snapshot.exists()) throw "Post not found!";
+
+        const data = snapshot.data();
+        if (data.locked) throw "Already locked";
+
+        transaction.update(postRef, {
+          locked: true,
+          lockedAt: serverTimestamp(),
+        });
+      });
+      setPostToLock(null);
+      setIsLockModalOpen(false);
+      showSuccessToast("Post successfully locked.");
+    } catch (error) {
+      console.error("Locking error", error);
+      showErrorToast(error?.message || "Failed to lock post.");
+    }
+  };
+
   // Prikaz korisnickog interfejsa
   return (
     <div className="mb-6">
@@ -140,8 +174,13 @@ const MyPosts = () => {
             setPostToDelete(postId);
             setIsModalOpen(true);
           }}
+          onLock={(postId) => {
+            setPostToLock(postId);
+            setIsLockModalOpen(true);
+          }}
         />
       )}
+      {/* Modal za potvrdu brisanja posta */}
       <ConfirmModal
         isOpen={isModalOpen}
         title="Delete Post?"
@@ -151,6 +190,22 @@ const MyPosts = () => {
           setPostToDelete(null);
         }}
         onConfirm={() => handleDelete(postToDelete)}
+      />
+      {/* Modal za potvrdu zakljucavanja posta */}
+      <ConfirmModal
+        isOpen={isLockModalOpen}
+        title="Lock Post?"
+        confirmText={"Lock"}
+        message="Are you sure you want to lock this post? It will be archived and you wont be able to edit or comment anymore."
+        onCancel={() => {
+          setIsLockModalOpen(false);
+          setPostToLock(null);
+        }}
+        onConfirm={() => {
+          handleLock(postToLock);
+          setIsLockModalOpen(false);
+          setPostToLock(null);
+        }}
       />
     </div>
   );

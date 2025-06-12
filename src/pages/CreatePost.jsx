@@ -38,6 +38,7 @@ const CreatePost = () => {
         deleted: false,
         deletedAt: null,
         updatedAt: null,
+        locked: false,
       });
 
       showSuccessToast("Post successfully created!");

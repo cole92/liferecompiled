@@ -30,6 +30,7 @@ const PostCard = ({
   isTrashMode = false,
   isMyPost = false,
   daysLeft,
+  onLock,
 }) => {
   const {
     title,
@@ -82,6 +83,19 @@ const PostCard = ({
           }}
         >
           Delete
+        </button>
+      )}
+
+      {/* Dugme za zakljucavanje (vidljivo samo autoru ako post nije vec zakljucan*/}
+      {isMyPost && post.locked === false && (
+        <button
+          className="bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1 rounded shadow transition"
+          onClick={(e) => {
+            e.stopPropagation();
+            onLock(post.id);
+          }}
+        >
+          Lock this post
         </button>
       )}
 
@@ -158,7 +172,7 @@ const PostCard = ({
         <Link
           to={`/dashboard/edit/${post.id}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-sm text-blue-500 hover:underline ml-2"
+          className="inline-block px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition"
         >
           Edit
         </Link>
@@ -192,8 +206,9 @@ PostCard.propTypes = {
     title: PropTypes.string.isRequired,
     description: PropTypes.string.isRequired,
     createdAt: PropTypes.object.isRequired,
+    locked: PropTypes.bool,
     deletedAt: PropTypes.object,
-     updatedAt: PropTypes.object,
+    updatedAt: PropTypes.object,
     tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
       .isRequired, // Tagovi
     author: PropTypes.shape({
@@ -215,6 +230,7 @@ PostCard.propTypes = {
   onRestore: PropTypes.func,
   onDeletePermanently: PropTypes.func,
   daysLeft: PropTypes.number,
+  onLock: PropTypes.func,
 };
 
 export default PostCard;
