@@ -47,6 +47,7 @@ const CommentItem = ({
   depth = 0,
   showAll,
   deleted,
+  locked = false,
 }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
   const [isReplaying, setIsReplaying] = useState(false); // State za kontrolu prikaza forme za odgovor
@@ -229,7 +230,7 @@ const CommentItem = ({
             {showAll && !isDeleted && (
               <>
                 {/* Dugme za odgovor */}
-                {depth < 4 ? (
+                {!locked && depth < 4 ? (
                   <button
                     onClick={() => setIsReplaying(!isReplaying)}
                     className="text-sm text-blue-500 hover:underline mt-1"

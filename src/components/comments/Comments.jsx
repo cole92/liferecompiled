@@ -22,7 +22,7 @@ import CommentItem from "./CommentItem";
  * @param {boolean} [showAll=false] - Ako je true, prikazuje sve komentare sa "See more" funkcijom.
  */
 
-const Comments = ({ postID, userId, showAll = false }) => {
+const Comments = ({ postID, userId, showAll = false, locked = false }) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
   // Broj komentara koji se prikazuju kada je showAll aktivan
@@ -77,6 +77,7 @@ const Comments = ({ postID, userId, showAll = false }) => {
           comments={comments}
           showAll={showAll}
           deleted={comment.deleted}
+          locked={locked}
         />
       ))}
       {/* Dugme za prikaz sledecih 5 komentara */}
@@ -91,7 +92,9 @@ const Comments = ({ postID, userId, showAll = false }) => {
         </div>
       )}
       {/* Forma za dodavanje komentara */}
-      <CommentForm postId={postID} userId={userId} parentId={null} />
+      {!locked && (
+        <CommentForm postId={postID} userId={userId} parentId={null} />
+      )}
     </div>
   );
 };

@@ -137,6 +137,14 @@ const MyPosts = () => {
       setPostToLock(null);
       setIsLockModalOpen(false);
       showSuccessToast("Post successfully locked.");
+
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.id === postId
+            ? { ...post, locked: true, lockedAt: new Date() }
+            : post
+        )
+      );
     } catch (error) {
       console.error("Locking error", error);
       showErrorToast(error?.message || "Failed to lock post.");
