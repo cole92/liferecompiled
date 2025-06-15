@@ -14,15 +14,22 @@ import "../styles/PostCard.css";
 /**
  * Vizuelna kartica za prikaz blog posta.
  *
- * - Prikazuje osnovne informacije: naslov, opis, datum, autor, tagovi, kategorija
- * - Ukljucuje interaktivne elemente: reakcije, komentare, dugme za otvaranje celog posta
- * - Navigacija ka detaljnom prikazu (`/post/:id`) se aktivira klikom na karticu
- * - U Trash modu prikazuje dugmad za Restore i Delete Permanently (pasivni prikaz)
+ * - Prikazuje osnovne informacije: naslov, opis, autor, datum, tagovi, kategorija
+ * - Omogucava interakcije sa postom: reakcije, komentari, zakljucavanje, edit, otvaranje detaljnog prikaza
+ * - Prilagodjava se kontekstu prikaza: regularni prikaz ili Trash mod
  *
  * @component
- * @param {Object} post - Objekat koji predstavlja jedan blog post
- * @returns {JSX.Element} Interaktivna kartica blog posta
+ * @param {Object} post - Objekat koji sadrzi sve informacije o postu
+ * @param {boolean} [showDeleteButton=false] - Da li prikazati dugme za Delete (van Trash moda)
+ * @param {Function} [onDelete] - Callback za brisanje posta
+ * @param {Function} [onRestore] - Callback za vracanje posta iz Trash moda
+ * @param {Function} [onDeletePermanently] - Callback za trajno brisanje posta
+ * @param {boolean} [isTrashMode=false] - Da li je prikaz u Trash modu
+ * @param {boolean} [isMyPost=false] - Da li je post od trenutnog korisnika
+ * @param {number} [daysLeft] - Broj dana pre nego sto se post automatski obrise (Trash mod)
+ * @param {Function} [onLock] - Callback za zakljucavanje posta
  */
+
 const PostCard = ({
   post,
   showDeleteButton = false,
@@ -231,6 +238,7 @@ PostCard.propTypes = {
     locked: PropTypes.bool,
     deletedAt: PropTypes.object,
     updatedAt: PropTypes.object,
+    lockedAt: PropTypes.object,
     tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
       .isRequired, // Tagovi
     author: PropTypes.shape({

@@ -22,6 +22,19 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../firebase";
 
+/**
+ * Komponenta za prikaz i upravljanje reakcijama na post.
+ *
+ * - Prikazuje sve dostupne reakcije uz broj glasova
+ * - Dozvoljava korisniku da klikne ili ukloni svoju reakciju
+ * - Real-time azuriranje putem Firestore onSnapshot
+ * - Ako je `locked`, onemogucava sve interakcije
+ *
+ * @component
+ * @param {string} postId - ID posta za koji se prikazuju reakcije
+ * @param {boolean} [locked=false] - Da li je post zakljucan (onemogucava klik)
+ */
+
 // Komponenta koja upravlja reakcijama na postove
 const PostReactions = ({ postId, locked }) => {
   /**
@@ -212,6 +225,7 @@ const PostReactions = ({ postId, locked }) => {
 
 PostReactions.propTypes = {
   postId: PropTypes.string.isRequired,
+  locked: PropTypes.bool,
 };
 
 export default PostReactions;
