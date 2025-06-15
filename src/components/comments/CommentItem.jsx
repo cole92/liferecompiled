@@ -47,6 +47,7 @@ const CommentItem = ({
   depth = 0,
   showAll,
   deleted,
+  locked = false,
 }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
   const [isReplaying, setIsReplaying] = useState(false); // State za kontrolu prikaza forme za odgovor
@@ -229,7 +230,7 @@ const CommentItem = ({
             {showAll && !isDeleted && (
               <>
                 {/* Dugme za odgovor */}
-                {depth < 4 ? (
+                {locked ? null : depth < 4 ? (
                   <button
                     onClick={() => setIsReplaying(!isReplaying)}
                     className="text-sm text-blue-500 hover:underline mt-1"
@@ -245,24 +246,29 @@ const CommentItem = ({
                     Reply
                   </button>
                 )}
-                <button
-                  onClick={() => {}} // Za sada prazan onClick (Placeholder)
-                  className="text-sm text-red-500 hover:underline ml-3"
-                >
-                  Report
-                </button>
+
+                {/* Dugme za repoty placeholder jos uvek */}
+                {locked ? null : (
+                  <button
+                    onClick={() => {}} // Za sada prazan onClick (Placeholder)
+                    className="text-sm text-red-500 hover:underline ml-3"
+                  >
+                    Report
+                  </button>
+                )}
 
                 {/* Komponenta za reakcije na komentar */}
                 <CommentReaction
                   commentId={commentId}
                   currentUserId={auth.currentUser?.uid}
+                  locked={locked}
                 />
 
                 {/* Dugme za brisanje i editovanje komentara (vidljivo samo autoru) */}
                 {!isDeleted && auth.currentUser?.uid === userId && canEdit && (
                   <>
                     {/* Dugme za Edit */}
-                    {!isEditing && (
+                    {!isEditing && !locked && (
                       <div className="relative inline-block">
                         {showEditHint && (
                           <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 shadow-md z-10">
@@ -279,19 +285,20 @@ const CommentItem = ({
                         </button>
                       </div>
                     )}
+
                     {/* Dugme za Delete */}
-                    {!isDeleting ? (
+                    {!locked && !isDeleting ? (
                       <button
                         onClick={() => setShowConfirmModal(true)}
                         className="text-sm text-blue-500 hover:underline ml-3"
                       >
                         Delete
                       </button>
-                    ) : (
+                    ) : !locked ? (
                       <span className="text-sm text-gray-500 ml-3">
                         Deleting...
                       </span>
-                    )}
+                    ) : null}
 
                     {/* Confirm modal za potvrdu brisanja */}
                     <ConfirmModal
@@ -328,6 +335,7 @@ const CommentItem = ({
               deleted={reply.deleted}
               depth={depth + 1}
               showAll={showAll}
+              locked={locked}
             />
           ))}
         </div>
@@ -356,6 +364,7 @@ CommentItem.propTypes = {
   showAll: PropTypes.bool,
   editedAt: PropTypes.object,
   deleted: PropTypes.bool,
+  locked: PropTypes.bool,
 };
 
 export default CommentItem;

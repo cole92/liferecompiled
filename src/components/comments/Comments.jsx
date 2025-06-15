@@ -22,7 +22,7 @@ import CommentItem from "./CommentItem";
  * @param {boolean} [showAll=false] - Ako je true, prikazuje sve komentare sa "See more" funkcijom.
  */
 
-const Comments = ({ postID, userId, showAll = false }) => {
+const Comments = ({ postID, userId, showAll = false, locked = false }) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
   // Broj komentara koji se prikazuju kada je showAll aktivan
@@ -52,7 +52,7 @@ const Comments = ({ postID, userId, showAll = false }) => {
     return unsubscribe;
   }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
-  // Filtriramo glavne komentare (parentID je null, znaci nisu odgovori)
+  // Filtriramo samo glavne komentare (parentID === null)
   const mainComments = comments.filter((c) => c.parentID === null);
 
   return (
@@ -77,6 +77,7 @@ const Comments = ({ postID, userId, showAll = false }) => {
           comments={comments}
           showAll={showAll}
           deleted={comment.deleted}
+          locked={locked}
         />
       ))}
       {/* Dugme za prikaz sledecih 5 komentara */}
@@ -91,7 +92,9 @@ const Comments = ({ postID, userId, showAll = false }) => {
         </div>
       )}
       {/* Forma za dodavanje komentara */}
-      <CommentForm postId={postID} userId={userId} parentId={null} />
+      {!locked && (
+        <CommentForm postId={postID} userId={userId} parentId={null} />
+      )}
     </div>
   );
 };
@@ -101,6 +104,7 @@ Comments.propTypes = {
   postID: PropTypes.string.isRequired, // Obavezno postID mora biti string
   userId: PropTypes.string, // Moze biti undefined ako korisnik nije ulogovan
   showAll: PropTypes.bool, // True za prikaz svih komentara
+  locked: PropTypes.bool,
 };
 
 export default Comments;

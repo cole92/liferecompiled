@@ -25,7 +25,7 @@ import Spinner from "../Spinner";
  * @param {string} currentUserId - ID trenutno prijavljenog korisnika
  * @returns {JSX.Element} Renderovani JSX interfejs za reakcije na komentar
  */
-const CommentReaction = ({ commentId, currentUserId }) => {
+const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   const [liked, setLiked] = useState(false); // Da li je korisnik lajkovao komentar
   const [likeCount, setLikeCount] = useState(0); // Ukupan broj lajkova
   const [likeList, setLikeList] = useState([]); // Lista ID-jeva korisnika koji su lajkovali
@@ -68,8 +68,10 @@ const CommentReaction = ({ commentId, currentUserId }) => {
     return () => unsubscribe();
   }, [commentId, currentUserId]);
 
-  // Obrada lajka / odlajka
+  // Klik na srce: lajkovanje ili odlajk, ali samo ako post nije zakljucan
   const handleLike = async () => {
+    if (locked) return;
+
     const ref = doc(db, "comments", commentId);
 
     if (liked) {
@@ -83,7 +85,7 @@ const CommentReaction = ({ commentId, currentUserId }) => {
     }
   };
 
-  // Otvaranje modala sa svim lajkovima
+  // Otvara modal i ucitava sve korisnike koji su lajkovali komentar
   const handleOpenLikesModal = async () => {
     try {
       setVisibleCount(10);
@@ -101,7 +103,7 @@ const CommentReaction = ({ commentId, currentUserId }) => {
 
   // Tekst za prikaz imena korisnika i dodatnih brojeva
   const otherCount = liked ? likeCount - 1 : likeCount;
-
+  // Formira tekst koji se prikazuje pored ikone srca
   let likeText = "";
 
   if (liked) {
@@ -211,6 +213,7 @@ const CommentReaction = ({ commentId, currentUserId }) => {
 CommentReaction.propTypes = {
   commentId: PropTypes.string.isRequired,
   currentUserId: PropTypes.string.isRequired,
+  locked: PropTypes.bool,
 };
 
 export default CommentReaction;
