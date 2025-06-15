@@ -72,13 +72,16 @@ const CommentForm = ({
         error.message.includes("too quickly") ||
         error.message.includes("resource-exhausted")
       ) {
-        showErrorToast("You're sending comments too quickly. Please try again in a few seconds.");
+        showErrorToast(
+          "You're sending comments too quickly. Please try again in a few seconds."
+        );
       } else {
         showErrorToast("An error occurred while submitting the comment.");
       }
     }
   };
 
+  // Prikaz broja preostalih karaktera (maksimum 500)
   const remainingChars = 500 - commentContent.length;
   const charCountColor =
     remainingChars <= 50 ? "text-red-500" : "text-gray-500";

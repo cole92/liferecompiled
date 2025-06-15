@@ -139,10 +139,15 @@ const MyPosts = () => {
       setIsLockModalOpen(false);
       showSuccessToast("Post successfully locked.");
 
+      // Azuriramo lokalni state da odmah reflektuje zakljucavanje bez ponovnog fetch-a
       setPosts((prevPosts) =>
         prevPosts.map((post) =>
           post.id === postId
-            ? { ...post, locked: true, lockedAt: Timestamp.fromDate(new Date()) }
+            ? {
+                ...post,
+                locked: true,
+                lockedAt: Timestamp.fromDate(new Date()),
+              }
             : post
         )
       );
@@ -173,7 +178,8 @@ const MyPosts = () => {
       {!isLoading && posts.length === 0 && (
         <EmptyState message="You haven't created any posts yet." />
       )}
-      {/* Prikaz liste postova korisnika */}
+
+      {/* Lista postova sa mogucnoscu brisanja i zakljucavanja (samo za vlasnika) */}
       {!isLoading && posts.length > 0 && (
         <PostsList
           posts={posts}
@@ -189,6 +195,7 @@ const MyPosts = () => {
           }}
         />
       )}
+
       {/* Modal za potvrdu brisanja posta */}
       <ConfirmModal
         isOpen={isModalOpen}
@@ -200,7 +207,8 @@ const MyPosts = () => {
         }}
         onConfirm={() => handleDelete(postToDelete)}
       />
-      {/* Modal za potvrdu zakljucavanja posta */}
+
+      {/* Modal za potvrdu zakljucavanja posta (locked state) */}
       <ConfirmModal
         isOpen={isLockModalOpen}
         title="Lock Post?"

@@ -52,7 +52,7 @@ const Comments = ({ postID, userId, showAll = false, locked = false }) => {
     return unsubscribe;
   }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
-  // Filtriramo glavne komentare (parentID je null, znaci nisu odgovori)
+  // Filtriramo samo glavne komentare (parentID === null)
   const mainComments = comments.filter((c) => c.parentID === null);
 
   return (
@@ -104,6 +104,7 @@ Comments.propTypes = {
   postID: PropTypes.string.isRequired, // Obavezno postID mora biti string
   userId: PropTypes.string, // Moze biti undefined ako korisnik nije ulogovan
   showAll: PropTypes.bool, // True za prikaz svih komentara
+  locked: PropTypes.bool,
 };
 
 export default Comments;
