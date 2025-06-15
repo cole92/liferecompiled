@@ -329,6 +329,7 @@ const CommentItem = ({
               deleted={reply.deleted}
               depth={depth + 1}
               showAll={showAll}
+              locked={locked} 
             />
           ))}
         </div>

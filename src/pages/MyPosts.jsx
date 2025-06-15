@@ -10,6 +10,7 @@ import {
   runTransaction,
   serverTimestamp,
   where,
+  Timestamp,
 } from "firebase/firestore";
 // Konfiguracija i kontekst
 import { db } from "../firebase";
@@ -141,7 +142,7 @@ const MyPosts = () => {
       setPosts((prevPosts) =>
         prevPosts.map((post) =>
           post.id === postId
-            ? { ...post, locked: true, lockedAt: new Date() }
+            ? { ...post, locked: true, lockedAt: Timestamp.fromDate(new Date()) }
             : post
         )
       );
