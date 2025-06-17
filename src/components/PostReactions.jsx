@@ -79,7 +79,6 @@ const PostReactions = ({ postId, locked }) => {
     pinned: FaThumbtack,
     coding: FaKeyboard,
   };
-
   // State za pracnje ucitavanja
   const [isLoading, setIsLoading] = useState(true);
 
@@ -152,6 +151,8 @@ const PostReactions = ({ postId, locked }) => {
 
     if (!auth.currentUser) return; // Ako korisnik nije prijavljen, ne dozvoljavamo reakciju
     const userId = auth.currentUser.uid;
+
+    if (locked) return; // Ako je post zaklucan ne izvrsavaj reakciju
 
     try {
       // Proveravamo da li korisnik vec ima ovu reakciju

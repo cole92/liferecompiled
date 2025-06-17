@@ -101,6 +101,16 @@ const PostCard = ({
           </div>
         )}
 
+        {/* Badge prikaz koji informise da je post bio zakljucan pre nego sto je obrisan (Trash mod)*/}
+        {post.locked && isTrashMode && (
+          <span
+            className="bg-gray-300 text-gray-800 text-sm font-medium px-2 py-1 rounded-full"
+            title="This post was locked before being deleted"
+          >
+            🔒 Locked before deletion
+          </span>
+        )}
+
         {/* Dugme za Delete ako nije u Trash modu */}
         {showDeleteButton && (
           <button
@@ -169,7 +179,11 @@ const PostCard = ({
 
         {/* Reakcije (sakriva se u Trash modu) */}
         {!isTrashMode && (
-          <PostReactions postId={post.id} reactions={post.reactions} />
+          <PostReactions
+            postId={post.id}
+            reactions={post.reactions}
+            locked={post.locked}
+          />
         )}
 
         {/* Kategorija */}
@@ -179,7 +193,11 @@ const PostCard = ({
 
         {/* Komentari (sakriva se u Trash modu) */}
         {!isTrashMode && (
-          <Comments postID={post.id} userId={auth.currentUser?.uid} />
+          <Comments
+            postID={post.id}
+            userId={auth.currentUser?.uid}
+            locked={post.locked}
+          />
         )}
 
         {/* View Full Post dugme (sakriva se u Trash modu) */}
@@ -196,7 +214,7 @@ const PostCard = ({
           </button>
         )}
         {/* Uslovni prikaz edit dugmeta u myPosts */}
-        {!isTrashMode && isMyPost && (
+        {!isTrashMode && isMyPost && !post.locked && (
           <Link
             to={`/dashboard/edit/${post.id}`}
             onClick={(e) => e.stopPropagation()}
