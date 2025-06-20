@@ -39,6 +39,11 @@ const EditPost = () => {
   const [errors, setErrors] = useState({});
   const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u; // Dozvoljeni karakteri za naslov (slova, brojevi, razmaci i osnovni interpunkcijski znaci)
 
+  // Provera da li je proslo vise od 7 dana od kreiranja posta (auto-lock)
+  const createdDate = postToEdit?.createdAt?.toDate?.();
+  const isAutoLocked =
+    createdDate && Date.now() > createdDate.getTime() + 7 * 24 * 60 * 60 * 1000;
+
   useEffect(() => {
     const fetchPost = async () => {
       setIsLoading(true);
@@ -103,6 +108,13 @@ const EditPost = () => {
     e.preventDefault();
     setIsSubmitting(true);
     const newErrors = {};
+
+    // Ako je post automatski zakljucan (proslo vise od 7 dana), prekidamo submit
+    if (isAutoLocked) {
+      showErrorToast("Editing is disabled. This post was locked after 7 days.");
+      setIsSubmitting(false);
+      return;
+    }
 
     // Novi podaci iz forme koji ce se uporediti sa originalnim postom
     const newPostData = {

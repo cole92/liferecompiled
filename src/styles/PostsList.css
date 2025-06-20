@@ -34,10 +34,6 @@
     margin-right: 10px;
   }
   
-  .view-more:hover {
-    background-color: #0056b3;
-  }
-
   @media (max-width: 768px) {
     .posts-list {
       grid-template-columns: 1fr; /* Samo 1 u redu na mobilnim */

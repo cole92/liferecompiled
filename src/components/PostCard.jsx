@@ -8,6 +8,7 @@ import PostReactions from "./PostReactions";
 import Comments from "./comments/Comments";
 
 import { FiLock } from "react-icons/fi";
+import { MdLockClock } from "react-icons/md";
 
 import "../styles/PostCard.css";
 
@@ -54,6 +55,11 @@ const PostCard = ({
   const navigate = useNavigate();
   const formattedDate = post.lockedAt?.toDate().toLocaleDateString();
 
+  // Provera da li je prošlo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
+  const createdDate = post.createdAt?.toDate?.();
+  const isAutoLocked =
+    createdDate && Date.now() > createdDate.getTime() + 7 * 24 * 60 * 60 * 1000;
+
   const handleClick = () => {
     if (isTrashMode) return; // Ako smo u Trash modu, kartica nije klikabilna
     navigate(`/post/${post.id}`);
@@ -65,6 +71,23 @@ const PostCard = ({
     if (daysLeft > 10) return "bg-yellow-100 text-yellow-800";
     if (daysLeft > 0) return "bg-red-100 text-red-800";
     return "bg-gray-800 text-white";
+  };
+
+  /**
+   * Racuna broj dana preostao do automatskog zakljucavanja posta.
+   * Koristi se za prikaz preostalog vremena za editovanje.
+   * @param {Timestamp} createdAt - Vreme kreiranja posta
+   * @returns {number} Broj dana do isteka roka za izmenu
+   */
+
+  const calculateDaysLeft = (createdAt) => {
+    if (!createdAt?.toDate) return 0;
+
+    const createdDate = createdAt.toDate();
+    const expireDate = createdDate.getTime() + 7 * 24 * 60 * 60 * 1000;
+    const timeLeft = expireDate - Date.now();
+
+    return timeLeft > 0 ? Math.ceil(timeLeft / (1000 * 60 * 60 * 24)) : 0;
   };
 
   return (
@@ -200,28 +223,31 @@ const PostCard = ({
           />
         )}
 
-        {/* View Full Post dugme (sakriva se u Trash modu) */}
-        {!isTrashMode && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/post/${post.id}`);
-            }}
-            className="view-more"
-            style={{ position: "absolute", bottom: "10px", right: "10px" }}
-          >
-            View Full Post →
-          </button>
-        )}
         {/* Uslovni prikaz edit dugmeta u myPosts */}
-        {!isTrashMode && isMyPost && !post.locked && (
-          <Link
-            to={`/dashboard/edit/${post.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="inline-block px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition"
-          >
-            Edit
-          </Link>
+        {!isTrashMode && isMyPost && !post.locked && !isAutoLocked && (
+          <>
+            <Link
+              to={`/dashboard/edit/${post.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-block px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition"
+            >
+              Edit
+            </Link>
+            <p className="text-xs text-gray-500 italic mt-1 flex items-center gap-1">
+              <MdLockClock className="text-blue-500" />
+              {calculateDaysLeft(post.createdAt)} day
+              {calculateDaysLeft(post.createdAt) !== 1 ? "s" : ""} left to edit
+              this post
+            </p>
+          </>
+        )}
+
+        {/* Upozorenje ako je rok za izmenu istekao — prikazuje se samo autoru */}
+        {isAutoLocked && isMyPost && (
+          <div className="alert alert-warning mt-3">
+            <strong>Note:</strong> Editing is disabled. This post was locked
+            after 7 days.
+          </div>
         )}
 
         {/* Dugmad dostupna samo u Trash prikazu */}
