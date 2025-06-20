@@ -88,6 +88,7 @@ const MyPosts = () => {
   // - Postavlja `deleted: true` i `deletedAt` (timestamp) u dokumentu
   // - Nakon uspeha, uklanja post iz lokalnog state-a i prikazuje toast
   // - U slucaju greske, prikazuje error toast i resetuje modal
+  
   const handleDelete = async (postId) => {
     try {
       await runTransaction(db, async (tx) => {
