@@ -1,6 +1,6 @@
 // Paketi
 import { useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import {
   collection,
   doc,
@@ -28,6 +28,7 @@ import EmptyState from "./dashboard/components/EmptyState";
 // Dashboard komponenta za prikaz podataka korisnika
 const MyPosts = () => {
   const { user } = useContext(AuthContext);
+  const { filter } = useOutletContext();
   const navigate = useNavigate();
 
   const [posts, setPosts] = useState([]);
@@ -88,7 +89,7 @@ const MyPosts = () => {
   // - Postavlja `deleted: true` i `deletedAt` (timestamp) u dokumentu
   // - Nakon uspeha, uklanja post iz lokalnog state-a i prikazuje toast
   // - U slucaju greske, prikazuje error toast i resetuje modal
-  
+
   const handleDelete = async (postId) => {
     try {
       await runTransaction(db, async (tx) => {
@@ -158,6 +159,13 @@ const MyPosts = () => {
     }
   };
 
+  // Filtrira postove u zavisnosti od izabranog filtera (active, locked, all)
+  const filteredPosts = posts.filter((post) => {
+    if (filter === "active") return !post.locked;
+    if (filter === "locked") return post.locked;
+    return true; // all
+  });
+
   // Prikaz korisnickog interfejsa
   return (
     <div className="mb-6">
@@ -183,7 +191,7 @@ const MyPosts = () => {
       {/* Lista postova sa mogucnoscu brisanja i zakljucavanja (samo za vlasnika) */}
       {!isLoading && posts.length > 0 && (
         <PostsList
-          posts={posts}
+          posts={filteredPosts}
           isMyPost={true}
           showDeleteButton={true}
           onDelete={(postId) => {
