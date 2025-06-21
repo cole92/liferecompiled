@@ -9,6 +9,7 @@ import DashboardBreadcrumb from "./DashboardBreadcrumb";
 import WelcomeBanner from "./WelcomeBanner";
 import DashboardTabs from "./DashboardTabs";
 import TrashFilterBar from "./TrashFilterBar";
+import PostFilterBar from "./PostFilterBar";
 
 /**
  * Layout komponenta za Dashboard sekciju.
@@ -24,11 +25,13 @@ import TrashFilterBar from "./TrashFilterBar";
 const DashboardLayout = () => {
   const location = useLocation();
   const isTrashPage = location.pathname.includes("/trash"); // Proveravamo da li je aktivna Trash stranica kako bismo prikazali filter
+  const isMyPostsPage = location.pathname === "/dashboard";
   const showBanner = true; // (kasnije povezati sa localStorage za dismiss logiku)
 
   const { user } = useContext(AuthContext);
   const [trashCount, setTrashCount] = useState(0);
   const [filterRange, setFilterRange] = useState(null);
+  const [filter, setFilter] = useState("all");
 
   // Efekat: slusaj promene obrisanih postova u Firestore-u za trenutno ulogovanog korisnika
   useEffect(() => {
@@ -65,6 +68,10 @@ const DashboardLayout = () => {
                 onFilterChange={setFilterRange}
               />
             )}
+            {/* Prikaz filtera za postove samo na MyPosts stranici (ruta: /dashboard) */}
+            {isMyPostsPage && (
+              <PostFilterBar activeFilter={filter} onFilterChange={setFilter} />
+            )}
           </div>
         </div>
       </div>
@@ -73,7 +80,9 @@ const DashboardLayout = () => {
       <div className="flex-grow overflow-y-auto">
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Prosleđujemo filterRange i setter kao kontekst child komponentama (npr. Trash.jsx) */}
-          <Outlet context={{ filterRange, setFilterRange }} />
+          <Outlet
+            context={{ filterRange, setFilterRange, filter, setFilter }}
+          />
         </main>
       </div>
     </div>
