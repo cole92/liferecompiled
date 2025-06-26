@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Cell,
 } from "recharts";
 
 /**
@@ -29,7 +30,8 @@ const Stats = () => {
   const { user } = useContext(AuthContext);
 
   const [postsPerMonth, setPostsPerMonth] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [mostActiveMonth, setMostActiveMonth] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Ucitava sve postove trenutnog korisnika i izracunava broj postova po mesecima
@@ -50,6 +52,12 @@ const Stats = () => {
 
       const monthlyData = getPostsPerMonth(posts);
       setPostsPerMonth(monthlyData);
+
+      const mostActive = monthlyData.reduce((max, curr) =>
+        curr.count > max.count ? curr : max
+      );
+      setMostActiveMonth(mostActive?.month);
+
       setIsLoading(false);
     };
 
@@ -68,8 +76,15 @@ const Stats = () => {
         <BarChart data={postsPerMonth}>
           <XAxis dataKey="month" />
           <YAxis />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="count" fill="#8884d8" />
+          <Tooltip content={<CustomTooltip mostActiveMonth={mostActiveMonth} />} />
+          <Bar dataKey="count">
+            {postsPerMonth.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={entry.month === mostActiveMonth ? "#FFD700" : "#8884d8"}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -16,8 +16,7 @@ import dayjs from "dayjs";
  * @returns {JSX.Element|null} Prikaz tooltips ili `null` ako nije aktivan
  */
 
-
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, mostActiveMonth }) => {
   if (!active || !payload || !payload.length) return null;
 
   const rawMonth = label;
@@ -25,18 +24,26 @@ const CustomTooltip = ({ active, payload, label }) => {
   const count = payload[0].value;
 
   return (
-  <div className="bg-white text-black px-3 py-2 rounded shadow-md text-sm">
-    <strong>{formatted}</strong>
-    <div>{count} post{count > 1 ? "s" : ""}</div>
-  </div>
-);
+    <div className="bg-white text-black px-3 py-2 rounded shadow-md text-sm">
+      <strong>{formatted}</strong>
+      <div>
+        {count} post{count > 1 ? "s" : ""}
+      </div>
+
+      {label === mostActiveMonth && (
+        <div className="mt-1 text-yellow-600 font-semibold">
+          This was your most active month!
+        </div>
+      )}
+    </div>
+  );
 };
 
 CustomTooltip.propTypes = {
   active: PropTypes.bool,
   payload: PropTypes.array,
   label: PropTypes.string,
+  mostActiveMonth: PropTypes.string,
 };
-
 
 export default CustomTooltip;
