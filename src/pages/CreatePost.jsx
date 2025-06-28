@@ -1,12 +1,34 @@
+import { useState, useContext } from "react";
+
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "../firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { useContext } from "react";
+
 import { AuthContext } from "../context/AuthContext";
+
 import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
+
 import Spinner from "../components/Spinner";
-import { useState } from "react";
 import TagsInput from "../components/TagsInput";
+
 import { validCategories } from "../constants/postCategories";
+import { updateUserStats } from "../services/statsService";
+
+/**
+ * @component CreatePost
+ * Komponenta za kreiranje novog blog posta.
+ *
+ * - Validira podatke iz forme (naslov, opis, sadrzaj, kategorija)
+ * - Cuva podatke u Firestore-u (kolekcija "posts")
+ * - Azurira korisnicku statistiku kroz `updateUserStats`
+ * - Koristi `TagsInput`, `ToastUtils` i `Spinner` za UX poboljsanja
+ *
+ * @returns {JSX.Element}
+ */
 
 const CreatePost = () => {
   // State za polja forme
@@ -40,6 +62,12 @@ const CreatePost = () => {
         updatedAt: null,
         locked: false,
       });
+
+      const newDocSnap = await getDoc(docRef);
+      const createdAt = newDocSnap.data().createdAt;
+
+      // Azuriramo statistiku korisnika (broj postova po mesecima i ukupno)
+      await updateUserStats(user.uid, createdAt);
 
       showSuccessToast("Post successfully created!");
       console.log("Post added with ID:", docRef.id);
