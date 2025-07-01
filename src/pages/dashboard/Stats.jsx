@@ -7,6 +7,9 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  PieChart,
+  Pie,
+  Legend,
 } from "recharts";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -18,13 +21,15 @@ import CustomTooltip from "./components/CustomTooltip";
 
 /**
  * @component Stats
- * Komponenta koja prikazuje statistiku broja postova po mesecima za trenutno ulogovanog korisnika.
+ * Komponenta koja prikazuje statistiku aktivnosti korisnika u dashboardu
  *
- * - Dohvata sve korisnikove postove iz Firestore-a
- * - Koristi helper `getPostsPerMonth` za agregaciju podataka po mesecima
- * - Prikazuje rezultate kroz `Recharts` bar chart
+ * - Dohvata podatke iz userStats kolekcije (Firestore)
+ * - Prikazuje broj postova po mesecima putem BarChart
+ * - Istice najaktivniji mesec korisnika (mostActiveMonth)
+ * - Prikazuje odnos restore vs delete aktivnosti kroz PieChart
+ * - Koristi CustomTooltip za prikaz dodatnih informacija
  *
- * @returns {JSX.Element} Sekcija sa statistickim prikazom
+ * @returns JSX sekcija sa prikazom korisnicke aktivnosti
  */
 
 const Stats = () => {
@@ -33,6 +38,8 @@ const Stats = () => {
   const [postsPerMonth, setPostsPerMonth] = useState([]);
   const [mostActiveMonth, setMostActiveMonth] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [pieData, setPieData] = useState([]);
+  const [isPieEmpty, setIsPieEmpty] = useState(false);
 
   useEffect(() => {
     const fetchUserStats = async () => {
@@ -51,6 +58,9 @@ const Stats = () => {
 
         const data = statsSnap.data();
 
+        const restored = data.restoredPosts || 0;
+        const deleted = data.permanentlyDeletedPosts || 0;
+
         const monthlyArray = Object.entries(data.postsPerMonth || {}).map(
           ([month, count]) => ({
             month,
@@ -68,6 +78,14 @@ const Stats = () => {
           );
           setMostActiveMonth(mostActive?.month);
         }
+
+        const pie = [
+          { name: "Restored Posts", value: restored },
+          { name: "Permanently Deleted", value: deleted },
+        ];
+
+        setPieData(pie);
+        setIsPieEmpty(pie.every((item) => item.value === 0));
       } catch (error) {
         console.error("Error fetching stats:", error);
         setPostsPerMonth([]);
@@ -115,6 +133,35 @@ const Stats = () => {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      <h2 className="text-xl font-semibold mt-10 mb-2">
+        Restore vs Delete Ratio
+      </h2>
+      {isPieEmpty ? (
+        <p className="text-gray-400 italic text-sm">
+          No restore or delete activity yet.
+        </p>
+      ) : (
+        <ResponsiveContainer width="100%" height={250}>
+          <PieChart>
+            <Pie
+              data={pieData}
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              dataKey="value"
+            >
+              {pieData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={index === 0 ? "#00C49F" : "#FF8042"}
+                />
+              ))}
+            </Pie>
+            <Legend layout="horizontal" align="center" />
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 };

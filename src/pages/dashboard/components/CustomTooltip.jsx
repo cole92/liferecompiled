@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 
 /**
  * @component CustomTooltip
- * Prilagođeni prikaz za tooltip unutar Recharts grafikona.
+ * Prilagodjeni prikaz za tooltip unutar Recharts grafikona.
  *
  * - Formatira mesec iz `label` vrednosti (npr. "2024-06" → "June 2024")
  * - Prikazuje broj postova za odgovarajući mesec
