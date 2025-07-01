@@ -47,6 +47,8 @@ export const updateUserStats = async (userId, createdAt) => {
             postsPerMonth: {
                 [month]: 1
             },
+            restoredPosts: 0,
+            permanentlyDeletedPosts: 0, 
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         })
