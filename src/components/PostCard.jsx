@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 import { auth } from "../firebase";
 
-import PostReactions from "./PostReactions";
+import ReactionSummary from "./reactions/ReactionSummary";
 import Comments from "./comments/Comments";
 
 import { FiLock } from "react-icons/fi";
@@ -13,22 +13,24 @@ import { MdLockClock } from "react-icons/md";
 import "../styles/PostCard.css";
 
 /**
- * Vizuelna kartica za prikaz blog posta.
+ * @component PostCard
+ * Vizuelna kartica za prikaz blog posta sa interakcijama i razlicitim modovima prikaza.
  *
- * - Prikazuje osnovne informacije: naslov, opis, autor, datum, tagovi, kategorija
- * - Omogucava interakcije sa postom: reakcije, komentari, zakljucavanje, edit, otvaranje detaljnog prikaza
- * - Prilagodjava se kontekstu prikaza: regularni prikaz ili Trash mod
+ * - Prikazuje naslov, opis, autora, datum, tagove, kategoriju
+ * - Ukljucuje reakcije, komentare, zakljucavanje, dugmad za edit/delete
+ * - Prilagodjava se prikazu: regularni prikaz vs Trash mod
  *
- * @component
- * @param {Object} post - Objekat koji sadrzi sve informacije o postu
- * @param {boolean} [showDeleteButton=false] - Da li prikazati dugme za Delete (van Trash moda)
+ * @param {Object} post - Objekat koji sadrzi informacije o postu
+ * @param {boolean} [showDeleteButton=false] - Prikaz dugmeta za Delete (van Trash moda)
  * @param {Function} [onDelete] - Callback za brisanje posta
- * @param {Function} [onRestore] - Callback za vracanje posta iz Trash moda
+ * @param {Function} [onRestore] - Callback za vracanje posta iz Trash-a
  * @param {Function} [onDeletePermanently] - Callback za trajno brisanje posta
  * @param {boolean} [isTrashMode=false] - Da li je prikaz u Trash modu
- * @param {boolean} [isMyPost=false] - Da li je post od trenutnog korisnika
- * @param {number} [daysLeft] - Broj dana pre nego sto se post automatski obrise (Trash mod)
+ * @param {boolean} [isMyPost=false] - Da li post pripada trenutnom korisniku
+ * @param {number} [daysLeft] - Broj dana do trajnog brisanja (Trash mod)
  * @param {Function} [onLock] - Callback za zakljucavanje posta
+ *
+ * @returns {JSX.Element} Komponenta kartice posta
  */
 
 const PostCard = ({
@@ -202,11 +204,7 @@ const PostCard = ({
 
         {/* Reakcije (sakriva se u Trash modu) */}
         {!isTrashMode && (
-          <PostReactions
-            postId={post.id}
-            reactions={post.reactions}
-            locked={post.locked}
-          />
+          <ReactionSummary postId={post.id} locked={post.locked} />
         )}
 
         {/* Kategorija */}
