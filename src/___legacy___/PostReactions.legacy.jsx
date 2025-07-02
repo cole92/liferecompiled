@@ -1,15 +1,7 @@
 import Spinner from "./Spinner";
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import {
-  FaRegLightbulb,
-  FaFire,
-  FaRocket,
-  FaSave,
-  FaBolt,
-  FaThumbtack,
-  FaKeyboard,
-} from "react-icons/fa";
+import { FaRegLightbulb, FaFire, FaBolt } from "react-icons/fa";
 import {
   collection,
   query,
@@ -21,6 +13,12 @@ import {
   doc,
 } from "firebase/firestore";
 import { db, auth } from "../firebase";
+
+/**
+ * ⚠️ Legacy komponenta
+ * Ova komponenta je zamenjena novom ReactionSummary komponentom.
+ * Ostavljena je ovde za referencu i ne koristi se više u aplikaciji.
+ */
 
 /**
  * Komponenta za prikaz i upravljanje reakcijama na post.
@@ -45,11 +43,7 @@ const PostReactions = ({ postId, locked }) => {
   const [userReactions, setUserReactions] = useState({
     idea: false,
     hot: false,
-    boost: false,
-    save: false,
     powerup: false,
-    pinned: false,
-    coding: false,
   });
 
   /**
@@ -59,11 +53,7 @@ const PostReactions = ({ postId, locked }) => {
   const [reactionCounts, setReactionCounts] = useState({
     idea: 0,
     hot: 0,
-    boost: 0,
-    save: 0,
     powerup: 0,
-    pinned: 0,
-    coding: 0,
   });
 
   /**
@@ -73,11 +63,7 @@ const PostReactions = ({ postId, locked }) => {
   const reactionComponents = {
     idea: FaRegLightbulb,
     hot: FaFire,
-    boost: FaRocket,
-    save: FaSave,
     powerup: FaBolt,
-    pinned: FaThumbtack,
-    coding: FaKeyboard,
   };
   // State za pracnje ucitavanja
   const [isLoading, setIsLoading] = useState(true);
@@ -99,20 +85,12 @@ const PostReactions = ({ postId, locked }) => {
       const newCounts = {
         idea: 0,
         hot: 0,
-        boost: 0,
-        save: 0,
         powerup: 0,
-        pinned: 0,
-        coding: 0,
       };
       const newUserReactions = {
         idea: false,
         hot: false,
-        boost: false,
-        save: false,
         powerup: false,
-        pinned: false,
-        coding: false,
       };
       // Prolazimo kroz sve dokumente u snapshot-u i racunamo reakcije
       snapshot.forEach((doc) => {

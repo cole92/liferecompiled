@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
-import PostReactions from "../components/PostReactions";
+import ReactionSummary from "../components/reactions/ReactionSummary";
 import Comments from "../components/comments/Comments";
 import Spinner from "../components/Spinner";
 import { FiLock } from "react-icons/fi";
 
 /**
+ * @component PostDetails
  * Prikazuje detalje o pojedinacnom blog postu na osnovu ID-ja iz URL-a.
  * Prikazuje naslov, sadrzaj, informacije o autoru, tagove, reakcije i komentare.
  *
- * @component
  * @returns {JSX.Element} Komponenta sa detaljima posta ili fallback porukom/spinerom.
  *
  * @example
@@ -119,7 +119,7 @@ const PostDetails = () => {
         {/* Reakcije */}
         <div className="bg-white py-3 border-t shadow mt-4">
           <div className="flex gap-2 justify-center">
-            <PostReactions postId={postId} locked={post.locked}/>
+            <ReactionSummary postId={post.id} locked={post.locked} />
           </div>
         </div>
 
