@@ -19,7 +19,7 @@
 }
 
 .reaction-button.active {
-  color: #007bff; /* Plava kad je aktivno */
+  color: #007bff; /* Plava kad je aktivno */  /* PROVERITI SVUDA CSS ZA REAKCIJE I OLDUCITI STA CEMO SA NJIM!!!!!!!!!! */
 }
 
 .post-card:hover {

@@ -11,6 +11,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { auth, db } from "../../firebase";
+import { Tooltip as ReactTooltip } from "react-tooltip";
 
 /**
  * @component ReactionIcon
@@ -98,15 +99,27 @@ const ReactionIcon = ({ type, postId, locked }) => {
     }
   };
 
+  // Tekstualni opisi za tooltip prikaz ispod svake reakcije
+  const reactionLabels = {
+    idea: "💡 Idea — This post inspired you.",
+    hot: "🔥 Hot — This post is popular or trending.",
+    powerup: "⚡ Powerup — Show support for the author.",
+  };
+
   return (
-    <button
-      onClick={handleClick}
-      className={`reaction-button ${isActive ? "active" : ""}`}
-      title={`${count} ${type} reaction${count !== 1 ? "s" : ""}`}
-    >
-      <Icon />
-      <span style={{ marginLeft: "4px" }}>{count}</span>
-    </button>
+    <>
+      {/* Dugme za reakciju sa tooltipom; koristi `react-tooltip@v5` */}
+      <button
+        onClick={handleClick}
+        className={`reaction-button ${isActive ? "active" : ""}`}
+        data-tooltip-id={`tooltip-${type}-${postId}`}
+        data-tooltip-content={reactionLabels[type]}
+      >
+        <Icon />
+        <span style={{ marginLeft: "4px" }}>{count}</span>
+      </button>
+      <ReactTooltip id={`tooltip-${type}-${postId}`} place="top" />
+    </>
   );
 };
 
