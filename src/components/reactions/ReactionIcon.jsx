@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../firebase";
 import { Tooltip as ReactTooltip } from "react-tooltip";
+import { showInfoToast } from "../../utils/toastUtils";
 
 /**
  * @component ReactionIcon
@@ -85,6 +86,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
       await deleteDoc(doc(db, "reactions", snapshot.docs[0].id));
       setIsActive(false);
       setCount((prev) => prev - 1);
+      showInfoToast(reactionRemovalMessages[type]);
     } else {
       // Ako ne postoji, dodaje novu reakciju
       const newRef = doc(collection(db, "reactions"));
@@ -96,6 +98,8 @@ const ReactionIcon = ({ type, postId, locked }) => {
       });
       setIsActive(true);
       setCount((prev) => prev + 1);
+
+      showInfoToast(reactionMessages[type]);
     }
   };
 
@@ -104,6 +108,18 @@ const ReactionIcon = ({ type, postId, locked }) => {
     idea: "💡 Idea — This post inspired you.",
     hot: "🔥 Hot — This post is popular or trending.",
     powerup: "⚡ Powerup — Show support for the author.",
+  };
+
+  const reactionMessages = {
+    idea: "💡 Inspired by this post? Great minds think alike!",
+    hot: "🔥 Marked as Hot — this post is on fire!",
+    powerup: "⚡ You just boosted the author’s motivation!",
+  };
+
+  const reactionRemovalMessages = {
+    idea: "💡 Not feeling inspired anymore? :( ",
+    hot: "🔥  Cooled off a bit, huh?",
+    powerup: "⚡ Took back your Powerup — oh wow, thanks a lot. 🙃",
   };
 
   return (
