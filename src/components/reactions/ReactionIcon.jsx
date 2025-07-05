@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { FaRegLightbulb, FaFire, FaBolt } from "react-icons/fa";
+import { Tooltip as ReactTooltip } from "react-tooltip";
+
 import {
   doc,
   setDoc,
@@ -10,8 +12,9 @@ import {
   where,
   deleteDoc,
 } from "firebase/firestore";
+
 import { auth, db } from "../../firebase";
-import { Tooltip as ReactTooltip } from "react-tooltip";
+
 import { showInfoToast } from "../../utils/toastUtils";
 
 /**
@@ -113,7 +116,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
   const reactionMessages = {
     idea: "💡 Inspired by this post? Great minds think alike!",
     hot: "🔥 Marked as Hot — this post is on fire!",
-    powerup: "⚡ You just boosted the author’s motivation!",
+    powerup: "⚡ You just boosted the author's motivation!",
   };
 
   const reactionRemovalMessages = {
@@ -134,7 +137,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
         <Icon />
         <span style={{ marginLeft: "4px" }}>{count}</span>
       </button>
-      <ReactTooltip id={`tooltip-${type}-${postId}`} place="top" />
+      <ReactTooltip id={`tooltip-${type}-${postId}`} position="" />
     </>
   );
 };

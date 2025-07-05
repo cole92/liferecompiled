@@ -1,13 +1,18 @@
-import { useParams } from "react-router-dom";
-import { auth } from "../firebase";
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { FiLock } from "react-icons/fi";
+
+import { auth } from "../firebase";
+
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
+
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+
 import ReactionSummary from "../components/reactions/ReactionSummary";
 import Comments from "../components/comments/Comments";
 import Spinner from "../components/Spinner";
-import { FiLock } from "react-icons/fi";
+
 
 /**
  * @component PostDetails
