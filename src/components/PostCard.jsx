@@ -8,6 +8,7 @@ import { auth } from "../firebase";
 import ReactionSummary from "./reactions/ReactionSummary";
 import Comments from "./comments/Comments";
 import ReactionInfoModal from "./modals/ReactionInfoModal";
+import Badge from "./ui/Bagde";
 
 import { FiLock } from "react-icons/fi";
 import { FaInfoCircle } from "react-icons/fa";
@@ -98,6 +99,13 @@ const PostCard = ({
     return timeLeft > 0 ? Math.ceil(timeLeft / (1000 * 60 * 60 * 24)) : 0;
   };
 
+  post.badges = {
+    mostInspiring: true,
+    trending: true,
+  };
+  author.badges = {
+    topContributor: true, // Trenutno hardkodovanje
+  };
   return (
     <>
       <div
@@ -109,6 +117,15 @@ const PostCard = ({
           position: "relative",
         }}
       >
+        <div className="absolute top-2 right-10 z-10 flex flex-col gap-1">
+          {post.badges?.mostInspiring && (
+            <Badge text="Most Inspiring" color="green" icon="💡" />
+          )}
+          {post.badges?.trending && (
+            <Badge text="Trending" color="red" icon="🔥" />
+          )}
+        </div>
+
         <div
           className={`${
             post.locked && !isTrashMode
@@ -119,6 +136,10 @@ const PostCard = ({
           <div className="post-author">
             <img src={author.profilePicture} alt="Author" />
             <span>{author?.name || "Unknown"}</span>
+
+            {author.badges?.topContributor && (
+              <Badge text="Top Contributor" color="blue" icon="⚡" />
+            )}
           </div>
 
           <div className="absolute top-2 right-2">
