@@ -1,27 +1,42 @@
 import PropTypes from "prop-types";
+import mostInspiringSmallBadge from "./badges/small/inspiring-small.png";
+import toHotSmallBagde from "./badges/small/toHot-small.png";
 
-const Badge = ({ text, color = "blue", icon = null }) => {
-  const colors = {
-    blue: "bg-blue-100 text-blue-800",
-    red: "bg-red-100 text-red-800",
-    green: "bg-green-100 text-green-800",
-    gray: "bg-gray-100 text-gray-800",
-  };
+/**
+ * @component Badge
+ * Prikazuje mini PNG bedz na osnovu prosledjenog teksta.
+ * Slika se koristi kao vizuelna oznaka za post (💡, 🔥 itd.).
+ *
+ * @param {string} text - Tekstualni identifikator bedza (mora odgovarati kljucu u badgeImages mapi).
+ * @param {Function} [onClick] - Opcioni handler za klik (npr. otvara modal).
+ *
+ * @returns {JSX.Element} Ikonica bedza sa hover efektom.
+ */
+
+
+const badgeImages = {
+  "Most Inspiring": mostInspiringSmallBadge,
+  "Trending": toHotSmallBagde,
+};
+
+const Badge = ({ text, onClick }) => {
+  // Odabir slike bedza na osnovu text prop vrednosti
+  const imgSrc = badgeImages[text];
 
   return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded ${colors[color]}`}
-    >
-      {icon && <span>{icon}</span>}
-      {text}
+    <span onClick={onClick} className="cursor-pointer">
+      <img
+        src={imgSrc}
+        alt={text}
+        className="h-10 w-10 object-contain transition-transform hover:scale-105"
+      />
     </span>
   );
 };
 
 Badge.propTypes = {
   text: PropTypes.string.isRequired,
-  color: PropTypes.oneOf(["blue", "red", "green", "gray"]),
-  icon: PropTypes.node,
+  onClick: PropTypes.func,
 };
 
 export default Badge;
