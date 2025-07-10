@@ -1,8 +1,9 @@
 import PropTypes from "prop-types";
 import { useEffect } from "react";
 
-import inspiringFull from "../ui/badges/inspiring.png";
-import toHotFull from "../ui/badges/toHot.png";
+import inspiringFull from "../ui/badges/badge_inspiring.webp";
+import toHotFull from "../ui/badges/badge_hot.webp";
+import topContributorBadge from "../ui/badges/badge_top_contributor.webp";
 
 /**
  * @component BadgeModal
@@ -18,8 +19,7 @@ import toHotFull from "../ui/badges/toHot.png";
  * @returns {JSX.Element} Modal sa prikazom PNG bedzeva i zatvarajucim dugmetom.
  */
 
-
-const BadgeModal = ({ onClose ,  postBadges}) => {
+const BadgeModal = ({ onClose, postBadges, authorBadge }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -34,7 +34,7 @@ const BadgeModal = ({ onClose ,  postBadges}) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-amber-100 border-[3px] border-amber-700 rounded-xl shadow-xl p-6 max-w-xl w-full ">
-        {/* Prikaz PNG bedzeva koji su aktivni za dati post */}
+        {/* Prikaz bedzeva koji su aktivni za dati post */}
         <div className="flex flex-wrap justify-center items-center gap-6">
           {postBadges?.mostInspiring && (
             <img
@@ -52,6 +52,15 @@ const BadgeModal = ({ onClose ,  postBadges}) => {
             />
           )}
         </div>
+        
+        {/* Prikaz Top Contributor Badge */}
+        {authorBadge === "topContributor" && (
+          <img
+            src={topContributorBadge}
+            alt="Top Contributor"
+            className="w-48 object-contain transition hover:scale-105"
+          />
+        )}
 
         <div className="flex justify-end">
           {/* Dugme za zatvaranje modala */}
@@ -73,6 +82,7 @@ BadgeModal.propTypes = {
     mostInspiring: PropTypes.bool,
     trending: PropTypes.bool,
   }),
+  authorBadge: PropTypes.string,
 };
 
 export default BadgeModal;

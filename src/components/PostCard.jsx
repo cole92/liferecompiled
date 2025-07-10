@@ -11,6 +11,7 @@ import ReactionInfoModal from "./modals/ReactionInfoModal";
 import BadgeModal from "./modals/BadgeModal";
 import Badge from "./ui/Bagde";
 
+import ShieldIcon from "./ui/ShieldIcon";
 import { FiLock } from "react-icons/fi";
 import { FaInfoCircle } from "react-icons/fa";
 
@@ -67,8 +68,9 @@ const PostCard = ({
 
   const [showModal, setShowModal] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
-  // Provera da li je prošlo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
+  // Provera da li je proslo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
   const createdDate = post.createdAt?.toDate?.();
   const isAutoLocked =
     createdDate && Date.now() > createdDate.getTime() + 7 * 24 * 60 * 60 * 1000;
@@ -159,9 +161,16 @@ const PostCard = ({
               />
 
               {author.badges?.topContributor && (
-                <span className="absolute -top-1 -right-1 text-xs bg-white rounded-full p-0.5 ring-2 ring-amber-500 shadow">
-                  👑
-                </span>
+                <div
+                  title="Top Contributor · Code-powered"
+                  className="group relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTopContributorModal(true);
+                  }}
+                >
+                  <ShieldIcon className="w-5 h-5 absolute -top-11 -right-1 group-hover:scale-110 transition-transform" />
+                </div>
               )}
             </div>
             <span>{author?.name || "Unknown"}</span>
@@ -335,11 +344,19 @@ const PostCard = ({
       {/* Uslovni prikaz informativnog modala za znacenje reakcija */}
       {showModal && <ReactionInfoModal onClose={() => setShowModal(false)} />}
 
-      {/* Modal koji prikazuje osvojene PNG bedzeve za ovaj post */}
+      {/* Modal koji prikazuje osvojene bedzeve za ovaj post */}
       {showBadgeModal && (
         <BadgeModal
           postBadges={post.badges}
           onClose={() => setShowBadgeModal(false)}
+        />
+      )}
+
+      {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika */}
+      {showTopContributorModal && (
+        <BadgeModal
+          authorBadge="topContributor"
+          onClose={() => setShowTopContributorModal(false)}
         />
       )}
     </>

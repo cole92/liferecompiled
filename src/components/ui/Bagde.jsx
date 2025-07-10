@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
-import mostInspiringSmallBadge from "./badges/small/inspiring-small.png";
-import toHotSmallBagde from "./badges/small/toHot-small.png";
+import mostInspiringSmallBadge from "./badges/small/mini_inspiring.webp";
+import toHotSmallBagde from "./badges/small/mini_hot.webp";
 
 /**
  * @component Badge
