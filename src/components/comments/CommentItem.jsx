@@ -15,6 +15,8 @@ import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import CommentForm from "./CommentForm";
 import CommentReaction from "./CommentReaction";
 import ConfirmModal from "../../utils/ConfirmModal";
+import BadgeModal from "../modals/BadgeModal";
+import ShieldIcon from "../ui/ShieldIcon";
 
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
@@ -56,6 +58,7 @@ const CommentItem = ({
   const [isEditing, setIsEditing] = useState(false); // State za pracenje izmene postojeceg komentara
   const [editedContent, setEditedContent] = useState(content); // State za pracenje izmene teksta komentara
   const [showEditHint, setShowEditHint] = useState(false);
+  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
   const hintShownRef = useRef(false);
 
@@ -149,131 +152,148 @@ const CommentItem = ({
   };
 
   return (
-    // Animacija prikaza komentara prilikom mountovanja
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-      className="comment-item p-4 bg-white rounded-md shadow-sm mb-4 break-words"
-      style={{ marginLeft: `${Math.min(depth, 4) * 16}px` }}
-    >
-      <div className="flex items-start gap-3">
-        {/* Profilna slika korisnika */}
-        <img
-          src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
-          alt={`Profile picture of ${user?.name}`}
-          className="w-10 h-10 rounded-full object-cover"
-        />
-        <div className="min-w-0 flex-1">
-          {/* Ime korisnika */}
-          <span className="font-semibold text-sm text-gray-800 block">
-            {user && user.name}
-          </span>
-          {/* Prikaz forme za editovanje komentara */}
-          {isEditing ? (
-            <div>
-              <textarea
-                value={editedContent}
-                onChange={(e) => setEditedContent(e.target.value)}
-                className="w-full p-2 border rounded mt-2"
-              />
-              <div className="flex space-x-2 mt-2">
-                <button
-                  onClick={handleSave}
-                  className="text-green-500 hover:underline"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={handleCancel}
-                  className="text-gray-500 hover:underline"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : isDeleted ? (
-            <p className="italic text-gray-500 mt-1">
-              This comment has been removed.
-            </p>
-          ) : (
-            <p className="text-sm text-gray-700 mt-1 break-words whitespace-pre-wrap">
-              {!showAll && content.length > 150
-                ? content.slice(0, 150) + "…"
-                : content}
-            </p>
-          )}
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="comment-item p-4 bg-white rounded-md shadow-sm mb-4 break-words"
+        style={{ marginLeft: `${Math.min(depth, 4) * 16}px` }}
+      >
+        <div className="flex items-start gap-3">
+          {/* Avatar korisnika + bedz ako je Top Contributor */}
+          <div className="relative shrink-0">
+            <img
+              src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
+              alt={`Profile picture of ${user?.name}`}
+              className={`w-10 h-10 rounded-full object-cover ${
+                user?.badges?.topContributor ? "ring-2 ring-purple-800" : ""
+              }`}
+            />
 
-          {/* Vreme postavljanja komentara koristeci 'relativeTime' */}
-          <small className="text-xs text-gray-500">
-            <span>
+            {user?.badges?.topContributor && (
+              <div
+                title="Top Contributor · Code-powered"
+                className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTopContributorModal(true);
+                }}
+              >
+                <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              </div>
+            )}
+          </div>
+
+          {/* Tekstualni deo komentara */}
+          <div className="min-w-0 flex-1">
+            <span className="font-semibold text-sm text-gray-800">
+              {user?.name}
+            </span>
+
+            {/* Sadržaj komentara / edit mode / obrisan */}
+            {isEditing ? (
+              <div>
+                <textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className="w-full p-2 border rounded mt-2"
+                />
+                <div className="flex space-x-2 mt-2">
+                  <button
+                    onClick={handleSave}
+                    className="text-green-500 hover:underline"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="text-gray-500 hover:underline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : isDeleted ? (
+              <p className="italic text-gray-500 mt-1">
+                This comment has been removed.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-700 mt-1 break-words whitespace-pre-wrap">
+                {!showAll && content.length > 150
+                  ? content.slice(0, 150) + "…"
+                  : content}
+              </p>
+            )}
+
+            {/* Vremenska oznaka (Posted / Edited) */}
+            <small className="block text-xs text-gray-500 mt-1">
               {editedAt
                 ? `Edited ${dayjs(editedAt.toDate()).fromNow()}`
                 : `Posted ${dayjs(timestamp.toDate()).fromNow()}`}
-            </span>
-          </small>
+            </small>
 
-          {/* Prikaz forme za odgovor ako korisnik klikne Reply */}
-          {isReplaying && (
-            <div className="mt-2">
-              <CommentForm
-                postId={postID}
-                userId={auth.currentUser?.uid}
-                parentId={commentId}
-                onSubmitSuccess={() => setIsReplaying(false)}
-                autoFocus={true}
-              />
-            </div>
-          )}
+            {/* Reply forma (ako je aktivirana) */}
+            {isReplaying && (
+              <div className="mt-2">
+                <CommentForm
+                  postId={postID}
+                  userId={auth.currentUser?.uid}
+                  parentId={commentId}
+                  onSubmitSuccess={() => setIsReplaying(false)}
+                  autoFocus
+                />
+              </div>
+            )}
 
-          <div>
+            {/* Kontrole (Reply, Report, Reakcije, Edit, Delete) */}
             {showAll && !isDeleted && (
               <>
-                {/* Dugme za odgovor */}
-                {locked ? null : depth < 4 ? (
-                  <button
-                    onClick={() => setIsReplaying(!isReplaying)}
-                    className="text-sm text-blue-500 hover:underline mt-1"
-                  >
-                    Reply
-                  </button>
-                ) : (
-                  <button
-                    disabled
-                    className="text-sm text-gray-400 cursor-not-allowed mt-1"
-                    title="Maximum depth reached"
-                  >
-                    Reply
-                  </button>
-                )}
+                {/* Reply dugme (do max dubine) */}
+                {!locked &&
+                  (depth < 4 ? (
+                    <button
+                      onClick={() => setIsReplaying(!isReplaying)}
+                      className="text-sm text-blue-500 hover:underline mt-1"
+                    >
+                      Reply
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="text-sm text-gray-400 cursor-not-allowed mt-1"
+                      title="Maximum depth reached"
+                    >
+                      Reply
+                    </button>
+                  ))}
 
-                {/* Dugme za repoty placeholder jos uvek */}
-                {locked ? null : (
+                {/* Report placeholder */}
+                {!locked && (
                   <button
-                    onClick={() => {}} // Za sada prazan onClick (Placeholder)
+                    onClick={() => {}}
                     className="text-sm text-red-500 hover:underline ml-3"
                   >
                     Report
                   </button>
                 )}
 
-                {/* Komponenta za reakcije na komentar */}
+                {/* Reakcije na komentar */}
                 <CommentReaction
                   commentId={commentId}
                   currentUserId={auth.currentUser?.uid}
                   locked={locked}
                 />
 
-                {/* Dugme za brisanje i editovanje komentara (vidljivo samo autoru) */}
-                {!isDeleted && auth.currentUser?.uid === userId && canEdit && (
+                {/* Edit i Delete — samo autor */}
+                {!isDeleted && auth.currentUser?.uid === userId && !locked && (
                   <>
-                    {/* Dugme za Edit */}
-                    {!isEditing && !locked && (
+                    {!isEditing && (
                       <div className="relative inline-block">
                         {showEditHint && (
                           <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 shadow-md z-10">
                             You can edit this comment for 10 minutes
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45" />
                           </div>
                         )}
 
@@ -286,21 +306,19 @@ const CommentItem = ({
                       </div>
                     )}
 
-                    {/* Dugme za Delete */}
-                    {!locked && !isDeleting ? (
+                    {!isDeleting ? (
                       <button
                         onClick={() => setShowConfirmModal(true)}
                         className="text-sm text-blue-500 hover:underline ml-3"
                       >
                         Delete
                       </button>
-                    ) : !locked ? (
+                    ) : (
                       <span className="text-sm text-gray-500 ml-3">
                         Deleting...
                       </span>
-                    ) : null}
+                    )}
 
-                    {/* Confirm modal za potvrdu brisanja */}
                     <ConfirmModal
                       isOpen={showConfirmModal}
                       title="Delete Comment"
@@ -317,30 +335,38 @@ const CommentItem = ({
             )}
           </div>
         </div>
-      </div>
 
-      {/* Prikaz odgovora (dece) rekurzivno */}
-      {replies.length > 0 && (
-        <div className="pl-6 mt-2 border-l border-gray-200 ml-3">
-          {replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              commentId={reply.id}
-              postID={reply.postID}
-              userId={reply.userID}
-              content={reply.content}
-              timestamp={reply.timestamp}
-              comments={comments}
-              editedAt={reply.editedAt}
-              deleted={reply.deleted}
-              depth={depth + 1}
-              showAll={showAll}
-              locked={locked}
-            />
-          ))}
-        </div>
+        {/* Rekurzivni prikaz odgovora */}
+        {replies.length > 0 && (
+          <div className="pl-6 mt-2 border-l border-gray-200 ml-3">
+            {replies.map((reply) => (
+              <CommentItem
+                key={reply.id}
+                commentId={reply.id}
+                postID={reply.postID}
+                userId={reply.userID}
+                content={reply.content}
+                timestamp={reply.timestamp}
+                comments={comments}
+                editedAt={reply.editedAt}
+                deleted={reply.deleted}
+                depth={depth + 1}
+                showAll={showAll}
+                locked={locked}
+              />
+            ))}
+          </div>
+        )}
+      </motion.div>
+
+      {/* Modal za prikaz Top Contributor badge-a */}
+      {showTopContributorModal && (
+        <BadgeModal
+          authorBadge="topContributor"
+          onClose={() => setShowTopContributorModal(false)}
+        />
       )}
-    </motion.div>
+    </>
   );
 };
 

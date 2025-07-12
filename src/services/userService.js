@@ -12,14 +12,19 @@ import { db } from "../firebase";
 
 export const getUserById = async (userId) => {
     try {
-        const ref = doc(db, "users", userId);         // Referenca na dokument
-        const snap = await getDoc(ref)                // Dohvata dokument iz Firestore-a
+        const ref = doc(db, "users", userId);
+        const snap = await getDoc(ref)
 
-        if (snap.exists()) {                          // Proveravamo da li postoji
-            return snap.data();                       // Vracamo podatke (npr. name, profilePicture)
+        if (snap.exists()) {
+            return {
+                ...snap.data(),
+                badges: {
+                    topContributor: true, // ✅ hardkod dok ne stigne pravi podatak
+                },
+            };
         }
 
-        return null;                                  // Ako ne postoji, vracamo null
+        return null;
 
     } catch (error) {
         console.error("Error fetching user:", error);

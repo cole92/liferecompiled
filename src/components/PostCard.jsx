@@ -157,7 +157,9 @@ const PostCard = ({
               <img
                 src={author.profilePicture}
                 alt="Author"
-                className="w-10 h-10 rounded-full ring-2 ring-purple-800"
+                className={`w-10 h-10 rounded-full ${
+                  author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
+                }`}
               />
 
               {author.badges?.topContributor && (
