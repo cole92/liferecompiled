@@ -8,7 +8,10 @@ import { auth } from "../firebase";
 import ReactionSummary from "./reactions/ReactionSummary";
 import Comments from "./comments/Comments";
 import ReactionInfoModal from "./modals/ReactionInfoModal";
+import BadgeModal from "./modals/BadgeModal";
+import Badge from "./ui/Bagde";
 
+import ShieldIcon from "./ui/ShieldIcon";
 import { FiLock } from "react-icons/fi";
 import { FaInfoCircle } from "react-icons/fa";
 
@@ -18,11 +21,13 @@ import "../styles/PostCard.css";
 
 /**
  * @component PostCard
- * Vizuelna kartica za prikaz blog posta sa interakcijama i razlicitim modovima prikaza.
+ * Vizuelna kartica za prikaz blog posta sa interakcijama, statusima i dodatnim UX slojevima.
  *
  * - Prikazuje naslov, opis, autora, datum, tagove, kategoriju
- * - Ukljucuje reakcije, komentare, zakljucavanje, dugmad za edit/delete
+ * - Ukljucuje reakcije, komentare, zakljucavanje, bedzeve i modale
  * - Prilagodjava se prikazu: regularni prikaz vs Trash mod
+ * - Reakcije su deaktivirane ako je post zakljucan
+ * - Prikazuje klikabilne bedzeve (💡, 🔥) i edukativni modal za reakcije
  *
  * @param {Object} post - Objekat koji sadrzi informacije o postu
  * @param {boolean} [showDeleteButton=false] - Prikaz dugmeta za Delete (van Trash moda)
@@ -34,7 +39,7 @@ import "../styles/PostCard.css";
  * @param {number} [daysLeft] - Broj dana do trajnog brisanja (Trash mod)
  * @param {Function} [onLock] - Callback za zakljucavanje posta
  *
- * @returns {JSX.Element} Komponenta kartice posta
+ * @returns {JSX.Element} Komponenta kartice posta sa dodatnim UX slojevima
  */
 
 const PostCard = ({
@@ -62,8 +67,10 @@ const PostCard = ({
   const formattedDate = post.lockedAt?.toDate().toLocaleDateString();
 
   const [showModal, setShowModal] = useState(false);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
-  // Provera da li je prošlo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
+  // Provera da li je proslo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
   const createdDate = post.createdAt?.toDate?.();
   const isAutoLocked =
     createdDate && Date.now() > createdDate.getTime() + 7 * 24 * 60 * 60 * 1000;
@@ -98,6 +105,20 @@ const PostCard = ({
     return timeLeft > 0 ? Math.ceil(timeLeft / (1000 * 60 * 60 * 24)) : 0;
   };
 
+  post.badges = {
+    mostInspiring: true,
+    trending: true,
+  };
+  author.badges = {
+    topContributor: true, // Trenutno hardkodovanje
+  };
+
+  // Otvara modal sa PNG bedzevima za post (preventuje bubbling do PostCard)
+  const handleBadgeClick = (e) => {
+    e.stopPropagation();
+    setShowBadgeModal(true);
+  };
+
   return (
     <>
       <div
@@ -109,6 +130,22 @@ const PostCard = ({
           position: "relative",
         }}
       >
+        {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal */}
+        <div className="absolute top-2 right-10 z-10 flex flex-col gap-1">
+          {post.badges?.mostInspiring && (
+            <Badge
+              text="Most Inspiring"
+              onClick={(e) => handleBadgeClick(e, "Most Inspiring")}
+            />
+          )}
+          {post.badges?.trending && (
+            <Badge
+              text="Trending"
+              onClick={(e) => handleBadgeClick(e, "Trending")}
+            />
+          )}
+        </div>
+
         <div
           className={`${
             post.locked && !isTrashMode
@@ -116,11 +153,32 @@ const PostCard = ({
               : ""
           }`}
         >
-          <div className="post-author">
-            <img src={author.profilePicture} alt="Author" />
+          <div className="post-author flex items-center gap-2">
+            <div className="relative inline-block">
+              <img
+                src={author.profilePicture}
+                alt="Author"
+                className={`w-10 h-10 rounded-full ${
+                  author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
+                }`}
+              />
+
+              {author.badges?.topContributor && (
+                <div
+                  title="Top Contributor · Code-powered"
+                  className="group relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTopContributorModal(true);
+                  }}
+                >
+                  <ShieldIcon className="w-5 h-5 absolute -top-11 -right-1 group-hover:scale-110 transition-transform" />
+                </div>
+              )}
+            </div>
             <span>{author?.name || "Unknown"}</span>
           </div>
-
+          {/* Info dugme otvara ReactionInfoModal (UX fallback za mobilne uredjaje) */}
           <div className="absolute top-2 right-2">
             <button
               onClick={(e) => {
@@ -287,36 +345,75 @@ const PostCard = ({
         </div>
       </div>
       {/* Uslovni prikaz informativnog modala za znacenje reakcija */}
-      {showModal && <ReactionInfoModal onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <ReactionInfoModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+
+      {/* Modal koji prikazuje osvojene bedzeve za ovaj post */}
+      {showBadgeModal && (
+        <BadgeModal
+          isOpen={showBadgeModal}
+          postBadges={post.badges}
+          onClose={() => setShowBadgeModal(false)}
+        />
+      )}
+
+      {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika */}
+      {showTopContributorModal && (
+        <BadgeModal
+          isOpen={showTopContributorModal}
+          authorBadge="topContributor"
+          onClose={() => setShowTopContributorModal(false)}
+        />
+      )}
     </>
   );
 };
 
 PostCard.propTypes = {
   post: PropTypes.shape({
+    // Osnovne informacije
     id: PropTypes.string.isRequired,
     category: PropTypes.string.isRequired,
     title: PropTypes.string.isRequired,
     description: PropTypes.string.isRequired,
     createdAt: PropTypes.object.isRequired,
-    locked: PropTypes.bool,
-    deletedAt: PropTypes.object,
     updatedAt: PropTypes.object,
+    deletedAt: PropTypes.object,
     lockedAt: PropTypes.object,
-    tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string }))
-      .isRequired, // Tagovi
+    locked: PropTypes.bool,
+    // Tagovi
+    tags: PropTypes.arrayOf(
+      PropTypes.shape({
+        text: PropTypes.string.isRequired,
+      })
+    ).isRequired,
+    // Autor
     author: PropTypes.shape({
       name: PropTypes.string.isRequired,
       profilePicture: PropTypes.string.isRequired,
+      badges: PropTypes.shape({
+        topContributor: PropTypes.bool,
+      }),
     }).isRequired,
+    // Komentari
     comments: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string.isRequired,
       })
     ).isRequired,
+    // Reakcije
     reactions: PropTypes.object,
+    // Bedzevi posta
+    badges: PropTypes.shape({
+      mostInspiring: PropTypes.bool,
+      trending: PropTypes.bool,
+    }),
   }).isRequired,
-
+  // Kontrolne opcije i funkcije
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
   isTrashMode: PropTypes.bool,

@@ -7,31 +7,34 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { getUserById } from "../../services/userService";
-import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { db } from "../../firebase";
 import { useEffect, useState } from "react";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
-import Spinner from "../Spinner";
+import LikesModal from "../modals/LikesModal";
 
 /**
+ * @component CommentReaction
  * Komponenta za prikaz i upravljanje lajkovima na komentaru.
  *
- * - Real-time sync Firestore polja 'likes'
- * - Prikazuje do 3 najnovija imena; ako ima vise od 3, dodaje "and X more..."
- * - Ne prikazuje "and X more..." ako je ukupno lajka <= 3
+ * - Real-time sync sa Firestore `likes` poljem
+ * - Prikazuje do 3 najnovija korisnika koji su lajkovali komentar
+ * - Klik na lajk dugme dodaje/uklanja korisnika iz Firestore niza
+ * - Otvara modal sa celokupnom listom korisnika koji su lajkovali
  *
- * @component
- * @param {string} commentId - ID komentara nad kojim se vrsi akcija lajkovanja
+ * @param {string} commentId - ID komentara nad kojim se vrsi akcija
  * @param {string} currentUserId - ID trenutno prijavljenog korisnika
- * @returns {JSX.Element} Renderovani JSX interfejs za reakcije na komentar
+ * @param {boolean} [locked=false] - Onemogucava lajk interakciju ako je komentar zakljucan
+ *
+ * @returns {JSX.Element} Interfejs za reakcije na komentar
  */
+
 const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
-  const [liked, setLiked] = useState(false); // Da li je korisnik lajkovao komentar
-  const [likeCount, setLikeCount] = useState(0); // Ukupan broj lajkova
-  const [likeList, setLikeList] = useState([]); // Lista ID-jeva korisnika koji su lajkovali
-  const [showLikesModal, setShowLikesModal] = useState(false); // Prikaz modala
-  const [topLikers, setTopLikers] = useState([]); // Do 3 korisnika za prikaz
-  const [loadingUsers, setLoadingUsers] = useState(false); //
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [likeList, setLikeList] = useState([]);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [topLikers, setTopLikers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
 
   // Real-time listener za Firestore polje 'likes'
@@ -68,7 +71,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
     return () => unsubscribe();
   }, [commentId, currentUserId]);
 
-  // Klik na srce: lajkovanje ili odlajk, ali samo ako post nije zakljucan
+  // Klik na srce: dodaj/ukloni lajk
   const handleLike = async () => {
     if (locked) return;
 
@@ -92,7 +95,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
       setShowLikesModal(true);
       setLoadingUsers(true);
       const users = await Promise.all(likeList.map(getUserById));
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Vestacko kasnjenje radi estetike! :)
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Vestacko kasnjenje radi estetike
       setTopLikers(users);
     } catch (err) {
       console.error("Error loading user:", err);
@@ -101,9 +104,8 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
     }
   };
 
-  // Tekst za prikaz imena korisnika i dodatnih brojeva
+  // Tekst koji se prikazuje pored ikone srca
   const otherCount = liked ? likeCount - 1 : likeCount;
-  // Formira tekst koji se prikazuje pored ikone srca
   let likeText = "";
 
   if (liked) {
@@ -123,19 +125,20 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
 
   return (
     <div>
-      {/* Glavna sekcija: lajk dugme i tekst */}
+      {/* Glavna sekcija: dugme za lajk + tekst */}
       <div className="flex items-center space-x-2">
-        {/* Dugme za lajk / odlajk */}
         <button onClick={handleLike} className="flex items-center space-x-1">
           {liked ? <FaHeart className="text-red-500" /> : <FaRegHeart />}
         </button>
-        {/* Poruka ako niko nije lajkovao */}
+
+        {/* Poruka ako nema lajkova */}
         {likeCount === 0 && (
           <p className="text-sm text-gray-500 italic">
             No one has liked this comment yet.
           </p>
         )}
-        {/* Dugme za otvaranje modala sa imenima */}
+
+        {/* Otvori modal ako postoji makar jedan lajk */}
         {likeCount > 0 && (
           <button
             onClick={handleOpenLikesModal}
@@ -146,70 +149,26 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
           </button>
         )}
       </div>
-      {/* Modal sa listom korisnika koji su lajkovali */}
-      {showLikesModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            // Zatvaranje modala na backdrop
-            if (e.target === e.currentTarget) {
-              setShowLikesModal(false);
-            }
-          }}
-        >
-          <div className="bg-white p-6 rounded-lg w-full max-w-md flex flex-col items-center">
-            <h3 className="text-base font-medium mb-4">
-              People who liked this
-            </h3>
-            {/* Spinner ili lista korisnika */}
-            {loadingUsers ? (
-              <Spinner className="my-8" />
-            ) : topLikers.length === 0 ? (
-              <p className="text-gray-500 italic my-8">
-                No one has liked this comment yet.
-              </p>
-            ) : (
-              <ul className="w-full max-h-72 overflow-y-auto">
-                {topLikers.slice(0, visibleCount).map((user) => (
-                  <li
-                    key={user.id}
-                    className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-md"
-                  >
-                    <img
-                      src={user.profilePicture || DEFAULT_PROFILE_PICTURE}
-                      alt={`Profile of ${user.name}`}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                    <span className="text-gray-800 underline decoration-gray-400 hover:text-blue-600">
-                      {user.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {visibleCount < topLikers.length && (
-              <button
-                onClick={() => setVisibleCount((prev) => prev + 10)}
-                className="mt-4 text-sm text-blue-500 hover:underline"
-              >
-                Load more
-              </button>
-            )}
-            {/* Dugme za zatvaranje modala */}
-            <button
-              onClick={() => setShowLikesModal(false)}
-              className="mt-6 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+
+      {/* Modal sa listom korisnika (portal modal) */}
+      <LikesModal
+        isOpen={showLikesModal}
+        onClose={() => {
+          setShowLikesModal(false);
+          setTopLikers([]);
+          setVisibleCount(10);
+          setLoadingUsers(false);
+        }}
+        users={topLikers}
+        loading={loadingUsers}
+        visibleCount={visibleCount}
+        onLoadMore={() => setVisibleCount((v) => v + 10)}
+      />
     </div>
   );
 };
 
-// Validacija props-a
+// PropTypes
 CommentReaction.propTypes = {
   commentId: PropTypes.string.isRequired,
   currentUserId: PropTypes.string.isRequired,

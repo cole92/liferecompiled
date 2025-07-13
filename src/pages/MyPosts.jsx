@@ -18,7 +18,7 @@ import { AuthContext } from "../context/AuthContext";
 // Util funkcije i konstante
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
-import ConfirmModal from "../utils/ConfirmModal";
+import ConfirmModal from "../components/modals/ConfirmModal";
 // Komponente
 import Spinner from "../components/Spinner";
 import PostsList from "../components/PostsList";

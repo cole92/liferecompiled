@@ -18,7 +18,7 @@ import { AuthContext } from "../../context/AuthContext";
 // Util funkcije i konstante
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
-import ConfirmModal from "../../utils/ConfirmModal";
+import ConfirmModal from "../../components/modals/ConfirmModal";
 import { getDaysLeft } from "../../utils/dateUtils";
 import { motion, AnimatePresence } from "framer-motion";
 // Komponente
@@ -200,6 +200,7 @@ const Trash = () => {
           setSelectedPostId(null);
         }}
       />
+      {/* Modal koji potvrdjuje trajno brisanje posta */}
       <ConfirmModal
         isOpen={deleteModalOpen}
         title="Delete Post Permanently"
