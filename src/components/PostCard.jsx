@@ -113,6 +113,7 @@ const PostCard = ({
     topContributor: true, // Trenutno hardkodovanje
   };
 
+  // Otvara modal sa PNG bedzevima za post (preventuje bubbling do PostCard)
   const handleBadgeClick = (e) => {
     e.stopPropagation();
     setShowBadgeModal(true);
@@ -344,11 +345,17 @@ const PostCard = ({
         </div>
       </div>
       {/* Uslovni prikaz informativnog modala za znacenje reakcija */}
-      {showModal && <ReactionInfoModal onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <ReactionInfoModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+        />
+      )}
 
       {/* Modal koji prikazuje osvojene bedzeve za ovaj post */}
       {showBadgeModal && (
         <BadgeModal
+          isOpen={showBadgeModal}
           postBadges={post.badges}
           onClose={() => setShowBadgeModal(false)}
         />
@@ -357,6 +364,7 @@ const PostCard = ({
       {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika */}
       {showTopContributorModal && (
         <BadgeModal
+          isOpen={showTopContributorModal}
           authorBadge="topContributor"
           onClose={() => setShowTopContributorModal(false)}
         />

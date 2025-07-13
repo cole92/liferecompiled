@@ -17,6 +17,7 @@ export const getUserById = async (userId) => {
 
         if (snap.exists()) {
             return {
+                id: snap.id,  
                 ...snap.data(),
                 badges: {
                     topContributor: true, // ✅ hardkod dok ne stigne pravi podatak

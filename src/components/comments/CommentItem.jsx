@@ -14,7 +14,7 @@ import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 
 import CommentForm from "./CommentForm";
 import CommentReaction from "./CommentReaction";
-import ConfirmModal from "../../utils/ConfirmModal";
+import ConfirmModal from "../modals/ConfirmModal";
 import BadgeModal from "../modals/BadgeModal";
 import ShieldIcon from "../ui/ShieldIcon";
 
@@ -362,6 +362,7 @@ const CommentItem = ({
       {/* Modal za prikaz Top Contributor badge-a */}
       {showTopContributorModal && (
         <BadgeModal
+          isOpen={showTopContributorModal}
           authorBadge="topContributor"
           onClose={() => setShowTopContributorModal(false)}
         />
