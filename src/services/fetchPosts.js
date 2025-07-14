@@ -66,8 +66,16 @@ export const getPostById = async (postId) => {
         const snap = await getDoc(ref);
 
         if (!snap.exists()) return null;
-        return { id: snap.id, ...snap.data() };
 
+        const post = { id: snap.id, ...snap.data() };
+
+        // ⬇️ Hardkoduj post.badges
+        post.badges = {
+            mostInspiring: true,
+            trending: true,
+        };
+
+        return post;
     } catch (error) {
         console.log("Error fetching post:", error);
         throw new Error("Failed to fetch post.");

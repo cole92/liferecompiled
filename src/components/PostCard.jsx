@@ -69,6 +69,7 @@ const PostCard = ({
   const [showModal, setShowModal] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState(null);
 
   // Provera da li je proslo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
   const createdDate = post.createdAt?.toDate?.();
@@ -114,8 +115,9 @@ const PostCard = ({
   };
 
   // Otvara modal sa PNG bedzevima za post (preventuje bubbling do PostCard)
-  const handleBadgeClick = (e) => {
+  const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
+    setSelectedBadge(badgeKey);
     setShowBadgeModal(true);
   };
 
@@ -135,13 +137,13 @@ const PostCard = ({
           {post.badges?.mostInspiring && (
             <Badge
               text="Most Inspiring"
-              onClick={(e) => handleBadgeClick(e, "Most Inspiring")}
+              onClick={(e) => handleBadgeClick(e, "mostInspiring")}
             />
           )}
           {post.badges?.trending && (
             <Badge
               text="Trending"
-              onClick={(e) => handleBadgeClick(e, "Trending")}
+              onClick={(e) => handleBadgeClick(e, "trending")}
             />
           )}
         </div>
@@ -356,7 +358,7 @@ const PostCard = ({
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
-          postBadges={post.badges}
+          badgeKey={selectedBadge}
           onClose={() => setShowBadgeModal(false)}
         />
       )}
