@@ -187,17 +187,19 @@ const PostDetails = () => {
           />
         </div>
       </div>
-      {/* Modal koji prikazuje osvojene bedzeve za ovaj post */}
+      {/* Modal koji prikazuje osvojene bedzeve za ovaj post (pasivan prikaz ako je post zakljucan) */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
           badgeKey={selectedBadge}
+          locked={post.locked}
           onClose={() => setShowBadgeModal(false)}
         />
       )}
-
+      {/* Modal koji prikazuje Top Contributor badge (pasivan prikaz ako je post zakljucan) */}
       <BadgeModal
         isOpen={showTopContributorModal}
+        locked={post.locked}
         onClose={() => setShowTopContributorModal(false)}
         authorBadge="topContributor"
       />

@@ -15,7 +15,7 @@ const Header = () => {
     setSelectedCategories,
     selectedCategories,
     handleResetFilters,
-  } = useSearch(); // Koristimo SearchContext za upravljanje pretragom i filtrima
+  } = useSearch(); // Koristimo SearchContext za upravljanje pretragom i filterima
 
   // Definisemo animaciju za FilterBar
   const searchBarVariants = {

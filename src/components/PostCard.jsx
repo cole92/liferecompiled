@@ -132,18 +132,20 @@ const PostCard = ({
           position: "relative",
         }}
       >
-        {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal */}
+        {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal (pasivni prikaz ako je post zakljucan) */}
         <div className="absolute top-2 right-10 z-10 flex flex-col gap-1">
           {post.badges?.mostInspiring && (
             <Badge
               text="Most Inspiring"
               onClick={(e) => handleBadgeClick(e, "mostInspiring")}
+              locked={post.locked && !isTrashMode}
             />
           )}
           {post.badges?.trending && (
             <Badge
               text="Trending"
               onClick={(e) => handleBadgeClick(e, "trending")}
+              locked={post.locked && !isTrashMode}
             />
           )}
         </div>
@@ -354,19 +356,21 @@ const PostCard = ({
         />
       )}
 
-      {/* Modal koji prikazuje osvojene bedzeve za ovaj post */}
+      {/* Modal koji prikazuje osvojene bedzeve za ovaj post (pasivan prikaz ako je post zakljucan) */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
           badgeKey={selectedBadge}
+          locked={post.locked && !isTrashMode}
           onClose={() => setShowBadgeModal(false)}
         />
       )}
 
-      {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika */}
+      {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika (pasivan prikaz ako je post zakljucan) */}
       {showTopContributorModal && (
         <BadgeModal
           isOpen={showTopContributorModal}
+          locked={post.locked && !isTrashMode}
           authorBadge="topContributor"
           onClose={() => setShowTopContributorModal(false)}
         />
