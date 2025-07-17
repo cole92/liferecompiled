@@ -359,10 +359,11 @@ const CommentItem = ({
         )}
       </motion.div>
 
-      {/* Modal za prikaz Top Contributor badge-a */}
+      {/* Modal za prikaz Top Contributor badge-a (pasivan prikaz ako je post zakljucan) */}
       {showTopContributorModal && (
         <BadgeModal
           isOpen={showTopContributorModal}
+          locked={locked}
           authorBadge="topContributor"
           onClose={() => setShowTopContributorModal(false)}
         />

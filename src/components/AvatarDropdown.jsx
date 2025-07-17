@@ -3,6 +3,7 @@ import { useLocation, NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+import ShieldIcon from "./ui/ShieldIcon";
 
 /**
  * Komponenta za prikaz avatar dugmeta sa padajucim menijem.
@@ -21,6 +22,8 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const location = useLocation();
   const [showMenu, setShowMenu] = useState(false); // Da li je meni otvoren
   const dropdownRef = useRef(null); // Referenca na spoljasnji wrapper radi detekcije klika van komponente
+
+  const isTopContributor = true; // privremeno, samo za test
 
   // Zatvaranje menija klikom van komponente ili pritiskom na ESC
   useEffect(() => {
@@ -60,8 +63,13 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
         <img
           src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
           alt="User Avatar"
-          className="w-10 h-10 rounded-full object-cover border-2 border-gray-300"
+          className={`w-10 h-10 rounded-full object-cover border-2 border-gray-300 ${
+            isTopContributor ? "ring-2 ring-purple-800" : ""
+          }`}
         />
+        {isTopContributor && (
+          <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5 text-purple-800" />
+        )}
       </button>
 
       {/* Animirani prikaz menija pomocu Framer Motion */}

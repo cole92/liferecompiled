@@ -69,6 +69,7 @@ const PostCard = ({
   const [showModal, setShowModal] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState(null);
 
   // Provera da li je proslo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
   const createdDate = post.createdAt?.toDate?.();
@@ -114,8 +115,9 @@ const PostCard = ({
   };
 
   // Otvara modal sa PNG bedzevima za post (preventuje bubbling do PostCard)
-  const handleBadgeClick = (e) => {
+  const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
+    setSelectedBadge(badgeKey);
     setShowBadgeModal(true);
   };
 
@@ -130,18 +132,20 @@ const PostCard = ({
           position: "relative",
         }}
       >
-        {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal */}
+        {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal (pasivni prikaz ako je post zakljucan) */}
         <div className="absolute top-2 right-10 z-10 flex flex-col gap-1">
           {post.badges?.mostInspiring && (
             <Badge
               text="Most Inspiring"
-              onClick={(e) => handleBadgeClick(e, "Most Inspiring")}
+              onClick={(e) => handleBadgeClick(e, "mostInspiring")}
+              locked={post.locked && !isTrashMode}
             />
           )}
           {post.badges?.trending && (
             <Badge
               text="Trending"
-              onClick={(e) => handleBadgeClick(e, "Trending")}
+              onClick={(e) => handleBadgeClick(e, "trending")}
+              locked={post.locked && !isTrashMode}
             />
           )}
         </div>
@@ -352,19 +356,21 @@ const PostCard = ({
         />
       )}
 
-      {/* Modal koji prikazuje osvojene bedzeve za ovaj post */}
+      {/* Modal koji prikazuje osvojene bedzeve za ovaj post (pasivan prikaz ako je post zakljucan) */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
-          postBadges={post.badges}
+          badgeKey={selectedBadge}
+          locked={post.locked && !isTrashMode}
           onClose={() => setShowBadgeModal(false)}
         />
       )}
 
-      {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika */}
+      {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika (pasivan prikaz ako je post zakljucan) */}
       {showTopContributorModal && (
         <BadgeModal
           isOpen={showTopContributorModal}
+          locked={post.locked && !isTrashMode}
           authorBadge="topContributor"
           onClose={() => setShowTopContributorModal(false)}
         />
