@@ -6,7 +6,7 @@ import toHotSmallBagde from "./badges/small/mini_hot.webp";
  * @component Badge
  * Prikazuje mini PNG bedz na osnovu prosledjenog teksta.
  * Slika se koristi kao vizuelna oznaka za post (💡, 🔥 itd.).
- * 
+ *
  * Ako je post zakljucan (`locked: true`), hover efekti i klik interakcije su onemoguceni.
  *
  * @param {string} text - Tekstualni identifikator bedza (mora odgovarati kljucu u badgeImages mapi).
@@ -16,10 +16,10 @@ import toHotSmallBagde from "./badges/small/mini_hot.webp";
  * @returns {JSX.Element} Ikonica bedza sa vizuelnim stanjem u skladu sa `locked` statusom.
  */
 
-
+// prettier-ignore
 const badgeImages = {
   "Most Inspiring": mostInspiringSmallBadge,
-  Trending: toHotSmallBagde,
+  "Trending": toHotSmallBagde,
 };
 
 const Badge = ({ text, onClick, locked }) => {
