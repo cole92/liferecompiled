@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { getAuth } from "firebase/auth";
-import EditProfileModal from "../components/EditProfileModal";
 import ShieldIcon from "../components/ui/ShieldIcon";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
@@ -21,7 +20,6 @@ import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
   const isTopContributor = true; // privremeno, samo za test
 
   // Dohvata podatke o trenutnom korisniku iz Firestore
@@ -47,14 +45,6 @@ const Profile = () => {
 
     fetchUserData();
   }, []);
-
-  // Lokalno azurira userData nakon izmene
-  const updateUserData = (updatedFields) => {
-    setUserData((prevData) => ({
-      ...prevData,
-      ...updatedFields,
-    }));
-  };
 
   if (loading) return <p>Loading...</p>;
   if (!userData) return <p>No user data found!</p>;
@@ -126,17 +116,7 @@ const Profile = () => {
       {/* Biografija i izmena */}
       <div className="text-center">
         <p>Bio: {userData.bio}</p>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          Edit Profile
-        </button>
       </div>
-
-      <EditProfileModal
-        show={showModal}
-        handleClose={() => setShowModal(false)}
-        userData={userData}
-        updateUserData={updateUserData}
-      />
 
       <div>
         <h2>Top posts by this author</h2>

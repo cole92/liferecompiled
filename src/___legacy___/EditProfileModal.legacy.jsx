@@ -5,6 +5,18 @@ import { useState, useEffect } from "react";
 import CloudinaryUpload from "../pages/CloudinaryUpload";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
+/**
+ * ⚠️ Legacy komponenta
+ * Ova komponenta je zamenjena novim `EditProfileForm` + `Settings` kombinacijom.
+ * Ostavlja se u kodbazi privremeno radi tranzicije i testiranja.
+ *
+ * @component EditProfileModal
+ *
+ * Prikazuje Bootstrap modal za izmenu korisnickih podataka:
+ * ime, biografija, status i profilna slika.
+ */
+
+
 const EditProfileModal = ({ show, handleClose, userData, updateUserData }) => {
   // State za podatke forme
   const [formData, setFormData] = useState({

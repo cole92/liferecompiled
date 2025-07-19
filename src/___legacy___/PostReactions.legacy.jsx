@@ -17,7 +17,7 @@ import { db, auth } from "../firebase";
 /**
  * ⚠️ Legacy komponenta
  * Ova komponenta je zamenjena novom ReactionSummary komponentom.
- * Ostavljena je ovde za referencu i ne koristi se više u aplikaciji.
+ * Ostavljena je ovde za referencu i ne koristi se vise u aplikaciji.
  */
 
 /**
