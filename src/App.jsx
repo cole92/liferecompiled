@@ -18,6 +18,7 @@ import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
 import SavedPosts from "./pages/dashboard/SavedPosts";
 import Stats from "./pages/dashboard/Stats";
 import Trash from "./pages/dashboard/Trash";
+import Settings from "./pages/dashboard/settings/Settings";
 // Stilovi
 import "./App.css";
 
@@ -29,7 +30,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/post/:postId" element={<PostDetails />} />
-        {/* Zasticene ruta */}
+        {/* Zasticene rute */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard/*" element={<DashboardLayout />}>
             <Route index element={<MyPosts />} />
@@ -39,6 +40,7 @@ function App() {
             <Route path="create" element={<CreatePost />} />
             <Route path="edit/:postId" element={<EditPost />} />
           </Route>
+          <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
         {/* Default preusmeravanje ako ruta ne postoji */}
