@@ -3,6 +3,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { getAuth } from "firebase/auth";
 import ShieldIcon from "../components/ui/ShieldIcon";
+import BioSection from "../components/profile/BioSection";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
 /**
@@ -115,7 +116,8 @@ const Profile = () => {
 
       {/* Biografija i izmena */}
       <div className="text-center">
-        <p>Bio: {userData.bio}</p>
+        <h5>Bio:</h5>
+        <BioSection bio={userData.bio} />
       </div>
 
       <div>
