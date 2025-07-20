@@ -4,6 +4,7 @@ import { db } from "../firebase";
 import { getAuth } from "firebase/auth";
 import ShieldIcon from "../components/ui/ShieldIcon";
 import BioSection from "../components/profile/BioSection";
+import StatsRow from "../components/profile/StatsRow";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
 /**
@@ -119,6 +120,8 @@ const Profile = () => {
         <h5>Bio:</h5>
         <BioSection bio={userData.bio} />
       </div>
+
+      <StatsRow posts={42} reactions={128} />
 
       <div>
         <h2>Top posts by this author</h2>

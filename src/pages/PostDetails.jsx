@@ -6,6 +6,7 @@ import { auth } from "../firebase";
 
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
+import AuthorLink from "../components/AuthorLink";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
@@ -141,7 +142,9 @@ const PostDetails = () => {
                 </div>
               )}
             </div>
-            <span>{author?.name}</span>
+
+            <AuthorLink author={author} />
+
             <span className="mx-1">·</span>
             {/* Pretvaramo Firestore timestamp u lokalni string */}
             <span>{post?.createdAt?.toDate().toLocaleString()}</span>
