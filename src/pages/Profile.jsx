@@ -5,6 +5,7 @@ import { getAuth } from "firebase/auth";
 import ShieldIcon from "../components/ui/ShieldIcon";
 import BioSection from "../components/profile/BioSection";
 import StatsRow from "../components/profile/StatsRow";
+import { useParams } from "react-router-dom";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
 /**
@@ -24,13 +25,22 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const isTopContributor = true; // privremeno, samo za test
 
+  const auth = getAuth();
+  const ownUid = auth.currentUser?.uid || null;
+  const { uid } = useParams();
+  const targetUid = uid || ownUid;
+  // const isOwn = targetUid === ownUid;   // za buduci Edit profile, ako se odlucim da bude i ovde!
+
   // Dohvata podatke o trenutnom korisniku iz Firestore
   useEffect(() => {
+    if (!targetUid) {
+      setLoading(false);
+      return;
+    }
+
     const fetchUserData = async () => {
       try {
-        const auth = getAuth();
-        const uid = auth.currentUser?.uid;
-        const docRef = doc(db, "users", uid);
+        const docRef = doc(db, "users", targetUid);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -46,7 +56,7 @@ const Profile = () => {
     };
 
     fetchUserData();
-  }, []);
+  }, [targetUid]);
 
   if (loading) return <p>Loading...</p>;
   if (!userData) return <p>No user data found!</p>;

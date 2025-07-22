@@ -1,5 +1,13 @@
 import PropTypes from "prop-types";
 
+/**
+ * Komponenta koja prikazuje ukupan broj postova i reakcija korisnika.
+ *
+ * Tipican prikaz: `X Posts · Y Reactions`
+ * Koristi se na Profile stranici i Dashboard statistikama.
+ */
+
+
 const StatsRow = ({ posts, reactions }) => {
   return (
     <div className="flex justify-center gap-6 text-sm text-gray-700 dark:text-gray-300 mt-2">

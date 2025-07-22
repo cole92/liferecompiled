@@ -42,6 +42,7 @@ function App() {
           </Route>
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/profile/:uid" element={<Profile />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
         {/* Default preusmeravanje ako ruta ne postoji */}
         <Route path="*" element={<Navigate to="/login" replace />} />
