@@ -15,6 +15,7 @@ const AuthorLink = ({ author, children }) => {
     <Link
       to={`/profile/${author.id}`}
       className="text-blue-600 hover:underline"
+      onClick={(e) => e.stopPropagation()}
     >
       {children ?? author.name}
     </Link>

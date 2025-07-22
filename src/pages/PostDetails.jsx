@@ -143,8 +143,8 @@ const PostDetails = () => {
               )}
             </div>
 
-            <AuthorLink author={author} />
-
+            {/* Link ka autoru post-a */}
+            {author?.id && <AuthorLink author={author} />}
             <span className="mx-1">·</span>
             {/* Pretvaramo Firestore timestamp u lokalni string */}
             <span>{post?.createdAt?.toDate().toLocaleString()}</span>

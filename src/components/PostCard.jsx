@@ -10,6 +10,7 @@ import Comments from "./comments/Comments";
 import ReactionInfoModal from "./modals/ReactionInfoModal";
 import BadgeModal from "./modals/BadgeModal";
 import Badge from "./ui/Bagde";
+import AuthorLink from "./AuthorLink";
 
 import ShieldIcon from "./ui/ShieldIcon";
 import { FiLock } from "react-icons/fi";
@@ -180,7 +181,9 @@ const PostCard = ({
                 </div>
               )}
             </div>
-            <span>{author?.name || "Unknown"}</span>
+            <AuthorLink author={author}>
+              <span className="font-semibold text-sm">{author.name}</span>
+            </AuthorLink>
           </div>
           {/* Info dugme otvara ReactionInfoModal (UX fallback za mobilne uredjaje) */}
           <div className="absolute top-2 right-2">
