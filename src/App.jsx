@@ -15,7 +15,7 @@ import PostDetails from "./pages/PostDetails";
 import Profile from "./pages/Profile";
 // Dashboard stranice
 import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
-import SavedPosts from "./pages/dashboard/SavedPosts";
+import SavedPosts from "./pages/dashboard/components/saved/SavedPosts";
 import Stats from "./pages/dashboard/Stats";
 import Trash from "./pages/dashboard/Trash";
 import Settings from "./pages/dashboard/settings/Settings";
