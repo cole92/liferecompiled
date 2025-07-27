@@ -221,9 +221,15 @@ const PostCard = ({
                 </div>
               )}
             </div>
-            <AuthorLink author={author}>
-              <span className="font-semibold text-sm">{author.name}</span>
-            </AuthorLink>
+            {author?.id ? (
+              <AuthorLink author={author}>
+                <span className="font-semibold text-sm">{author.name}</span>
+              </AuthorLink>
+            ) : (
+              <span className="font-semibold text-sm text-gray-500">
+                Unknown Author
+              </span>
+            )}
           </div>
           {/* Info dugme otvara ReactionInfoModal (UX fallback za mobilne uredjaje) */}
           <div className="absolute top-2 right-2">
@@ -452,6 +458,7 @@ PostCard.propTypes = {
     ).isRequired,
     // Autor
     author: PropTypes.shape({
+      id: PropTypes.string.isRequired,
       name: PropTypes.string.isRequired,
       profilePicture: PropTypes.string.isRequired,
       badges: PropTypes.shape({

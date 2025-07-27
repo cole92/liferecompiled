@@ -64,6 +64,7 @@ const Trash = () => {
       );
 
       const author = {
+        id: user.uid,
         name: user.name || "Anonymous",
         profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
       };

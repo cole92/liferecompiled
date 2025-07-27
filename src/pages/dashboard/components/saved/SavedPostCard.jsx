@@ -1,6 +1,12 @@
+import PropTypes from "prop-types";
+import { useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../../../../context/AuthContext";
+import Comments from "../../../../components/comments/Comments";
 import { FiLock } from "react-icons/fi";
 
 const SavedPostCard = ({ post }) => {
+  const { user } = useContext(AuthContext);
   const {
     author,
     title,
@@ -10,21 +16,29 @@ const SavedPostCard = ({ post }) => {
     createdAt,
     updatedAt,
     locked,
+    lockedAt,
     tags,
+    id,
   } = post;
 
   const { name, profilePicture } = author || {};
-  const formattedDate = post.lockedAt?.toDate().toLocaleDateString();
+  const formattedDate = lockedAt?.toDate().toLocaleDateString();
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    return navigate(`/post/${post.id}`);
+  };
 
   return (
     <div
+      onClick={handleClick}
       className={`border p-4 rounded shadow bg-white text-black ${
         locked
           ? "opacity-80 grayscale hover:opacity-100 transition duration-200"
           : ""
       }`}
     >
-      {/* Header: Avatar, ime, datum, lock badge */}
+      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <img
@@ -48,7 +62,7 @@ const SavedPostCard = ({ post }) => {
             title="This post is locked and cannot be edited or commented"
           >
             <FiLock className="text-sm" />
-            {formattedDate}
+            Locked on: {formattedDate}
           </span>
         )}
       </div>
@@ -64,12 +78,13 @@ const SavedPostCard = ({ post }) => {
       {/* Content */}
       {content && (
         <p className="text-sm text-gray-800 mb-3 whitespace-pre-line">
-          {content}
+          {content.slice(0, 300)}
+          {content.length > 300 && "..."}
         </p>
       )}
 
       {/* Category + Tags */}
-      <div className="flex flex-wrap items-center gap-2 mt-3">
+      <div className="flex flex-wrap items-center gap-2 mt-3 mb-2">
         <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
           {category}
         </span>
@@ -83,8 +98,40 @@ const SavedPostCard = ({ post }) => {
           </span>
         ))}
       </div>
+
+      {/* Comment preview (prva 2) */}
+      <div className="mt-4">
+        <Comments
+          postID={id}
+          userId={user?.uid}
+          showAll={false}
+          locked={true} // sakriva formu
+        />
+      </div>
     </div>
   );
+};
+
+SavedPostCard.propTypes = {
+  post: PropTypes.shape({
+    author: PropTypes.shape({
+      name: PropTypes.string,
+      profilePicture: PropTypes.string,
+    }),
+    title: PropTypes.string,
+    category: PropTypes.string,
+    description: PropTypes.string,
+    content: PropTypes.string,
+    createdAt: PropTypes.object, // Firestore Timestamp
+    updatedAt: PropTypes.object, // Firestore Timestamp
+    locked: PropTypes.bool,
+    lockedAt: PropTypes.object, // Firestore Timestamp
+    tags: PropTypes.arrayOf(
+      PropTypes.shape({
+        text: PropTypes.string,
+      })
+    ),
+  }).isRequired,
 };
 
 export default SavedPostCard;
