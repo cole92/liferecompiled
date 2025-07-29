@@ -4,54 +4,72 @@ import { db } from "../../../../firebase";
 import { enrichPostWithAuthor } from "../../../../services/userService";
 import SavedPostCard from "./SavedPostCard";
 import Spinner from "../../../../components/Spinner";
+import { showErrorToast } from "../../../../utils/toastUtils";
+import EmptyState from "../EmptyState";
 
 import { doc, getDoc, getDocs, collection } from "firebase/firestore";
 
 /**
- * @component SavedPosts
+ * Komponenta za prikaz svih sacuvanih postova korisnika.
  *
- * Prikazuje sve sacuvane postove korisnika.
+ * - Dohvata ID-eve iz podkolekcije `savedPosts` unutar korisnika
+ * - Zatim dohvata pune podatke o svakom postu iz `posts` kolekcije
+ * - Obogacuje svaki post sa podacima o autoru (`enrichPostWithAuthor`)
+ * - Prikazuje postove pomocu <SavedPostCard />
+ * - Prikazuje loading indikator, poruke o greskama i prazan prikaz ako nema postova
  *
- * - Dohvata listu ID-eva iz `savedPosts` subkolekcije
- * - Zatim dohvata podatke o svakom postu iz `posts` kolekcije
- * - Obogacuje svaki post sa podacima o autoru (koristi `enrichPostWithAuthor`)
- * - Prikazuje listu pomocu <SavedPostCard />
- *
+ * @component
  * @returns {JSX.Element}
  */
+
 const SavedPosts = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
   const [savedPosts, setSavedPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchSavedPosts = async () => {
       if (!user) return;
 
-      const savedRef = collection(db, "users", user.uid, "savedPosts");
-      const savedSnap = await getDocs(savedRef);
+      setIsLoading(true);
 
-      const posts = await Promise.all(
-        savedSnap.docs.map(async (docItem) => {
-          const postRef = doc(db, "posts", docItem.id);
-          const postSnap = await getDoc(postRef);
-          const postData = { id: postSnap.id, ...postSnap.data() };
+      try {
+        const savedRef = collection(db, "users", user.uid, "savedPosts");
+        const savedSnap = await getDocs(savedRef);
 
-          // Dodaje informacije o autoru
-          return await enrichPostWithAuthor(postData);
-        })
-      );
+        const posts = await Promise.all(
+          savedSnap.docs.map(async (docItem) => {
+            const postRef = doc(db, "posts", docItem.id);
+            const postSnap = await getDoc(postRef);
+            const postData = { id: postSnap.id, ...postSnap.data() };
 
-      setSavedPosts(posts);
+            return await enrichPostWithAuthor(postData);
+          })
+        );
+
+        setSavedPosts(posts);
+      } catch (error) {
+        console.error("Error fetching saved posts:", error);
+        showErrorToast("Something went wrong.");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchSavedPosts();
   }, [user]);
 
-  // Dok traje provera autentifikacije, prikazi spinner
-  if (isCheckingAuth) return <Spinner message="Loading saved posts..." />;
+  if (isCheckingAuth || isLoading) {
+    return <Spinner message="Loading saved posts..." />;
+  }
 
   // Ako korisnik nije ulogovan
   if (!user) return <p>Please log in to view saved posts.</p>;
+
+  // Ako su podaci u fazi dohvatanja
+  if (savedPosts.length === 0) {
+    return <EmptyState message="You haven't saved any posts yet." />;
+  }
 
   return (
     <div>

@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../../context/AuthContext";
 import Comments from "../../../../components/comments/Comments";
 import { FiLock } from "react-icons/fi";
+import ShieldIcon from "../../../../components/ui/ShieldIcon";
+import Badge from "../../../../components/ui/Bagde";
 
 const SavedPostCard = ({ post }) => {
   const { user } = useContext(AuthContext);
@@ -41,11 +43,46 @@ const SavedPostCard = ({ post }) => {
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <img
-            src={profilePicture}
-            alt={`Avatar of ${name}`}
-            className="w-10 h-10 rounded-full object-cover"
-          />
+          <div className="relative inline-block">
+            <img
+              src={profilePicture}
+              alt={`Avatar of ${name}`}
+              className={`w-10 h-10 rounded-full ${
+                author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
+              }`}
+            />
+            {author.badges?.topContributor && (
+              <div
+                title="Top Contributor · Code-powered"
+                className="group relative"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <ShieldIcon className="w-5 h-5 absolute -top-12 -right-2 group-hover:scale-110 transition-transform" />
+              </div>
+            )}
+          </div>
+
+          <div
+            className="flex gap-1 items-center hover:scale-105"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {post.badges?.mostInspiring && (
+              <div title="This post inspired the community">
+                <Badge text="Most Inspiring" />
+              </div>
+            )}
+
+            {post.badges?.trending && (
+              <div title="This post is on 🔥">
+                <Badge text="Trending" />
+              </div>
+            )}
+          </div>
+
           <div>
             <p className="text-sm font-semibold text-gray-800">{name}</p>
             <p className="text-xs text-gray-500">
@@ -106,6 +143,7 @@ const SavedPostCard = ({ post }) => {
           userId={user?.uid}
           showAll={false}
           locked={true} // sakriva formu
+          disableBadgeModal={true}
         />
       </div>
     </div>
@@ -114,23 +152,31 @@ const SavedPostCard = ({ post }) => {
 
 SavedPostCard.propTypes = {
   post: PropTypes.shape({
-    author: PropTypes.shape({
-      name: PropTypes.string,
-      profilePicture: PropTypes.string,
-    }),
+    id: PropTypes.string.isRequired,
     title: PropTypes.string,
     category: PropTypes.string,
     description: PropTypes.string,
     content: PropTypes.string,
     createdAt: PropTypes.object, // Firestore Timestamp
-    updatedAt: PropTypes.object, // Firestore Timestamp
+    updatedAt: PropTypes.object,
     locked: PropTypes.bool,
-    lockedAt: PropTypes.object, // Firestore Timestamp
+    lockedAt: PropTypes.object,
     tags: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string,
       })
     ),
+    author: PropTypes.shape({
+      name: PropTypes.string,
+      profilePicture: PropTypes.string,
+      badges: PropTypes.shape({
+        topContributor: PropTypes.bool,
+      }),
+    }),
+    badges: PropTypes.shape({
+      mostInspiring: PropTypes.bool,
+      trending: PropTypes.bool,
+    }),
   }).isRequired,
 };
 

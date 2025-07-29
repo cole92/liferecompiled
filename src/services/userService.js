@@ -47,10 +47,43 @@ export const enrichPostWithAuthor = async (post) => {
     const authorRef = doc(db, "users", post.userId);
     const authorSnap = await getDoc(authorRef);
 
-    const author = { ...authorSnap.data(), id: authorSnap.id };
-    return { ...post, author };
+    if (!authorSnap.exists()) {
+      return {
+        ...post,
+        author: null,
+        badges: {
+          mostInspiring: true,  // 🔥 TEST BADGES ZA POST
+          trending: true,
+        },
+      };
+    }
+
+    const authorData = authorSnap.data();
+    const author = {
+      ...authorData,
+      id: authorSnap.id,
+      badges: {
+        topContributor: true, // ✅ TEST BADGE ZA AUTORA
+      },
+    };
+
+    return {
+      ...post,
+      author,
+      badges: {
+        mostInspiring: true,  // 🔥 TEST BADGES ZA POST
+        trending: true,
+      },
+    };
   } catch (error) {
     console.error("Author fetch failed:", error);
-    return { ...post, author: null };
+    return {
+      ...post,
+      author: null,
+      badges: {
+        mostInspiring: true,
+        trending: true,
+      },
+    };
   }
 };
