@@ -21,19 +21,28 @@ import ShieldIcon from "../ui/ShieldIcon";
 /**
  * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
  *
- * Prikazuje odgovore (replies), omogucava odgovaranje i brisanje komentara.
- * Dohvata korisnicke podatke (ime i sliku) iz Firestore-a pomocu `getUserById`.
- * Ugradjena animacija prikaza koristi framer-motion.
+ * - Prikazuje osnovne podatke o autoru i komentaru
+ * - Prikazuje reakcije, omogucava izmenu i brisanje komentara (ako je korisnik autor)
+ * - Omogucava odgovaranje na komentar do maksimalne dubine
+ * - Soft delete podrzan kroz confirm modal
+ * - Prikazuje badge ako je autor "Top Contributor"
+ * - Prikazuje informaciju o editovanosti i vreme objave
+ * - Omogucava prikaz forme za reply, kao i rekurzivni prikaz odgovora
+ * - Komentar moze biti editovan do 10 minuta nakon objave
  *
  * @component
- * @param {string} userId - ID korisnika koji je ostavio komentar.
- * @param {string} content - Tekst komentara.
- * @param {firebase.firestore.Timestamp} timestamp - Firestore timestamp objekat.
- * @param {string} postID - ID posta na koji komentar pripada.
- * @param {string} commentId - ID ovog komentara.
- * @param {Array<Object>} comments - Lista svih komentara za dati post (za pronalazenje odgovora).
- * @param {number} [depth=0] - Trenutna dubina komentara; koristi se za uvlacenje i ogranicenje rekurzije.
- * @param {firebase.firestore.Timestamp} [editedAt] - Vreme poslednje izmene komentara (ako postoji).
+ * @param {string} userId - ID korisnika koji je ostavio komentar
+ * @param {string} content - Tekst komentara
+ * @param {object} timestamp - Firestore timestamp objekat
+ * @param {object} editedAt - Firestore timestamp izmene (opciono)
+ * @param {string} postID - ID posta na koji komentar pripada
+ * @param {string} commentId - ID ovog komentara
+ * @param {Array<Object>} comments - Lista svih komentara za dati post
+ * @param {number} [depth=0] - Trenutna dubina komentara
+ * @param {boolean} [showAll=false] - Da li prikazati sve funkcionalnosti (reply, delete, edit itd.)
+ * @param {boolean} [deleted=false] - Da li je komentar obrisan (soft delete)
+ * @param {boolean} [locked=false] - Da li je komentar zakljucan (iskljucuje interakcije)
+ * @param {boolean} [disableBadgeModal=false] - Da li onemoguciti prikaz modala sa badge info
  */
 
 dayjs.extend(relativeTime);
@@ -50,6 +59,7 @@ const CommentItem = ({
   showAll,
   deleted,
   locked = false,
+  disableBadgeModal = false,
 }) => {
   const [user, setUser] = useState(null); // State za podatke korisnika
   const [isReplaying, setIsReplaying] = useState(false); // State za kontrolu prikaza forme za odgovor
@@ -177,6 +187,7 @@ const CommentItem = ({
                 className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (disableBadgeModal) return;
                   setShowTopContributorModal(true);
                 }}
               >
@@ -191,7 +202,7 @@ const CommentItem = ({
               {user?.name}
             </span>
 
-            {/* Sadržaj komentara / edit mode / obrisan */}
+            {/* Sadrzaj komentara / edit mode / obrisan */}
             {isEditing ? (
               <div>
                 <textarea
@@ -393,6 +404,7 @@ CommentItem.propTypes = {
   editedAt: PropTypes.object,
   deleted: PropTypes.bool,
   locked: PropTypes.bool,
+  disableBadgeModal: PropTypes.bool,
 };
 
 export default CommentItem;

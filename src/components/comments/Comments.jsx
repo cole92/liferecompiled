@@ -13,16 +13,28 @@ import CommentItem from "./CommentItem";
 
 /**
  * Komponenta za prikaz i dodavanje komentara na post.
- * Koristi se kao preview u post karticama (prva 2 komentara) ili
- * za prikaz svih komentara na stranici pojedinacnog posta.
+ *
+ * - Ako je `showAll === true`, prikazuje sve komentare sa opcijom "See more"
+ * - Ako je `showAll === false`, prikazuje samo prva 2 komentara (preview)
+ * - Uzima komentare u realnom vremenu iz Firestore baze
+ * - Podrzava prikaz editovanih i obrisanih komentara
+ * - Prikazuje formu za novi komentar ako `locked === false`
  *
  * @component
- * @param {string} postID - ID posta na koji se komentari odnose.
- * @param {string} userId - ID trenutno prijavljenog korisnika (za formu).
- * @param {boolean} [showAll=false] - Ako je true, prikazuje sve komentare sa "See more" funkcijom.
+ * @param {string} postID - ID posta na koji se komentari odnose
+ * @param {string} userId - ID trenutno ulogovanog korisnika (za formu)
+ * @param {boolean} [showAll=false] - Da li prikazati sve komentare
+ * @param {boolean} [locked=false] - Da li su komentari zakljucani (onemogucava reply i formu)
+ * @param {boolean} [disableBadgeModal=false] - Da li sakriti modal za badge klik
  */
 
-const Comments = ({ postID, userId, showAll = false, locked = false }) => {
+const Comments = ({
+  postID,
+  userId,
+  showAll = false,
+  locked = false,
+  disableBadgeModal,
+}) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
   // Broj komentara koji se prikazuju kada je showAll aktivan
@@ -78,6 +90,7 @@ const Comments = ({ postID, userId, showAll = false, locked = false }) => {
           showAll={showAll}
           deleted={comment.deleted}
           locked={locked}
+          disableBadgeModal={disableBadgeModal}
         />
       ))}
       {/* Dugme za prikaz sledecih 5 komentara */}
@@ -105,6 +118,7 @@ Comments.propTypes = {
   userId: PropTypes.string, // Moze biti undefined ako korisnik nije ulogovan
   showAll: PropTypes.bool, // True za prikaz svih komentara
   locked: PropTypes.bool,
+  disableBadgeModal: PropTypes.bool,
 };
 
 export default Comments;

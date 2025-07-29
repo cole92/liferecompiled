@@ -1,23 +1,30 @@
-import { useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { getDoc, doc } from "firebase/firestore";
+import { db } from "../firebase";
 import { useNavigate, Link } from "react-router-dom";
 
 import PropTypes from "prop-types";
 
 import { auth } from "../firebase";
+import { AuthContext } from "../context/AuthContext";
 
 import ReactionSummary from "./reactions/ReactionSummary";
 import Comments from "./comments/Comments";
 import ReactionInfoModal from "./modals/ReactionInfoModal";
+import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import BadgeModal from "./modals/BadgeModal";
 import Badge from "./ui/Bagde";
+import AuthorLink from "./AuthorLink";
 
 import ShieldIcon from "./ui/ShieldIcon";
 import { FiLock } from "react-icons/fi";
 import { FaInfoCircle } from "react-icons/fa";
+import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 
 import { MdLockClock } from "react-icons/md";
 
 import "../styles/PostCard.css";
+import { savePost, unsavePost } from "../services/savedService";
 
 /**
  * @component PostCard
@@ -64,12 +71,26 @@ const PostCard = ({
     category,
   } = post;
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
   const formattedDate = post.lockedAt?.toDate().toLocaleDateString();
 
   const [showModal, setShowModal] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Proverava da li je trenutni korisnik vec sacuvao post u kolekciji savedPosts
+  useEffect(() => {
+    const checkIfSaved = async () => {
+      if (!user) return;
+      const ref = doc(db, "users", user.uid, "savedPosts", post.id);
+      const snap = await getDoc(ref);
+      setIsSaved(snap.exists());
+    };
+
+    checkIfSaved();
+  }, [user, post.id]);
 
   // Provera da li je proslo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
   const createdDate = post.createdAt?.toDate?.();
@@ -119,6 +140,26 @@ const PostCard = ({
     e.stopPropagation();
     setSelectedBadge(badgeKey);
     setShowBadgeModal(true);
+  };
+
+  // Cuva ili uklanja post iz korisnikovih sacuvanih postova u Firestore-u
+  const handleSaveToggle = async (e) => {
+    e.stopPropagation();
+    if (!user) return showErrorToast("Please login to save posts.");
+
+    try {
+      if (isSaved) {
+        await unsavePost(user.uid, post.id);
+        showSuccessToast("Removed from saved!");
+      } else {
+        await savePost(user.uid, post.id);
+        showSuccessToast("Post saved!");
+      }
+      setIsSaved(!isSaved);
+    } catch (error) {
+      console.error(error);
+      showErrorToast("Something went wrong.");
+    }
   };
 
   return (
@@ -180,7 +221,15 @@ const PostCard = ({
                 </div>
               )}
             </div>
-            <span>{author?.name || "Unknown"}</span>
+            {author?.id ? (
+              <AuthorLink author={author}>
+                <span className="font-semibold text-sm">{author.name}</span>
+              </AuthorLink>
+            ) : (
+              <span className="font-semibold text-sm text-gray-500">
+                Unknown Author
+              </span>
+            )}
           </div>
           {/* Info dugme otvara ReactionInfoModal (UX fallback za mobilne uredjaje) */}
           <div className="absolute top-2 right-2">
@@ -245,6 +294,16 @@ const PostCard = ({
 
           {/* Naslov i opis */}
           <h2 className="post-title">{title}</h2>
+
+          {/* Dugme za snimlanje posta toggle */}
+          <button onClick={handleSaveToggle} title="Save this post">
+            {isSaved ? (
+              <BsBookmarkFill className="text-slate-950" />
+            ) : (
+              <BsBookmark className="text-gray-400" />
+            )}
+          </button>
+
           {isTrashMode && daysLeft !== null && (
             <span
               className={`text-xs font-medium px-2.5 py-0.5 rounded w-fit ${getBadgeColor(
@@ -399,6 +458,7 @@ PostCard.propTypes = {
     ).isRequired,
     // Autor
     author: PropTypes.shape({
+      id: PropTypes.string.isRequired,
       name: PropTypes.string.isRequired,
       profilePicture: PropTypes.string.isRequired,
       badges: PropTypes.shape({
