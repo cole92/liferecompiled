@@ -1,30 +1,30 @@
-import { useContext, useEffect, useState } from "react";
-import { getDoc, doc } from "firebase/firestore";
-import { db } from "../firebase";
+import { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 import PropTypes from "prop-types";
 
+import { FiLock } from "react-icons/fi";
+import { FaInfoCircle } from "react-icons/fa";
+import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
+import { MdLockClock } from "react-icons/md";
+
 import { auth } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
+
+import { useCheckSavedStatus } from "../hooks/useCheckSavedStatus";
 
 import ReactionSummary from "./reactions/ReactionSummary";
 import Comments from "./comments/Comments";
 import ReactionInfoModal from "./modals/ReactionInfoModal";
-import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import BadgeModal from "./modals/BadgeModal";
 import Badge from "./ui/Bagde";
 import AuthorLink from "./AuthorLink";
-
 import ShieldIcon from "./ui/ShieldIcon";
-import { FiLock } from "react-icons/fi";
-import { FaInfoCircle } from "react-icons/fa";
-import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 
-import { MdLockClock } from "react-icons/md";
+import { toggleSavePost } from "../utils/savedPostUtils";
 
 import "../styles/PostCard.css";
-import { savePost, unsavePost } from "../services/savedService";
+
 
 /**
  * @component PostCard
@@ -78,19 +78,9 @@ const PostCard = ({
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
-  const [isSaved, setIsSaved] = useState(false);
 
-  // Proverava da li je trenutni korisnik vec sacuvao post u kolekciji savedPosts
-  useEffect(() => {
-    const checkIfSaved = async () => {
-      if (!user) return;
-      const ref = doc(db, "users", user.uid, "savedPosts", post.id);
-      const snap = await getDoc(ref);
-      setIsSaved(snap.exists());
-    };
-
-    checkIfSaved();
-  }, [user, post.id]);
+  // Hook koji proverava da li je post sacuvan od strane trenutnog korisnika
+  const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
   // Provera da li je proslo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
   const createdDate = post.createdAt?.toDate?.();
@@ -142,24 +132,12 @@ const PostCard = ({
     setShowBadgeModal(true);
   };
 
-  // Cuva ili uklanja post iz korisnikovih sacuvanih postova u Firestore-u
+  // Menja status sacuvanosti posta (toggle), uz feedback kroz toast
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
-    if (!user) return showErrorToast("Please login to save posts.");
 
-    try {
-      if (isSaved) {
-        await unsavePost(user.uid, post.id);
-        showSuccessToast("Removed from saved!");
-      } else {
-        await savePost(user.uid, post.id);
-        showSuccessToast("Post saved!");
-      }
-      setIsSaved(!isSaved);
-    } catch (error) {
-      console.error(error);
-      showErrorToast("Something went wrong.");
-    }
+    const newState = await toggleSavePost(user, post.id, isSaved);
+    setIsSaved(newState);
   };
 
   return (
@@ -295,8 +273,12 @@ const PostCard = ({
           {/* Naslov i opis */}
           <h2 className="post-title">{title}</h2>
 
-          {/* Dugme za snimlanje posta toggle */}
-          <button onClick={handleSaveToggle} title="Save this post">
+          {/* Dugme za snimanje posta toggle */}
+          <button
+            onClick={handleSaveToggle}
+            className="hover:scale-110 transition"
+            title={isSaved ? "Remove from saved" : "Save this post"}
+          >
             {isSaved ? (
               <BsBookmarkFill className="text-slate-950" />
             ) : (
@@ -304,6 +286,7 @@ const PostCard = ({
             )}
           </button>
 
+          {/* Vraca Tailwind klase u zavisnosti od dana preostalih za restore (Trash prikaz) */}
           {isTrashMode && daysLeft !== null && (
             <span
               className={`text-xs font-medium px-2.5 py-0.5 rounded w-fit ${getBadgeColor(
