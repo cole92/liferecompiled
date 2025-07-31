@@ -1,13 +1,17 @@
 import { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../../../../context/AuthContext";
-import { db } from "../../../../firebase";
-import { enrichPostWithAuthor } from "../../../../services/userService";
-import SavedPostCard from "./SavedPostCard";
-import Spinner from "../../../../components/Spinner";
-import { showErrorToast } from "../../../../utils/toastUtils";
-import EmptyState from "../EmptyState";
 
 import { doc, getDoc, getDocs, collection } from "firebase/firestore";
+
+import { AuthContext } from "../../../../context/AuthContext";
+import { db } from "../../../../firebase";
+
+import { enrichPostWithAuthor } from "../../../../services/userService";
+import { showErrorToast } from "../../../../utils/toastUtils";
+
+import SavedPostCard from "./SavedPostCard";
+import EmptyState from "../EmptyState";
+import Spinner from "../../../../components/Spinner";
+
 
 /**
  * Komponenta za prikaz svih sacuvanih postova korisnika.

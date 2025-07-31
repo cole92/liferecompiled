@@ -1,11 +1,32 @@
 import PropTypes from "prop-types";
 import { useContext } from "react";
+
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../../../../context/AuthContext";
-import Comments from "../../../../components/comments/Comments";
+import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
-import ShieldIcon from "../../../../components/ui/ShieldIcon";
+
+import { AuthContext } from "../../../../context/AuthContext";
+import { useCheckSavedStatus } from "../../../../hooks/useCheckSavedStatus";
+
 import Badge from "../../../../components/ui/Bagde";
+import ShieldIcon from "../../../../components/ui/ShieldIcon";
+import Comments from "../../../../components/comments/Comments";
+
+import { toggleSavePost } from "../../../../utils/savedPostUtils";
+
+
+/**
+ * @component SavedPostCard
+ * Prikazuje pregled sacuvanog posta u Dashboard-u korisnika.
+ *
+ * - Prikazuje osnovne informacije: naslov, autor, datum, sadrzaj, tagove
+ * - Reakcije i forma za komentare su zakljucane (read-only preview)
+ * - Ukljucuje bedzeve (💡, 🔥) i status zakljucavanja (🔒)
+ * - Omogucava cuvanje/brisanje posta iz liste sacuvanih (bookmark toggle)
+ *
+ * @param {Object} post - Objekat koji sadrzi sve podatke o sacuvanom postu
+ * @returns {JSX.Element} Kartica sacuvanog posta
+ */
 
 const SavedPostCard = ({ post }) => {
   const { user } = useContext(AuthContext);
@@ -29,6 +50,16 @@ const SavedPostCard = ({ post }) => {
 
   const handleClick = () => {
     return navigate(`/post/${post.id}`);
+  };
+
+  // Hook koji proverava da li je post sacuvan od strane korisnika
+  const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
+
+  const handleSaveToggle = async (e) => {
+    e.stopPropagation();
+
+    const newState = await toggleSavePost(user, post.id, isSaved);
+    setIsSaved(newState);
   };
 
   return (
@@ -80,6 +111,19 @@ const SavedPostCard = ({ post }) => {
               <div title="This post is on 🔥">
                 <Badge text="Trending" />
               </div>
+            )}
+          </div>
+
+          {/* Bookmark dugme za uklanjanje iz sacuvanih postova */}
+          <div
+            onClick={handleSaveToggle}
+            className="hover:scale-110 transition"
+            title={isSaved ? "Remove from saved" : "Save this post"}
+          >
+            {isSaved ? (
+              <BsBookmarkFill className="text-slate-950" />
+            ) : (
+              <BsBookmark className="text-gray-400" />
             )}
           </div>
 

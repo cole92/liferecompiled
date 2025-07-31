@@ -1,21 +1,29 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+
 import { useParams } from "react-router-dom";
+import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
 
 import { auth } from "../firebase";
+import { AuthContext } from "../context/AuthContext";
 
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
-import AuthorLink from "../components/AuthorLink";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
+import { useCheckSavedStatus } from "../hooks/useCheckSavedStatus";
+
+import AuthorLink from "../components/AuthorLink";
 import ReactionSummary from "../components/reactions/ReactionSummary";
 import Comments from "../components/comments/Comments";
 import Spinner from "../components/Spinner";
 import ShieldIcon from "../components/ui/ShieldIcon";
 import BadgeModal from "../components/modals/BadgeModal";
 import Badge from "../components/ui/Bagde";
+
+import { toggleSavePost } from "../utils/savedPostUtils";
+
 
 /**
  * @component PostDetails
@@ -34,10 +42,14 @@ const PostDetails = () => {
   const [isLoading, setIsLoading] = useState(true); // State za prikaz ucitavanja
   const [author, setAuthor] = useState(null);
   const userId = auth.currentUser?.uid;
+  const { user } = useContext(AuthContext);
   const lockedDate = post?.lockedAt?.toDate().toLocaleDateString();
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
+
+  // Proverava da li je post sacuvan od strane korisnika (hook koristi Firestore)
+  const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
   useEffect(() => {
     // Dohvata podatke o postu kada se komponenta montira ili promeni postId
@@ -69,6 +81,13 @@ const PostDetails = () => {
 
   if (isLoading) return <Spinner />; // Prikazujemo spinner dok se post ucitava
   if (!post) return <p>Post not found.</p>; // Ako post nije prondjen, prikazujemo fallback poruku
+
+  const handleSaveToggle = async (e) => {
+    e.stopPropagation();
+
+    const newState = await toggleSavePost(user, post.id, isSaved);
+    setIsSaved(newState);
+  };
 
   // Otvara modal sa PNG bedzevima za post
   const handleBadgeClick = (e, badgeKey) => {
@@ -150,6 +169,19 @@ const PostDetails = () => {
             <span>{post?.createdAt?.toDate().toLocaleString()}</span>
           </div>
           <span className="mt-2 md:mt-0">📂 Category: {post?.category}</span>
+
+          {/* Dugme za snimanje posta toggle */}
+          <div
+            onClick={handleSaveToggle}
+            className="hover:scale-110 transition"
+            title={isSaved ? "Remove from saved" : "Save this post"}
+          >
+            {isSaved ? (
+              <BsBookmarkFill className="text-slate-950" />
+            ) : (
+              <BsBookmark className="text-gray-400" />
+            )}
+          </div>
         </div>
 
         {/* Opis posta */}
