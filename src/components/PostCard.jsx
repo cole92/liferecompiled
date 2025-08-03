@@ -25,7 +25,6 @@ import { toggleSavePost } from "../utils/savedPostUtils";
 
 import "../styles/PostCard.css";
 
-
 /**
  * @component PostCard
  * Vizuelna kartica za prikaz blog posta sa interakcijama, statusima i dodatnim UX slojevima.
@@ -143,7 +142,9 @@ const PostCard = ({
   return (
     <>
       <div
-        className="post-card"
+        className={`post-card ${
+          post.badges?.trending ? "border-2 border-red-500" : ""
+        }`}
         onClick={handleClick}
         style={{
           cursor: "pointer",
