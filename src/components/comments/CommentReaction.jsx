@@ -11,6 +11,7 @@ import { db } from "../../firebase";
 import { useEffect, useState } from "react";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
 import LikesModal from "../modals/LikesModal";
+import { showInfoToast } from "../../utils/toastUtils";
 
 /**
  * @component CommentReaction
@@ -73,6 +74,11 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
 
   // Klik na srce: dodaj/ukloni lajk
   const handleLike = async () => {
+    if (!currentUserId) {
+      showInfoToast("Please login to react 😊");
+      return;
+    }
+
     if (locked) return;
 
     const ref = doc(db, "comments", commentId);
@@ -171,7 +177,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
 // PropTypes
 CommentReaction.propTypes = {
   commentId: PropTypes.string.isRequired,
-  currentUserId: PropTypes.string.isRequired,
+  currentUserId: PropTypes.string,
   locked: PropTypes.bool,
 };
 

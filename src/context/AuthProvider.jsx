@@ -4,24 +4,29 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db, signOut } from "../firebase";
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import { AuthContext } from "./AuthContext";
+import { useNavigate } from "react-router-dom";
 
 /**
- * Kontekst provajder za autentifikaciju korisnika.
+ * @component AuthProvider
+ * Omotava aplikaciju i obezbeđuje globalni kontekst za autentifikaciju.
  *
- * - Prati trenutno prijavljenog korisnika
- * - Proverava autentifikaciju pri svakom pokretanju aplikacije
- * - Omogucava logout funkcionalnost uz toast notifikacije
+ * - Prati trenutno ulogovanog korisnika i njegovo stanje
+ * - Omogućava logout sa proverom mreže i vizuelnim indikatorima
+ * - Proverava stanje autentifikacije na mount-u
  *
- * @component
  * @param {Object} props
- * @param {React.ReactNode} props.children - Komponente koje koriste ovaj kontekst
- * @returns {JSX.Element} AuthContext.Provider sa vrednostima za korisnika
+ * @param {React.ReactNode} props.children - Sve child komponente
+ *
+ * @returns {JSX.Element} Kontekst sa korisničkim podacima i statusima
  */
+
+
 const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // Trenutni korisnik
-  const [isAuthenticated, setIsAuthenticated] = useState(null); // Da li je korisnik prijavljen
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true); // Da li traje provera autentifikacije
-  const [isLoggingOut, setIsLoggingOut] = useState(false); // Da li traje proces odjave
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
@@ -30,41 +35,29 @@ const AuthProvider = ({ children }) => {
           const userDocRef = doc(db, "users", currentUser.uid);
           const userSnap = await getDoc(userDocRef);
 
-          if (userSnap.exists()) {
-            const firestoreData = userSnap.data();
-
-            setUser({
-              uid: currentUser.uid,
-              email: currentUser.email,
-              ...firestoreData, // name, profilePicture, itd.
-            });
-          } else {
-            // Fallback ako korisnicki dokument ne postoji
-            setUser({
-              uid: currentUser.uid,
-              email: currentUser.email,
-            });
-          }
+          setUser({
+            uid: currentUser.uid,
+            email: currentUser.email,
+            ...(userSnap.exists() ? userSnap.data() : {}),
+          });
 
           setIsAuthenticated(true);
         } catch (error) {
-          console.error("Greska pri dohvatanju korisnika iz Firestore:", error);
+          console.error("Greska pri dohvatanju korisnika:", error);
           setUser(null);
           setIsAuthenticated(false);
         }
       } else {
-        // Nema korisnika (nije prijavljen)
         setUser(null);
         setIsAuthenticated(false);
       }
 
-      setIsCheckingAuth(false); // Zavrsena provera autentifikacije
+      setIsCheckingAuth(false);
     });
 
-    return () => unsubscribe(); // Cleanup listenera
+    return () => unsubscribe();
   }, []);
 
-  // Logout funkcija sa proverom mreze i toast porukama
   const logout = async () => {
     try {
       if (!navigator.onLine) {
@@ -74,24 +67,25 @@ const AuthProvider = ({ children }) => {
         return;
       }
 
-      setIsLoggingOut(true); // Prikaz spinnera
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Kratka pauza
+      setIsLoggingOut(true);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await signOut(auth);
 
-      await signOut(auth); // Firebase logout
       showSuccessToast(
         "You have been logged out successfully. Redirecting to login..."
       );
+
+      setTimeout(() => navigate("/login", { replace: true }), 1000);
     } catch (error) {
       showErrorToast(
         "Oops! Something went wrong during logout. Please try again."
       );
       console.error("Logout error:", error);
     } finally {
-      setIsLoggingOut(false); // Ugasiti spinner
+      setIsLoggingOut(false);
     }
   };
 
-  // Deljenje podataka kroz kontekst
   return (
     <AuthContext.Provider
       value={{
@@ -107,7 +101,6 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// Validacija children prop-a
 AuthProvider.propTypes = {
   children: PropTypes.node.isRequired,
 };

@@ -1,24 +1,32 @@
 import { createRoot } from "react-dom/client";
-import "./index.css";
-import './styles/style.css'
-import App from "./App.jsx";
-import "bootstrap/dist/js/bootstrap.bundle.min.js";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "react-toastify/dist/ReactToastify.css";
 import { BrowserRouter } from "react-router-dom";
+import App from "./App.jsx";
 import AuthProvider from "./context/AuthProvider.jsx";
 
-// Provera postojanja root elementa
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import "react-toastify/dist/ReactToastify.css";
+import "./index.css";
+import "./styles/style.css";
+
+/**
+ * Entry point aplikacije.
+ *
+ * - Omotava App u <BrowserRouter> i <AuthProvider>
+ * - Inicijalizuje React root i renderuje aplikaciju
+ * - Ucitava globalne stilove i eksterne biblioteke
+ */
+
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
   createRoot(rootElement).render(
-    <AuthProvider>  {/* AuthProvider obuhvata celu aplikaciju i obezbeđuje globalni kontekst za pracenje korisnika i autentifikaciju */}
-      <BrowserRouter>   {/* BrowserRouter omogucava navigaciju izmedju razlicitih ruta aplikacije */}
+    <BrowserRouter>
+      <AuthProvider>
         <App />
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 } else {
-  console.error("Root element not found!");  // Log greske ako root element ne postoji
+  console.error("Root element not found!");
 }

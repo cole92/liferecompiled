@@ -1,7 +1,10 @@
 import PropTypes from "prop-types";
+import { useContext } from "react";
+import { auth } from "../../firebase";
+import { AuthContext } from "../../context/AuthContext";
 import { useRef, useEffect, useState } from "react";
 import { addCommentSecure } from "../../firebase/functions";
-import { showErrorToast } from "../../utils/toastUtils";
+import { showErrorToast, showInfoToast } from "../../utils/toastUtils";
 
 /**
  * Komponenta za unos komentara.
@@ -24,7 +27,9 @@ const CommentForm = ({
   onSubmitSuccess,
   autoFocus = false,
 }) => {
-  // State za pracenje unetog teksta komentara
+  const { currentUser } = useContext(AuthContext);
+  const user = currentUser || auth.currentUser; // fallback
+
   const [commentContent, setCommentContent] = useState("");
   const [error, setError] = useState("");
   const textareaRef = useRef(null);
@@ -54,6 +59,11 @@ const CommentForm = ({
     e.stopPropagation(); // Sprecava klik da pokrene `onClick` event iz PostCard
 
     try {
+      if (!user) {
+        showInfoToast("Please login to comment 😊");
+        return;
+      }
+
       if (!commentContent.trim()) {
         // Sprecava slanje praznog komentara
         setError("Comment form cannot be empty.");

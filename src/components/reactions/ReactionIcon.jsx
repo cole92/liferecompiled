@@ -71,7 +71,12 @@ const ReactionIcon = ({ type, postId, locked }) => {
   const handleClick = async (e) => {
     e.stopPropagation();
 
-    if (!auth.currentUser || locked) return;
+    if (!auth.currentUser) {
+      showInfoToast("Please login to react 😊");
+      return;
+    }
+    
+    if (locked) return;
 
     const userId = auth.currentUser.uid;
 
