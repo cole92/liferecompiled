@@ -48,7 +48,7 @@ function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
       {/*  ToastContainer: Komponenta za prikaz globalnih toast poruka*/}
-      <ToastContainer />
+      <ToastContainer pauseOnFocusLoss={false} />
     </Layout>
   );
 }

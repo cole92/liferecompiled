@@ -75,7 +75,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
       showInfoToast("Please login to react 😊");
       return;
     }
-    
+
     if (locked) return;
 
     const userId = auth.currentUser.uid;
