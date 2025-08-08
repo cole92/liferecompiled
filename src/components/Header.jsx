@@ -5,6 +5,7 @@ import AvatarDropdown from "./AvatarDropdown";
 import { motion } from "framer-motion";
 import SearchAndFilterBar from "../components/SearchAndFilterBar";
 import useSearch from "../context/useSearch";
+import Spinner from "./Spinner";
 
 /**
  * @component Header
@@ -16,7 +17,6 @@ import useSearch from "../context/useSearch";
  *
  * @returns {JSX.Element} Zaglavlje sa navigacijom i filterima
  */
-
 
 const Header = () => {
   const { user, isLoggingOut, logout } = useContext(AuthContext);
@@ -43,6 +43,16 @@ const Header = () => {
     },
   };
 
+  if (!user) {
+    return (
+      <div>
+        <h1>
+          Checking authentification <Spinner message="" />
+        </h1>
+      </div>
+    );
+  }
+
   return (
     <header className="d-flex flex-column p-2 bg-light">
       <div className="d-flex justify-content-between align-items-center">
@@ -50,7 +60,14 @@ const Header = () => {
           to="/"
           className="navbar-brand text-dark text-decoration-none fs-4"
         >
-          Blog App
+          {/* ikonica / placeholder */}
+          <span className="font-bold text-blue-600">{"<LR/>"} </span>
+
+          {/* naziv brenda */}
+          <span className="font-semibold">
+            Life
+            <span className="text-blue-600"> Recompiled</span>
+          </span>
         </NavLink>
 
         {user ? (
