@@ -24,7 +24,6 @@ import Badge from "../components/ui/Bagde";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
 
-
 /**
  * @component PostDetails
  * Prikazuje detalje blog posta na osnovu ID-ja iz URL-a.
@@ -104,125 +103,125 @@ const PostDetails = () => {
           : ""
       }`}
     >
-      <div className="max-w-4xl mx-auto my-8 p-4 md:p-6 bg-white rounded-lg shadow-lg">
-        {/* Naslov posta */}
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">{post.title}</h1>
-        <div className="relative">
-          {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal */}
-          <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
-            {post?.badges?.mostInspiring && (
-              <Badge
-                text="Most Inspiring"
-                onClick={(e) => handleBadgeClick(e, "mostInspiring")}
-              />
-            )}
-            {post?.badges?.trending && (
-              <Badge
-                text="Trending"
-                onClick={(e) => handleBadgeClick(e, "trending")}
-              />
-            )}
-          </div>
-        </div>
-        {post.locked && lockedDate && (
-          <div className="mt-2 text-sm">
-            <span
-              title="This post is locked and cannot be edited or commented"
-              className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full inline-flex items-center gap-1"
-            >
-              <FiLock className="text-sm" />
-              Locked by author on: {lockedDate}
-            </span>
-          </div>
-        )}
+      <div className="max-w-5xl mx-auto my-8 space-y-8">
+        {/* --- POST HEADER --- */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          {/* Naslov i status */}
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
 
-        {/* Autor, datum, kategorija */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center text-sm text-gray-500 mb-4 border-b pb-3">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <img
-                src={author?.profilePicture || DEFAULT_PROFILE_PICTURE}
-                alt="Autor avatar"
-                className={`w-12 h-12 rounded-full ${
-                  author?.badges?.topContributor ? "ring-2 ring-purple-800" : ""
-                }`}
-              />
-
-              {author?.badges?.topContributor && (
-                <div
-                  title="Top Contributor · Code-powered"
-                  className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowTopContributorModal(true);
-                  }}
+            {/* Bedževi */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              {post?.badges?.mostInspiring && (
+                <Badge
+                  text="Most Inspiring"
+                  onClick={(e) => handleBadgeClick(e, "mostInspiring")}
+                />
+              )}
+              {post?.badges?.trending && (
+                <Badge
+                  text="Trending"
+                  onClick={(e) => handleBadgeClick(e, "trending")}
+                />
+              )}
+              {post.locked && lockedDate && (
+                <span
+                  title="This post is locked and cannot be edited or commented"
+                  className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full inline-flex items-center gap-1"
                 >
-                  <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                </div>
+                  <FiLock className="text-sm" />
+                  Locked: {lockedDate}
+                </span>
               )}
             </div>
+          </div>
 
-            {/* Link ka autoru post-a */}
-            {author?.id && <AuthorLink author={author} />}
+          {/* Autor i meta podaci */}
+          <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-gray-500 border-b pb-4">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <img
+                  src={author?.profilePicture || DEFAULT_PROFILE_PICTURE}
+                  alt="Autor avatar"
+                  className={`w-10 h-10 rounded-full object-cover ${
+                    author?.badges?.topContributor
+                      ? "ring-2 ring-purple-800"
+                      : ""
+                  }`}
+                />
+                {author?.badges?.topContributor && (
+                  <div
+                    title="Top Contributor · Code-powered"
+                    className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTopContributorModal(true);
+                    }}
+                  >
+                    <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  </div>
+                )}
+              </div>
+              {author?.id && <AuthorLink author={author} />}
+            </div>
             <span className="mx-1">·</span>
-            {/* Pretvaramo Firestore timestamp u lokalni string */}
             <span>{post?.createdAt?.toDate().toLocaleString()}</span>
+            <span className="mx-1">·</span>
+            <span className="text-gray-600">📂 {post?.category}</span>
           </div>
-          <span className="mt-2 md:mt-0">📂 Category: {post?.category}</span>
 
-          {/* Dugme za snimanje posta toggle */}
-          <div
-            onClick={handleSaveToggle}
-            className="hover:scale-110 transition"
-            title={isSaved ? "Remove from saved" : "Save this post"}
-          >
-            {isSaved ? (
-              <BsBookmarkFill className="text-slate-950" />
-            ) : (
-              <BsBookmark className="text-gray-400" />
-            )}
+          {/* Sadržaj posta */}
+          <div className="mt-6 text-gray-700 whitespace-pre-wrap leading-relaxed">
+            {post?.content}
           </div>
-        </div>
 
-        {/* Opis posta */}
-        <div className="text-gray-700 mb-6 whitespace-pre-wrap">
-          {post?.content}
-        </div>
+          {/* Tagovi */}
+          {post?.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-6">
+              {post.tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
+                >
+                  #{tag.text}
+                </span>
+              ))}
+            </div>
+          )}
 
-        {/* Tagovi */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {post?.tags?.map((tag) => (
-            <span
-              key={tag.id}
-              className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
-            >
-              #{tag.text}
-            </span>
-          ))}
-        </div>
-
-        {/* Reakcije */}
-        <div className="bg-white py-3 border-t shadow mt-4">
-          <div className="flex gap-2 justify-center">
+          {/* Reakcije i save dugme */}
+          <div className="mt-6 flex items-center justify-between border-t pt-4">
             <ReactionSummary postId={post.id} locked={post.locked} />
+            <button
+              onClick={handleSaveToggle}
+              title={isSaved ? "Remove from saved" : "Save this post"}
+              className="hover:scale-110 transition"
+            >
+              {isSaved ? (
+                <BsBookmarkFill className="text-slate-950" />
+              ) : (
+                <BsBookmark className="text-gray-400" />
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Komentari */}
-        <div className="mt-8">
-          <h3 className="text-xl font-semibold text-gray-800 mb-4">
+        {/* --- COMMENTS SECTION --- */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">
             💬 Comments
           </h3>
-
           <Comments
             postID={postId}
             userId={userId}
             showAll={true}
             locked={post.locked}
+            repliesPreviewCount={0}
           />
         </div>
       </div>
-      {/* Modal koji prikazuje osvojene bedzeve za ovaj post (pasivan prikaz ako je post zakljucan) */}
+
+      {/* Badge modals */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
@@ -231,7 +230,6 @@ const PostDetails = () => {
           onClose={() => setShowBadgeModal(false)}
         />
       )}
-      {/* Modal koji prikazuje Top Contributor badge (pasivan prikaz ako je post zakljucan) */}
       <BadgeModal
         isOpen={showTopContributorModal}
         locked={post.locked}

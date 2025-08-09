@@ -34,6 +34,7 @@ const Comments = ({
   showAll = false,
   locked = false,
   disableBadgeModal,
+  repliesPreviewCount = 0,
 }) => {
   // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
@@ -91,6 +92,7 @@ const Comments = ({
           deleted={comment.deleted}
           locked={locked}
           disableBadgeModal={disableBadgeModal}
+          repliesPreviewCount={repliesPreviewCount}
         />
       ))}
       {/* Dugme za prikaz sledecih 5 komentara */}
@@ -119,6 +121,7 @@ Comments.propTypes = {
   showAll: PropTypes.bool, // True za prikaz svih komentara
   locked: PropTypes.bool,
   disableBadgeModal: PropTypes.bool,
+  repliesPreviewCount: PropTypes.number,
 };
 
 export default Comments;
