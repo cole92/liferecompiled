@@ -10,7 +10,11 @@ import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { softDeleteComment } from "./commentsService";
 import { getUserById } from "../../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
-import { showSuccessToast, showErrorToast, showInfoToast } from "../../utils/toastUtils";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showInfoToast,
+} from "../../utils/toastUtils";
 
 import CommentForm from "./CommentForm";
 import CommentReaction from "./CommentReaction";
@@ -89,8 +93,7 @@ const CommentItem = ({
   const tsDate = timestamp?.toDate?.();
   const editedDate = editedAt?.toDate?.();
 
-  const canEdit =
-    !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
+  const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
 
   // user fetch
   useEffect(() => {
@@ -129,13 +132,15 @@ const CommentItem = ({
 
   // ---- REPLIES (direktna deca ovog komentara) ----
   const rawReplies = childrenMap
-    ? (childrenMap[commentId] || [])
+    ? childrenMap[commentId] || []
     : comments.filter((c) => c.parentID === commentId);
 
   // sortiramo starije -> novije radi toka razgovora
   const sortedReplies = [...rawReplies].sort((a, b) => {
-    const aT = a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
-    const bT = b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
+    const aT =
+      a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
+    const bT =
+      b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
     return aT - bT;
   });
 
@@ -147,10 +152,10 @@ const CommentItem = ({
     typeof repliesPreviewCount === "number"
       ? Math.max(0, repliesPreviewCount)
       : directReplies === 1
-        ? 1
-        : isRoot
-          ? 1
-          : 0;
+      ? 1
+      : isRoot
+      ? 1
+      : 0;
 
   // ---- HANDLERS ----
   const handleDelete = async (id) => {
@@ -215,7 +220,9 @@ const CommentItem = ({
             <img
               src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
               alt={`Profile picture of ${user?.name || "user"}`}
-              className={`w-8 h-8 rounded-full object-cover ${user?.badges?.topContributor ? "ring-2 ring-purple-800" : ""}`}
+              className={`w-8 h-8 rounded-full object-cover ${
+                user?.badges?.topContributor ? "ring-2 ring-purple-800" : ""
+              }`}
             />
             {user?.badges?.topContributor && (
               <div
@@ -245,8 +252,8 @@ const CommentItem = ({
                 {editedDate
                   ? `• edited ${dayjs(editedDate).fromNow()}`
                   : tsDate
-                    ? `• ${dayjs(tsDate).fromNow()}`
-                    : "• just now"}
+                  ? `• ${dayjs(tsDate).fromNow()}`
+                  : "• just now"}
               </span>
             </div>
 
@@ -304,9 +311,15 @@ const CommentItem = ({
                 <button
                   type="button"
                   onClick={() => setIsReplying((v) => !v)}
-                  className={`hover:underline ${disableReplyButton ? "cursor-not-allowed opacity-50" : "text-blue-600"}`}
+                  className={`hover:underline ${
+                    disableReplyButton
+                      ? "cursor-not-allowed opacity-50"
+                      : "text-blue-600"
+                  }`}
                   disabled={disableReplyButton}
-                  aria-label={disableReplyButton ? "Reply disabled" : "Reply to comment"}
+                  aria-label={
+                    disableReplyButton ? "Reply disabled" : "Reply to comment"
+                  }
                 >
                   Reply
                 </button>
@@ -418,7 +431,9 @@ const CommentItem = ({
                   type="button"
                   onClick={() => setExpanded((v) => !v)}
                   className="my-1 text-xs text-blue-600 hover:underline"
-                  aria-label={expanded ? "Show less replies" : "Show more replies"}
+                  aria-label={
+                    expanded ? "Show less replies" : "Show more replies"
+                  }
                 >
                   {expanded
                     ? "Show less"
