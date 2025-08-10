@@ -72,6 +72,8 @@ const CommentItem = ({
   repliesPreviewCount,
   maxDepthForReply = 4,
   maxDepthForRender = Infinity,
+  activeThreadId,
+  setActiveThreadId,
 }) => {
   const [user, setUser] = useState(null);
   const [isReplying, setIsReplying] = useState(false);
@@ -206,13 +208,18 @@ const CommentItem = ({
   const disableReplyButton = locked || depth >= maxDepthForReply;
   const blockRenderingChildren = depth >= maxDepthForRender;
 
+  const isActiveThreadRoot = activeThreadId === commentId;
+  const containerHighlight = isActiveThreadRoot
+    ? "ring-1 ring-blue-300 bg-blue-50/40 rounded-lg"
+    : "";
+
   return (
     <>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
-        className="group comment-item py-4 px-2 border-b last:border-none hover:bg-gray-50"
+        className={`group comment-item py-4 px-2 border-b last:border-none hover:bg-gray-50 ${containerHighlight}`}
       >
         <div className="flex items-start gap-3">
           {/* Avatar */}
@@ -396,7 +403,11 @@ const CommentItem = ({
         {/* REPLIES: kontrola render dubine + preview + lokalni toggle */}
         {showAll && !blockRenderingChildren && sortedReplies.length > 0 && (
           <div className="mt-2 ml-5">
-            <div className="relative pl-5 border-l border-gray-200">
+            <div
+              className={`relative pl-5 border-l ${
+                isActiveThreadRoot ? "border-blue-200" : "border-gray-200"
+              }`}
+            >
               {sortedReplies
                 .slice(0, expanded ? Number.POSITIVE_INFINITY : previewN)
                 .map((reply) => (
@@ -422,6 +433,8 @@ const CommentItem = ({
                       repliesPreviewCount={repliesPreviewCount}
                       maxDepthForReply={maxDepthForReply}
                       maxDepthForRender={maxDepthForRender}
+                      activeThreadId={activeThreadId}
+                      setActiveThreadId={setActiveThreadId}
                     />
                   </div>
                 ))}
@@ -429,7 +442,12 @@ const CommentItem = ({
               {sortedReplies.length > previewN && (
                 <button
                   type="button"
-                  onClick={() => setExpanded((v) => !v)}
+                  onClick={() => {
+                    setExpanded((v) => !v);
+                    // kada otvaramo – postavi aktivni nit; kada zatvaramo – ugasi
+                    setActiveThreadId &&
+                      setActiveThreadId(!expanded ? commentId : null);
+                  }}
                   className="my-1 text-xs text-blue-600 hover:underline"
                   aria-label={
                     expanded ? "Show less replies" : "Show more replies"
@@ -498,6 +516,8 @@ CommentItem.propTypes = {
   repliesPreviewCount: PropTypes.number,
   maxDepthForReply: PropTypes.number,
   maxDepthForRender: PropTypes.number,
+  activeThreadId: PropTypes.string, // ili null
+  setActiveThreadId: PropTypes.func,
 };
 
 export default CommentItem;

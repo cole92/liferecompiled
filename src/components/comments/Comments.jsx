@@ -22,6 +22,7 @@ const Comments = ({
 }) => {
   const [comments, setComments] = useState([]);
   const [visibleCount, setVisibleCount] = useState(10); // malo veći default
+  const [activeThreadId, setActiveThreadId] = useState(null);
 
   useEffect(() => {
     if (!postID) return;
@@ -97,6 +98,8 @@ const Comments = ({
                 locked={locked}
                 disableBadgeModal={disableBadgeModal}
                 repliesPreviewCount={repliesPreviewCount}
+                activeThreadId={activeThreadId}
+                setActiveThreadId={setActiveThreadId}
               />
             </div>
           </div>
