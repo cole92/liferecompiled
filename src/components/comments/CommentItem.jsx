@@ -1,5 +1,4 @@
-// CommentItem.jsx
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -7,11 +6,11 @@ import { motion } from "framer-motion";
 
 import { auth, db } from "../../firebase";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-// import { deleteComment } from "../../firebase/functions"; // Hard delete kasnije
+// import { deleteComment } from "../../firebase/functions"; // Kasnije za hard delete
 import { softDeleteComment } from "./commentsService";
 import { getUserById } from "../../services/userService";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
-import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
+import { showSuccessToast, showErrorToast, showInfoToast } from "../../utils/toastUtils";
 
 import CommentForm from "./CommentForm";
 import CommentReaction from "./CommentReaction";
@@ -20,72 +19,38 @@ import BadgeModal from "../modals/BadgeModal";
 import ShieldIcon from "../ui/ShieldIcon";
 
 /**
- * Helpers i konstante
- * - Bezbedni timestamp konverteri (rade sa Firestore Timestamp, Date, ISO string, broj ms)
- * - User cache da izbegnemo ponovljene fetch-eve
- * - Preview pravila: koliko odgovora prikazati pre "Show more"
+ * Komponenta za prikaz jednog komentara sa korisnickim informacijama.
+ *
+ * - Prikazuje osnovne podatke o autoru i komentaru
+ * - Prikazuje reakcije, omogucava izmenu i brisanje komentara (ako je korisnik autor)
+ * - Omogucava odgovaranje na komentar do maksimalne dubine
+ * - Soft delete podrzan kroz confirm modal
+ * - Prikazuje badge ako je autor "Top Contributor"
+ * - Prikazuje informaciju o editovanosti i vreme objave
+ * - Omogucava prikaz forme za reply, kao i rekurzivni prikaz odgovora
+ * - Komentar moze biti editovan do 10 minuta nakon objave
+ *
+ * @component
+ * @param {string} userId - ID korisnika koji je ostavio komentar
+ * @param {string} content - Tekst komentara
+ * @param {object} timestamp - Firestore timestamp objekat
+ * @param {object} editedAt - Firestore timestamp izmene (opciono)
+ * @param {string} postID - ID posta na koji komentar pripada
+ * @param {string} commentId - ID ovog komentara
+ * @param {Array<Object>} comments - Lista svih komentara za dati post (fallback kada nema childrenMap)
+ * @param {Object<string,Array<Object>>} [childrenMap] - Opciona mapa: parentID -> niz direktne dece (performanse)
+ * @param {number} [depth=0] - Trenutna dubina komentara (root = 0)
+ * @param {boolean} [showAll=false] - Da li prikazati sve funkcionalnosti (reply, delete, edit itd.)
+ * @param {boolean} [deleted=false] - Da li je komentar obrisan (soft delete)
+ * @param {boolean} [locked=false] - Da li je komentar zakljucan (iskljucuje interakcije)
+ * @param {boolean} [disableBadgeModal=false] - Da li onemoguciti prikaz modala sa badge info
+ * @param {number} [repliesPreviewCount] - (Opc.) Koliko direktnih odgovora prikazati u preview-u
+ * @param {number} [maxDepthForReply=4] - Max dubina na kojoj je dozvoljen "Reply"
+ * @param {number} [maxDepthForRender=Infinity] - Max dubina renderovanja rekurzije
  */
 
-// dayjs: "x minutes ago"
 dayjs.extend(relativeTime);
 
-// Safe: pretvara razlicite timestamp tipove u Date ili null
-function toDateSafe(ts) {
-  if (!ts) return null;
-  // Firestore Timestamp
-  if (typeof ts.toDate === "function") return ts.toDate();
-  // Firestore Timestamp alt (toMillis)
-  if (typeof ts.toMillis === "function") return new Date(ts.toMillis());
-  // JS Date
-  if (ts instanceof Date) return ts;
-  // broj ms
-  if (typeof ts === "number") return new Date(ts);
-  // ISO string
-  if (typeof ts === "string") {
-    const d = new Date(ts);
-    return isNaN(d.getTime()) ? null : d;
-  }
-  return null;
-}
-
-// Safe: vraca broj ms ili 0 ako nema timestamp
-function toMs(ts) {
-  const d = toDateSafe(ts);
-  return d ? d.getTime() : 0;
-}
-
-// Safe: "fromNow" tekst ili prazan string
-function fromNowSafe(ts) {
-  const d = toDateSafe(ts);
-  return d ? dayjs(d).fromNow() : "";
-}
-
-// Jednostavan cache za korisnike (u memoriji)
-const userCache = new Map();
-async function getUserCached(userId) {
-  if (!userId) return null;
-  if (userCache.has(userId)) return userCache.get(userId);
-  try {
-    const data = await getUserById(userId);
-    userCache.set(userId, data);
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-// Pravila preview-a po nivou
-const defaultPreviewRules = {
-  rootCount: 2,          // na depth 0 prikazi 2 odgovora pre "Show more"
-  childCount: 1,         // na depth >=1 prikazi 1 odgovor pre "Show more"
-  showSingleAlways: true // ako node ima tacno 1 dete, uvek ga prikazi
-};
-
-const MAX_DEPTH_REPLY = 4; // na >4 onemoguci reply (UX: moze kasnije "Continue thread" view)
-
-/**
- * Komponenta: CommentItem
- */
 const CommentItem = ({
   userId,
   content,
@@ -94,18 +59,17 @@ const CommentItem = ({
   postID,
   commentId,
   comments,
+  childrenMap,
   depth = 0,
-  showAll = true,
+  showAll = false,
   deleted = false,
   locked = false,
   disableBadgeModal = false,
-  repliesPreviewCount, // deprecated: zadrzano radi kompatibilnosti
-  previewRules = defaultPreviewRules
+  repliesPreviewCount,
+  maxDepthForReply = 4,
+  maxDepthForRender = Infinity,
 }) => {
-  // User state
   const [user, setUser] = useState(null);
-
-  // UI state
   const [isReplying, setIsReplying] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -113,78 +77,40 @@ const CommentItem = ({
   const [editedContent, setEditedContent] = useState(content);
   const [showEditHint, setShowEditHint] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
+
+  // Lokalni toggle za otvaranje grane
   const [expanded, setExpanded] = useState(false);
 
   const isRoot = depth === 0;
   const hintShownRef = useRef(false);
 
-  // Safe timestamp vrednosti
-  const tsMs = toMs(timestamp);
-  const isDeleted = !!deleted;
-  const canEdit = tsMs && Date.now() - tsMs <= 10 * 60 * 1000;
+  const isDeleted = deleted;
 
-  /**
-   * Build byParentId mapa (jednom po promeni "comments")
-   * - grupisemo decu po parentID
-   * - sortiramo jednom po parentu starije -> novije
-   * Napomena: zadrzavamo kompatibilnost sa poljima userID/parentID/postID
-   */
-  const byParentId = useMemo(() => {
-    const map = new Map();
-    if (!Array.isArray(comments)) return map;
+  const tsDate = timestamp?.toDate?.();
+  const editedDate = editedAt?.toDate?.();
 
-    for (const c of comments) {
-      // normalizacija polja
-      const pId = c.parentID ?? c.parentId ?? null;
-      const arr = map.get(pId) || [];
-      arr.push(c);
-      map.set(pId, arr);
-    }
+  const canEdit =
+    !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
 
-    for (const [key, arr] of map.entries()) {
-      arr.sort((a, b) => toMs(a.timestamp) - toMs(b.timestamp));
-      map.set(key, arr);
-    }
-    return map;
-  }, [comments]);
-
-  // Deca za ovaj cvor
-  const replies = useMemo(() => byParentId.get(commentId) || [], [byParentId, commentId]);
-  const directReplies = replies.length;
-
-  /**
-   * Preview logika:
-   * - ako tacno 1 dete i showSingleAlways => 1
-   * - inace rootCount ili childCount
-   * - repliesPreviewCount (ako prosledjen) moze da pregazi pravila
-   */
-  let basePreview = isRoot ? previewRules.rootCount : previewRules.childCount;
-
-  if (isRoot && directReplies > 0) {
-  basePreview = 1; // uvek prikazi prvi odgovor root komentara
-}
-  if (typeof repliesPreviewCount === "number") {
-    basePreview = repliesPreviewCount;
-  }
-  const previewN =
-    directReplies === 1 && previewRules.showSingleAlways ? 1 : Math.max(0, basePreview);
-
-  /**
-   * Ucitavanje user-a uz cache
-   */
+  // user fetch
   useEffect(() => {
-    let isMounted = true;
     if (!userId) return;
-    (async () => {
-      const data = await getUserCached(userId);
-      if (isMounted) setUser(data);
-    })();
-    return () => { isMounted = false; };
+    let isMounted = true;
+    const fetchUser = async () => {
+      try {
+        const data = await getUserById(userId);
+        if (isMounted) setUser(data);
+      } catch (e) {
+        console.error("Failed to fetch user:", e);
+      }
+    };
+    fetchUser();
+    return () => {
+      isMounted = false;
+    };
   }, [userId]);
 
-  /**
-   * Edit hint (do 3 puta po korisniku)
-   */
+  // edit hint
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid || currentUid !== userId || !canEdit) return;
@@ -196,14 +122,37 @@ const CommentItem = ({
     if (count >= 3) return;
 
     setShowEditHint(true);
-    localStorage.setItem(storageKey, String(count + 1));
+    localStorage.setItem(storageKey, (count + 1).toString());
     const timerId = setTimeout(() => setShowEditHint(false), 10_000);
     return () => clearTimeout(timerId);
   }, [userId, canEdit]);
 
-  /**
-   * Handleri
-   */
+  // ---- REPLIES (direktna deca ovog komentara) ----
+  const rawReplies = childrenMap
+    ? (childrenMap[commentId] || [])
+    : comments.filter((c) => c.parentID === commentId);
+
+  // sortiramo starije -> novije radi toka razgovora
+  const sortedReplies = [...rawReplies].sort((a, b) => {
+    const aT = a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
+    const bT = b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
+    return aT - bT;
+  });
+
+  // Koliko prikazujemo odmah (previewN):
+  // - ako je prosledjen repliesPreviewCount, koristi njega
+  // - inace: ako tacno 1 direktan odgovor -> 1; u suprotnom root=1, dublje=0
+  const directReplies = sortedReplies.length;
+  const previewN =
+    typeof repliesPreviewCount === "number"
+      ? Math.max(0, repliesPreviewCount)
+      : directReplies === 1
+        ? 1
+        : isRoot
+          ? 1
+          : 0;
+
+  // ---- HANDLERS ----
   const handleDelete = async (id) => {
     setIsDeleting(true);
     try {
@@ -211,7 +160,7 @@ const CommentItem = ({
       if (result?.data?.success) {
         showSuccessToast("Comment removed.");
       } else {
-        showErrorToast("Delete failed. Please try again.");
+        showErrorToast("Error while deleting the comment.");
       }
     } catch (err) {
       console.error("Error while deleting:", err);
@@ -222,23 +171,20 @@ const CommentItem = ({
   };
 
   const handleSave = async () => {
-    const next = (editedContent || "").trim();
-    const original = (content || "").trim();
-
-    if (!next) {
+    const trimmed = editedContent.trim();
+    if (!trimmed) {
       showErrorToast("Comment cannot be empty!");
       return;
     }
-    if (next === original) {
+    if (trimmed === content.trim()) {
       setIsEditing(false);
       return;
     }
-
     try {
       const commentRef = doc(db, "comments", commentId);
       await updateDoc(commentRef, {
-        content: next,
-        editedAt: serverTimestamp()
+        content: trimmed,
+        editedAt: serverTimestamp(),
       });
       setIsEditing(false);
     } catch (error) {
@@ -252,7 +198,8 @@ const CommentItem = ({
     setEditedContent(content);
   };
 
-  const editedLabel = editedAt ? `• edited ${fromNowSafe(editedAt)}` : `• ${fromNowSafe(timestamp)}`;
+  const disableReplyButton = locked || depth >= maxDepthForReply;
+  const blockRenderingChildren = depth >= maxDepthForRender;
 
   return (
     <>
@@ -265,19 +212,11 @@ const CommentItem = ({
         <div className="flex items-start gap-3">
           {/* Avatar */}
           <div className="relative shrink-0">
-            {user ? (
-              <img
-                src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
-                alt={`Profile picture of ${user?.name || "User"}`}
-                className={`w-8 h-8 rounded-full object-cover ${
-                  user?.badges?.topContributor ? "ring-2 ring-purple-800" : ""
-                }`}
-              />
-            ) : (
-              // very light skeleton dok user stigne
-              <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
-            )}
-
+            <img
+              src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
+              alt={`Profile picture of ${user?.name || "user"}`}
+              className={`w-8 h-8 rounded-full object-cover ${user?.badges?.topContributor ? "ring-2 ring-purple-800" : ""}`}
+            />
             {user?.badges?.topContributor && (
               <div
                 title="Top Contributor · Code-powered"
@@ -287,6 +226,8 @@ const CommentItem = ({
                   if (disableBadgeModal) return;
                   setShowTopContributorModal(true);
                 }}
+                role="button"
+                aria-label="Show Top Contributor badge info"
               >
                 <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
               </div>
@@ -298,15 +239,23 @@ const CommentItem = ({
             {/* Ime + meta */}
             <div className="flex flex-wrap items-center gap-x-2">
               <span className="font-semibold text-sm text-gray-800">
-                {user?.name || "User"}
+                {user?.name || "Unknown user"}
               </span>
-              <span className="text-xs text-gray-500">{editedLabel}</span>
-              {showEditHint && (
-                <span className="ml-2 text-xs text-blue-600">
-                  Tip: you can edit your comment for 10 minutes after posting.
-                </span>
-              )}
+              <span className="text-xs text-gray-500">
+                {editedDate
+                  ? `• edited ${dayjs(editedDate).fromNow()}`
+                  : tsDate
+                    ? `• ${dayjs(tsDate).fromNow()}`
+                    : "• just now"}
+              </span>
             </div>
+
+            {/* Edit hint (opciono) */}
+            {showEditHint && (
+              <div className="mt-1 text-xs text-blue-600">
+                Tip: mozes izmeniti komentar u prvih 10 minuta.
+              </div>
+            )}
 
             {/* Sadrzaj / edit / obrisan */}
             {isEditing ? (
@@ -315,54 +264,68 @@ const CommentItem = ({
                   value={editedContent}
                   onChange={(e) => setEditedContent(e.target.value)}
                   className="w-full p-2 border rounded mt-2"
+                  aria-label="Edit comment"
                 />
                 <div className="flex gap-3 mt-2 text-sm">
-                  <button onClick={handleSave} className="text-green-600 hover:underline">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    className="text-green-600 hover:underline"
+                    aria-label="Save edited comment"
+                  >
                     Save
                   </button>
-                  <button onClick={handleCancel} className="text-gray-500 hover:underline">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="text-gray-500 hover:underline"
+                    aria-label="Cancel editing"
+                  >
                     Cancel
                   </button>
                 </div>
               </div>
             ) : isDeleted ? (
-              <p className="italic text-gray-500 mt-1">This comment has been removed.</p>
+              <p className="italic text-gray-500 mt-1">
+                This comment has been removed.
+              </p>
             ) : (
               <p className="text-[0.95rem] leading-relaxed text-gray-800 mt-1 whitespace-pre-wrap">
-                {!showAll && content && content.length > 150 ? content.slice(0, 150) + "…" : content}
+                {!showAll && content.length > 150
+                  ? content.slice(0, 150) + "…"
+                  : content}
               </p>
             )}
 
             {/* Akcije */}
             {showAll && !isDeleted && (
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600">
-                {!locked &&
-                  (depth < MAX_DEPTH_REPLY ? (
-                    <button
-                      onClick={() => setIsReplying((v) => !v)}
-                      className="hover:underline text-blue-600"
-                      aria-expanded={isReplying}
-                    >
-                      Reply
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      title="Reply disabled at this depth"
-                      className="cursor-not-allowed opacity-50"
-                    >
-                      Reply
-                    </button>
-                  ))}
+                {/* Reply */}
+                <button
+                  type="button"
+                  onClick={() => setIsReplying((v) => !v)}
+                  className={`hover:underline ${disableReplyButton ? "cursor-not-allowed opacity-50" : "text-blue-600"}`}
+                  disabled={disableReplyButton}
+                  aria-label={disableReplyButton ? "Reply disabled" : "Reply to comment"}
+                >
+                  Reply
+                </button>
 
+                {/* Report */}
                 {!locked && (
-                  <button onClick={() => {}} className="hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => showInfoToast("Report is coming soon")}
+                    className="hover:underline"
+                    aria-label="Report comment"
+                  >
                     Report
                   </button>
                 )}
 
                 <div className="h-4 w-px bg-gray-300" />
 
+                {/* Reactions */}
                 <div className="inline-flex items-center">
                   <CommentReaction
                     commentId={commentId}
@@ -371,12 +334,15 @@ const CommentItem = ({
                   />
                 </div>
 
+                {/* Author-only actions */}
                 {auth.currentUser?.uid === userId && !locked && (
                   <>
                     {!isEditing && (
                       <button
+                        type="button"
                         onClick={() => setIsEditing(true)}
                         className="hover:underline"
+                        aria-label="Edit comment"
                       >
                         Edit
                       </button>
@@ -384,13 +350,15 @@ const CommentItem = ({
 
                     {!isDeleting ? (
                       <button
+                        type="button"
                         onClick={() => setShowConfirmModal(true)}
                         className="hover:underline"
+                        aria-label="Delete comment"
                       >
                         Delete
                       </button>
                     ) : (
-                      <span>Deleting…</span>
+                      <span aria-live="polite">Deleting…</span>
                     )}
                   </>
                 )}
@@ -398,7 +366,7 @@ const CommentItem = ({
             )}
 
             {/* Reply forma */}
-            {isReplying && (
+            {isReplying && !locked && (
               <div className="mt-2">
                 <CommentForm
                   postId={postID}
@@ -412,13 +380,13 @@ const CommentItem = ({
           </div>
         </div>
 
-        {/* REPLIES: per-node preview + lokalni toggle */}
-        {showAll && directReplies > 0 && (
+        {/* REPLIES: kontrola render dubine + preview + lokalni toggle */}
+        {showAll && !blockRenderingChildren && sortedReplies.length > 0 && (
           <div className="mt-2 ml-5">
             <div className="relative pl-5 border-l border-gray-200">
-              {(expanded ? replies : replies.slice(0, previewN)).map((reply) => {
-                const replyUserId = reply.userID ?? reply.userId; // kompatibilnost
-                return (
+              {sortedReplies
+                .slice(0, expanded ? Number.POSITIVE_INFINITY : previewN)
+                .map((reply) => (
                   <div key={reply.id} className="relative">
                     {/* node tacka + elbow */}
                     <span className="absolute -left-[5px] top-5 w-2 h-2 bg-gray-300 rounded-full" />
@@ -426,32 +394,35 @@ const CommentItem = ({
 
                     <CommentItem
                       commentId={reply.id}
-                      postID={reply.postID ?? reply.postId}
-                      userId={replyUserId}
+                      postID={reply.postID}
+                      userId={reply.userID}
                       content={reply.content}
                       timestamp={reply.timestamp}
                       comments={comments}
+                      childrenMap={childrenMap}
                       editedAt={reply.editedAt}
                       deleted={reply.deleted}
                       depth={depth + 1}
                       showAll={showAll}
                       locked={locked}
                       disableBadgeModal={disableBadgeModal}
-                      previewRules={previewRules}
+                      repliesPreviewCount={repliesPreviewCount}
+                      maxDepthForReply={maxDepthForReply}
+                      maxDepthForRender={maxDepthForRender}
                     />
                   </div>
-                );
-              })}
+                ))}
 
-              {directReplies > previewN && (
+              {sortedReplies.length > previewN && (
                 <button
+                  type="button"
                   onClick={() => setExpanded((v) => !v)}
                   className="my-1 text-xs text-blue-600 hover:underline"
-                  aria-expanded={expanded}
+                  aria-label={expanded ? "Show less replies" : "Show more replies"}
                 >
                   {expanded
                     ? "Show less"
-                    : `Show replies (${directReplies - previewN})`}
+                    : `Show replies (${sortedReplies.length - previewN})`}
                 </button>
               )}
             </div>
@@ -487,34 +458,31 @@ const CommentItem = ({
 CommentItem.propTypes = {
   userId: PropTypes.string.isRequired,
   content: PropTypes.string.isRequired,
-  timestamp: PropTypes.any,
+  timestamp: PropTypes.object,
+  editedAt: PropTypes.object,
   postID: PropTypes.string.isRequired,
   commentId: PropTypes.string.isRequired,
   comments: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
-      userID: PropTypes.string,     // kompatibilnost
-      userId: PropTypes.string,     // kompatibilnost
+      userID: PropTypes.string.isRequired,
       content: PropTypes.string.isRequired,
-      timestamp: PropTypes.any,
-      postID: PropTypes.string,
-      postId: PropTypes.string,
+      timestamp: PropTypes.object,
+      postID: PropTypes.string.isRequired,
       parentID: PropTypes.string,
-      parentId: PropTypes.string
+      editedAt: PropTypes.object,
+      deleted: PropTypes.bool,
     })
   ).isRequired,
+  childrenMap: PropTypes.object,
   depth: PropTypes.number,
   showAll: PropTypes.bool,
-  editedAt: PropTypes.any,
   deleted: PropTypes.bool,
   locked: PropTypes.bool,
   disableBadgeModal: PropTypes.bool,
-  repliesPreviewCount: PropTypes.number, // deprecated
-  previewRules: PropTypes.shape({
-    rootCount: PropTypes.number,
-    childCount: PropTypes.number,
-    showSingleAlways: PropTypes.bool
-  })
+  repliesPreviewCount: PropTypes.number,
+  maxDepthForReply: PropTypes.number,
+  maxDepthForRender: PropTypes.number,
 };
 
 export default CommentItem;

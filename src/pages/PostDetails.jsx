@@ -216,7 +216,7 @@ const PostDetails = () => {
             userId={userId}
             showAll={true}
             locked={post.locked}
-            repliesPreviewCount={0}
+            repliesPreviewCount={1}
           />
         </div>
       </div>
