@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import CommentForm from "./CommentForm";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   query,
@@ -12,113 +12,149 @@ import { db } from "../../firebase";
 import CommentItem from "./CommentItem";
 
 /**
- * Komponenta za prikaz i dodavanje komentara na post.
+ * @component Comments
+ * Rukuje prikazom i real-time osvezavanjem komentara za dati post.
  *
- * - Ako je `showAll === true`, prikazuje sve komentare sa opcijom "See more"
- * - Ako je `showAll === false`, prikazuje samo prva 2 komentara (preview)
- * - Uzima komentare u realnom vremenu iz Firestore baze
- * - Podrzava prikaz editovanih i obrisanih komentara
- * - Prikazuje formu za novi komentar ako `locked === false`
+ * - Real-time slusanje Firestore kolekcije `comments` za postID
+ * - Prikaz glavnih (root) komentara hronoloski (stariji → noviji)
+ * - Opcioni "see more" kada je `showAll` aktivan
+ * - Post-responder forma (sakrivena kada je `locked`)
+ * - "Samo forma" rezim preko `renderOnlyForm`
  *
- * @component
- * @param {string} postID - ID posta na koji se komentari odnose
- * @param {string} userId - ID trenutno ulogovanog korisnika (za formu)
- * @param {boolean} [showAll=false] - Da li prikazati sve komentare
- * @param {boolean} [locked=false] - Da li su komentari zakljucani (onemogucava reply i formu)
- * @param {boolean} [disableBadgeModal=false] - Da li sakriti modal za badge klik
+ * @param {string}  postID                  - ID posta na koji se komentari odnose
+ * @param {string}  [userId]                - ID trenutnog korisnika (moze biti undefined za goste)
+ * @param {boolean} [showAll=false]         - Ako je true, primenjuje paginaciju preko `visibleCount`
+ * @param {boolean} [locked=false]          - Zakljucava formu i interakcije
+ * @param {boolean} [disableBadgeModal]     - Iskljucuje modal za badge u child komponentama
+ * @param {number}  [repliesPreviewCount=1] - Koliko odgovora prikazati pre "Show replies"
+ * @param {boolean} [renderOnlyForm=false]  - Kada je true, renderuje samo formu (bez liste)
+ *
+ * @returns {JSX.Element}
  */
-
 const Comments = ({
   postID,
   userId,
   showAll = false,
   locked = false,
   disableBadgeModal,
+  repliesPreviewCount = 1,
+  renderOnlyForm = false,
 }) => {
-  // State koji cuva komentare povezane sa postom
   const [comments, setComments] = useState([]);
-  // Broj komentara koji se prikazuju kada je showAll aktivan
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [activeThreadId, setActiveThreadId] = useState(null);
 
-  // Firestore subscription: slusamo sve komentare za dati post u realnom vremenu
   useEffect(() => {
-    // Ako ne postoji postID, ne pokrecemo nista
     if (!postID) return;
 
-    // Kreiramo Firestore upit:
-    // Uzimamo komentare koji pripadaju ovom postu, sortirane po vremenu unazad
     const q = query(
-      collection(db, "comments"), // Kolekcija komentara
-      where("postID", "==", postID), // Filtriramo po ID-ju posta
-      orderBy("timestamp", "desc") // Sortiramo po vremenu opadajuce (najnoviji prvi)
+      collection(db, "comments"),
+      where("postID", "==", postID),
+      orderBy("timestamp", "desc")
     );
-    // Subscribujemo se na real-time promene pomocu onSnapshot
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const results = snapshot.docs.map((doc) => ({
-        id: doc.id, // Dodajemo ID dokumenta
-        ...doc.data(), // Kombinujemo sa podacima iz Firestore-a
+        id: doc.id,
+        ...doc.data(),
       }));
-      setComments(results); // Azuriramo state sa novim komentarima
+      setComments(results);
     });
-    // Cleanup funkcija – prekida listener kada komponenta unmount-uje
-    return unsubscribe;
-  }, [postID]); // useEffect se pokrece samo kada se promeni postID
 
-  // Filtriramo samo glavne komentare (parentID === null)
-  const mainComments = comments.filter((c) => c.parentID === null);
+    return unsubscribe;
+  }, [postID]);
+
+  // Glavni (root) komentari — stariji gore (prirodniji tok citanja)
+  const mainComments = useMemo(() => {
+    const roots = comments.filter((c) => c.parentID === null);
+    return roots.sort((a, b) => {
+      const aT =
+        a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
+      const bT =
+        b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
+      return aT - bT;
+    });
+  }, [comments]);
+
+  // Samo forma ispod posta (bez liste)
+  if (renderOnlyForm) {
+    return !locked ? (
+      <CommentForm postId={postID} userId={userId} parentId={null} />
+    ) : null;
+  }
 
   return (
-    <div
-      className={`${
-        showAll ? "max-h-[400px] overflow-y-auto scrollbar-hide pr-1" : ""
-      }`}
-    >
-      {/* Prikaz prva dva komentara (preview prikaz) */}
-      {(showAll
-        ? mainComments.slice(0, visibleCount)
-        : mainComments.slice(0, 2)
-      ).map((comment) => (
-        <CommentItem
-          key={comment.id} // Jedinstveni ID komentara (Firestore doc.id)
-          commentId={comment.id}
-          userId={comment.userID} // ID korisnika (koristi se za dohvat imena i slike)
-          content={comment.content} // Tekst komentara
-          timestamp={comment.timestamp} // Vreme kada je komentar dodat
-          editedAt={comment.editedAt}
-          postID={comment.postID}
-          comments={comments}
-          showAll={showAll}
-          deleted={comment.deleted}
-          locked={locked}
-          disableBadgeModal={disableBadgeModal}
-        />
-      ))}
-      {/* Dugme za prikaz sledecih 5 komentara */}
-      {showAll && visibleCount < mainComments.length && (
-        <div className="text-center mt-4">
-          <button
-            onClick={() => setVisibleCount((prev) => prev + 5)}
-            className="text-sm text-blue-500 hover:underline"
-          >
-            See more comments
-          </button>
+    <div className="w-full">
+      {/* Forma je uvek gore, osim kada je zakljucano */}
+      {!locked && (
+        <div className="mb-6">
+          <CommentForm postId={postID} userId={userId} parentId={null} />
         </div>
       )}
-      {/* Forma za dodavanje komentara */}
-      {!locked && (
-        <CommentForm postId={postID} userId={userId} parentId={null} />
-      )}
+
+      {/* Lista root komentara sa diskretnim divider-ima */}
+      <div>
+        {(showAll
+          ? mainComments.slice(0, visibleCount)
+          : mainComments.slice(0, 2)
+        ).map((comment, idx) => (
+          <div
+            key={comment.id}
+            className={idx === 0 ? "" : "border-t border-gray-200 pt-4"}
+          >
+            {/* Blaga leva vodilja za nit */}
+            <div className="pl-2 md:pl-3">
+              <CommentItem
+                commentId={comment.id}
+                userId={comment.userID}
+                content={comment.content}
+                timestamp={comment.timestamp}
+                editedAt={comment.editedAt}
+                postID={comment.postID}
+                comments={comments}
+                showAll={showAll}
+                deleted={comment.deleted}
+                locked={locked}
+                disableBadgeModal={disableBadgeModal}
+                repliesPreviewCount={repliesPreviewCount}
+                activeThreadId={activeThreadId}
+                setActiveThreadId={setActiveThreadId}
+              />
+            </div>
+          </div>
+        ))}
+
+        {/* See more */}
+        {showAll && visibleCount < mainComments.length && (
+          <div className="text-center mt-4">
+            <button
+              onClick={() => setVisibleCount((prev) => prev + 10)}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              See more comments
+            </button>
+          </div>
+        )}
+
+        {/* Zakljucano — info */}
+        {locked && mainComments.length === 0 && (
+          <p className="text-sm text-gray-500">
+            Comments are locked for this post.
+          </p>
+        )}
+      </div>
     </div>
   );
 };
 
-// Validacija props-a
 Comments.propTypes = {
-  postID: PropTypes.string.isRequired, // Obavezno postID mora biti string
-  userId: PropTypes.string, // Moze biti undefined ako korisnik nije ulogovan
-  showAll: PropTypes.bool, // True za prikaz svih komentara
+  postID: PropTypes.string.isRequired,
+  userId: PropTypes.string,
+  showAll: PropTypes.bool,
   locked: PropTypes.bool,
   disableBadgeModal: PropTypes.bool,
+  repliesPreviewCount: PropTypes.number,
+  renderOnlyForm: PropTypes.bool,
 };
 
 export default Comments;
