@@ -9,17 +9,19 @@ import Spinner from "./Spinner";
 
 /**
  * @component Header
- * Prikazuje zaglavlje aplikacije sa navigacionim linkovima i Search bar-om.
+ * Prikazuje zaglavlje aplikacije sa navigacionim linkovima i Search/Filter bar-om.
  *
- * - Ako korisnik nije ulogovan, prikazuje Login i Register dugmad (osim na tim stranicama)
- * - Ako je korisnik ulogovan, prikazuje Avatar meni
- * - Na Home stranici prikazuje SearchAndFilterBar sa animacijom
+ * - Koristi AuthContext za proveru statusa korisnika i logout funkcionalnost
+ * - Ako korisnik nije ulogovan, prikazuje Login i Register dugmad (osim na odgovarajucim stranicama)
+ * - Ako je korisnik ulogovan, prikazuje Avatar meni sa opcijama
+ * - Na home stranici ("/") prikazuje SearchAndFilterBar sa animacijom (framer-motion)
+ * - Koristi useSearch context za upravljanje filterima i pretragom
  *
- * @returns {JSX.Element} Zaglavlje sa navigacijom i filterima
+ * @returns {JSX.Element} Zaglavlje sa navigacijom i, uslovno, filter bar-om
  */
-
 const Header = () => {
-  const { user, isLoggingOut, logout } = useContext(AuthContext);
+  const { user, isLoggingOut, logout, isCheckingAuth } =
+    useContext(AuthContext);
   const { pathname } = useLocation();
 
   const isLogin = pathname === "/login";
@@ -33,7 +35,7 @@ const Header = () => {
     handleResetFilters,
   } = useSearch();
 
-  // Animacija za FilterBar
+  // Varijante animacije za Search/Filter bar (ulaz i izlaz)
   const searchBarVariants = {
     hidden: { opacity: 0, y: -15 },
     visible: {
@@ -43,11 +45,12 @@ const Header = () => {
     },
   };
 
-  if (!user) {
+  // Dok se proverava autentikacija, prikazuje se spinner
+  if (isCheckingAuth) {
     return (
       <div>
         <h1>
-          Checking authentification <Spinner message="" />
+          Checking authentication <Spinner message="" />
         </h1>
       </div>
     );
@@ -56,20 +59,19 @@ const Header = () => {
   return (
     <header className="d-flex flex-column p-2 bg-light">
       <div className="d-flex justify-content-between align-items-center">
+        {/* Logo + naziv brenda */}
         <NavLink
           to="/"
           className="navbar-brand text-dark text-decoration-none fs-4"
         >
-          {/* ikonica / placeholder */}
           <span className="font-bold text-blue-600">{"<LR/>"} </span>
-
-          {/* naziv brenda */}
           <span className="font-semibold">
             Life
             <span className="text-blue-600"> Recompiled</span>
           </span>
         </NavLink>
 
+        {/* Navigacioni deo zavisi od statusa korisnika */}
         {user ? (
           <AvatarDropdown
             user={user}
@@ -92,6 +94,7 @@ const Header = () => {
         )}
       </div>
 
+      {/* Search/Filter bar se prikazuje samo na Home stranici */}
       {pathname === "/" && (
         <motion.div
           initial="hidden"

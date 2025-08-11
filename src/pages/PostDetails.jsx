@@ -1,5 +1,4 @@
 import { useContext, useEffect, useState } from "react";
-
 import { useParams } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
@@ -11,7 +10,6 @@ import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
-
 import { useCheckSavedStatus } from "../hooks/useCheckSavedStatus";
 
 import AuthorLink from "../components/AuthorLink";
@@ -28,30 +26,41 @@ import { toggleSavePost } from "../utils/savedPostUtils";
  * @component PostDetails
  * Prikazuje detalje blog posta na osnovu ID-ja iz URL-a.
  *
+ * - Ucitava podatke o postu (getPostById) i autoru (getUserById) asinhrono
  * - Prikazuje naslov, sadrzaj, informacije o autoru, tagove, reakcije i komentare
- * - Koristi se BadgeModal za prikaz PNG bedzeva i ShieldIcon za autora
+ * - Koristi BadgeModal za prikaz PNG bedzeva i ShieldIcon za oznaku Top Contributor-a
+ * - Omogucava snimanje/uklanjanje posta iz sacuvanih (saved posts)
  * - Reakcije i komentari su onemoguceni ako je post zakljucan
+ * - Prikazuje bedzeve (Most Inspiring, Trending) i datum zakljucavanja ako je primenljivo
  *
  * @returns {JSX.Element} Komponenta sa detaljima posta ili fallback prikazom
  */
 
 const PostDetails = () => {
-  const { postId } = useParams(); // Izvlacimo ID posta iz URL parametara
-  const [post, setPost] = useState(null); // State za podatke o postu
-  const [isLoading, setIsLoading] = useState(true); // State za prikaz ucitavanja
+  const { postId } = useParams(); // ID posta iz URL parametara
+
+  // State za glavni prikaz posta i ucitavanje
+  const [post, setPost] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // State za podatke o autoru
   const [author, setAuthor] = useState(null);
+
   const userId = auth.currentUser?.uid;
   const { user } = useContext(AuthContext);
+
   const lockedDate = post?.lockedAt?.toDate().toLocaleDateString();
+
+  // State za modale vezane za bedzeve
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
 
-  // Proverava da li je post sacuvan od strane korisnika (hook koristi Firestore)
+  // Hook koji proverava da li je post sacuvan od strane trenutnog korisnika (Firestore)
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
+  // Dohvata podatke o postu pri prvom renderu ili promeni postId
   useEffect(() => {
-    // Dohvata podatke o postu kada se komponenta montira ili promeni postId
     const fetchPost = async () => {
       try {
         const postData = await getPostById(postId);
@@ -59,6 +68,7 @@ const PostDetails = () => {
       } catch (error) {
         console.error("Error fetching post:", error);
       } finally {
+        // Zatvaramo loading state bez obzira na uspeh/gresku
         setIsLoading(false);
       }
     };
@@ -66,29 +76,29 @@ const PostDetails = () => {
     fetchPost();
   }, [postId]);
 
+  // Kada je post ucitan, dohvatamo podatke o autoru
   useEffect(() => {
-    // Kada se post ucita, dohvatamo podatke o autoru
     if (post?.userId) {
       const fetchUser = async () => {
         const data = await getUserById(post.userId);
         setAuthor(data);
       };
-
       fetchUser();
     }
   }, [post]);
 
-  if (isLoading) return <Spinner />; // Prikazujemo spinner dok se post ucitava
-  if (!post) return <p>Post not found.</p>; // Ako post nije prondjen, prikazujemo fallback poruku
+  // Fallback prikaz dok traje ucitavanje ili ako post ne postoji
+  if (isLoading) return <Spinner />;
+  if (!post) return <p>Post not found.</p>;
 
+  // Menja status sacuvanosti posta (toggle)
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
-
     const newState = await toggleSavePost(user, post.id, isSaved);
     setIsSaved(newState);
   };
 
-  // Otvara modal sa PNG bedzevima za post
+  // Otvara modal sa PNG bedzevima za post (sprečava bubbling ka parent elementima)
   const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
     setSelectedBadge(badgeKey);
@@ -106,11 +116,11 @@ const PostDetails = () => {
       <div className="max-w-5xl mx-auto my-8 space-y-8">
         {/* --- POST HEADER --- */}
         <div className="bg-white rounded-xl shadow-md p-6">
-          {/* Naslov i status */}
+          {/* Naslov i statusne oznake */}
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
 
-            {/* Bedževi */}
+            {/* Bedzevi i status zakljucavanja */}
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               {post?.badges?.mostInspiring && (
                 <Badge
@@ -142,7 +152,7 @@ const PostDetails = () => {
               <div className="relative">
                 <img
                   src={author?.profilePicture || DEFAULT_PROFILE_PICTURE}
-                  alt="Autor avatar"
+                  alt="Author avatar"
                   className={`w-10 h-10 rounded-full object-cover ${
                     author?.badges?.topContributor
                       ? "ring-2 ring-purple-800"
@@ -170,7 +180,7 @@ const PostDetails = () => {
             <span className="text-gray-600">📂 {post?.category}</span>
           </div>
 
-          {/* Sadržaj posta */}
+          {/* Sadrzaj posta */}
           <div className="mt-6 text-gray-700 whitespace-pre-wrap leading-relaxed">
             {post?.content}
           </div>
@@ -189,7 +199,7 @@ const PostDetails = () => {
             </div>
           )}
 
-          {/* Reakcije i save dugme */}
+          {/* Reakcije i dugme za snimanje */}
           <div className="mt-6 flex items-center justify-between border-t pt-4">
             <ReactionSummary postId={post.id} locked={post.locked} />
             <button
@@ -206,22 +216,17 @@ const PostDetails = () => {
           </div>
         </div>
 
-        {/* --- COMMENTS SECTION --- */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            💬 Comments
-          </h3>
-          <Comments
-            postID={postId}
-            userId={userId}
-            showAll={true}
-            locked={post.locked}
-            repliesPreviewCount={1}
-          />
-        </div>
+        {/* Sekcija komentara */}
+        <Comments
+          postID={postId}
+          userId={userId}
+          showAll={true}
+          locked={post.locked}
+          repliesPreviewCount={1}
+        />
       </div>
 
-      {/* Badge modals */}
+      {/* Modali za bedzeve */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
@@ -239,4 +244,5 @@ const PostDetails = () => {
     </div>
   );
 };
+
 export default PostDetails;
