@@ -85,6 +85,7 @@ const CommentItem = ({
   const [showEditHint, setShowEditHint] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [expanded, setExpanded] = useState(false); // kontrola otvaranja dodatnih odgovora
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const { user: currentUserCtx } = useContext(AuthContext);
   const currentUser = currentUserCtx || auth.currentUser;
@@ -99,9 +100,25 @@ const CommentItem = ({
   // Edit dozvoljen samo 10 minuta od kreiranja
   const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
 
-  const onReportClick = async () => {
+  const onReportClick = () => {
     if (!currentUser) {
       showInfoToast("Please login to report 😊");
+      return;
+    }
+    setShowReportModal(true);
+  };
+
+  const onCancelReport = () => setShowReportModal(false);
+
+  const onConfirmReport = async () => {
+    if (!currentUser) {
+      showInfoToast("Please login to report 😊");
+      setShowReportModal(false);
+      return;
+    }
+
+    if (currentUser?.uid === userId) {
+      showInfoToast("You can't report your own comment.");
       return;
     }
 
@@ -110,20 +127,14 @@ const CommentItem = ({
         type: "comment",
         targetId: commentId,
         reportedBy: currentUser.uid,
-        reason: null,
       });
       showSuccessToast("Comment reported. Thank you!");
     } catch (error) {
       showErrorToast("Report failed. Try again.");
       console.log(error);
+    } finally {
+      setShowReportModal(false);
     }
-    console.log("Report payload:", {
-  type: "comment",
-  targetId: commentId,
-  reportedBy: currentUser.uid,
-  reason: null,
-  createdAt: new Date()
-});
   };
 
   // Fetch korisnika sa isMounted zastitom
@@ -507,6 +518,14 @@ const CommentItem = ({
           handleDelete(commentId);
           setShowConfirmModal(false);
         }}
+      />
+
+      <ConfirmModal
+        isOpen={showReportModal}
+        title="Are you sure you want to report this comment?"
+        confirmText={"Yes"}
+        onCancel={onCancelReport}
+        onConfirm={onConfirmReport}
       />
 
       {/* Modal za prikaz Top Contributor bedza */}
