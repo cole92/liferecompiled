@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useContext } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -9,6 +9,8 @@ import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 // import { deleteComment } from "../../firebase/functions"; // Rezervisano za hard delete
 import { softDeleteComment } from "./commentsService";
 import { getUserById } from "../../services/userService";
+import { submitReport } from "../../services/reportService";
+import { AuthContext } from "../../context/AuthContext";
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import {
   showSuccessToast,
@@ -84,6 +86,9 @@ const CommentItem = ({
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [expanded, setExpanded] = useState(false); // kontrola otvaranja dodatnih odgovora
 
+  const { user: currentUserCtx } = useContext(AuthContext);
+  const currentUser = currentUserCtx || auth.currentUser;
+
   const isRoot = depth === 0;
   const hintShownRef = useRef(false);
 
@@ -93,6 +98,33 @@ const CommentItem = ({
 
   // Edit dozvoljen samo 10 minuta od kreiranja
   const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
+
+  const onReportClick = async () => {
+    if (!currentUser) {
+      showInfoToast("Please login to report 😊");
+      return;
+    }
+
+    try {
+      await submitReport({
+        type: "comment",
+        targetId: commentId,
+        reportedBy: currentUser.uid,
+        reason: null,
+      });
+      showSuccessToast("Comment reported. Thank you!");
+    } catch (error) {
+      showErrorToast("Report failed. Try again.");
+      console.log(error);
+    }
+    console.log("Report payload:", {
+  type: "comment",
+  targetId: commentId,
+  reportedBy: currentUser.uid,
+  reason: null,
+  createdAt: new Date()
+});
+  };
 
   // Fetch korisnika sa isMounted zastitom
   useEffect(() => {
@@ -335,7 +367,7 @@ const CommentItem = ({
                 {!locked && (
                   <button
                     type="button"
-                    onClick={() => showInfoToast("Report is coming soon")}
+                    onClick={onReportClick}
                     className="hover:underline"
                     aria-label="Report comment"
                   >

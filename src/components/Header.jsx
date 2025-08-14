@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import AvatarDropdown from "./AvatarDropdown";
 import { motion } from "framer-motion";
 import SearchAndFilterBar from "../components/SearchAndFilterBar";
@@ -22,10 +22,18 @@ import Spinner from "./Spinner";
 const Header = () => {
   const { user, isLoggingOut, logout, isCheckingAuth } =
     useContext(AuthContext);
+
   const { pathname } = useLocation();
 
   const isLogin = pathname === "/login";
   const isRegister = pathname === "/register";
+
+  const restrictedPaths = ["/dashboard", "/dashboard/settings", "/profile", "/post/",];
+
+  const canShowCreateButton =
+  user && !restrictedPaths.includes(pathname);
+
+  const navigate = useNavigate();
 
   const {
     setSearchTerm,
@@ -111,6 +119,18 @@ const Header = () => {
           />
         </motion.div>
       )}
+
+      <div>
+        {canShowCreateButton && (
+          <button
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          onClick={() => navigate("/dashboard/create")}
+        >
+          Create New Post
+        </button>
+        )}
+        
+      </div>
     </header>
   );
 };
