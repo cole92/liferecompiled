@@ -3,11 +3,11 @@ import { useParams } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
 
-import { auth } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
 
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
+import { submitReport } from "../services/reportService";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { useCheckSavedStatus } from "../hooks/useCheckSavedStatus";
@@ -17,10 +17,16 @@ import ReactionSummary from "../components/reactions/ReactionSummary";
 import Comments from "../components/comments/Comments";
 import Spinner from "../components/Spinner";
 import ShieldIcon from "../components/ui/ShieldIcon";
+import ConfirmModal from "../components/modals/ConfirmModal";
 import BadgeModal from "../components/modals/BadgeModal";
 import Badge from "../components/ui/Bagde";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
+import {
+  showErrorToast,
+  showInfoToast,
+  showSuccessToast,
+} from "../utils/toastUtils";
 
 /**
  * @component PostDetails
@@ -42,12 +48,14 @@ const PostDetails = () => {
   // State za glavni prikaz posta i ucitavanje
   const [post, setPost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // State za podatke o autoru
   const [author, setAuthor] = useState(null);
 
-  const userId = auth.currentUser?.uid;
   const { user } = useContext(AuthContext);
+  const currentUserId = user?.uid ?? null;
+  const postAuthorId = post?.userId ?? null;
 
   const lockedDate = post?.lockedAt?.toDate().toLocaleDateString();
 
@@ -104,6 +112,42 @@ const PostDetails = () => {
     setSelectedBadge(badgeKey);
     setShowBadgeModal(true);
   };
+
+  const onReportClick = () => {
+    if (!user) {
+      showInfoToast("Please login to report 😊");
+      return;
+    }
+    setShowReportModal(true);
+  };
+
+  const onConfirmReport = async () => {
+    if (!user) {
+      showInfoToast("Please login to report 😊");
+      setShowReportModal(false);
+      return;
+    }
+    if (currentUserId && postAuthorId && currentUserId === postAuthorId) {
+      showInfoToast("You can't report your own post.");
+      return;
+    }
+
+    try {
+      await submitReport({
+        type: "post",
+        targetId: postId,
+        reportedBy: currentUserId,
+      });
+      showSuccessToast("Post reported. Thank you!");
+    } catch (error) {
+      showErrorToast("Report failed. Try again.");
+      console.log(error);
+    } finally {
+      setShowReportModal(false);
+    }
+  };
+
+  const onCancelReport = () => setShowReportModal(false);
 
   return (
     <div
@@ -214,12 +258,22 @@ const PostDetails = () => {
               )}
             </button>
           </div>
+
+          {/* Report dugme */}
+          <button
+            type="button"
+            onClick={onReportClick}
+            className="hover:underline"
+            aria-label="Report post"
+          >
+            Report
+          </button>
         </div>
 
         {/* Sekcija komentara */}
         <Comments
           postID={postId}
-          userId={userId}
+          userId={currentUserId}
           showAll={true}
           locked={post.locked}
           repliesPreviewCount={1}
@@ -240,6 +294,15 @@ const PostDetails = () => {
         locked={post.locked}
         onClose={() => setShowTopContributorModal(false)}
         authorBadge="topContributor"
+      />
+      {/* Modal za potvrdu prijave */}
+      <ConfirmModal
+        isOpen={showReportModal}
+        title="Are you sure you want to report this post?"
+        message="This will notify moderators about this post."
+        confirmText={"Yes"}
+        onCancel={onCancelReport}
+        onConfirm={onConfirmReport}
       />
     </div>
   );

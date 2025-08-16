@@ -16,6 +16,7 @@ import Spinner from "./Spinner";
  * - Ako je korisnik ulogovan, prikazuje Avatar meni sa opcijama
  * - Na home stranici ("/") prikazuje SearchAndFilterBar sa animacijom (framer-motion)
  * - Koristi useSearch context za upravljanje filterima i pretragom
+ * - Prikazuje dugme "Create New Post" samo kada je korisnik ulogovan i ruta NIJE u restricted listi
  *
  * @returns {JSX.Element} Zaglavlje sa navigacijom i, uslovno, filter bar-om
  */
@@ -24,16 +25,23 @@ const Header = () => {
     useContext(AuthContext);
 
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   const isLogin = pathname === "/login";
   const isRegister = pathname === "/register";
 
-  const restrictedPaths = ["/dashboard", "/dashboard/settings", "/profile", "/post/",];
+  // Lista ruta gde se "Create New Post" NE prikazuje.
+  // Napomena: koristi se tacno poredjenje (includes na nizu), ne prefix match.
+  // Primer: "/post/123" NIJE isto sto i "/post/" i nece biti blokirano ovom listom.
+  const restrictedPaths = [
+    "/dashboard",
+    "/dashboard/settings",
+    "/profile",
+    "/post/",
+  ];
 
-  const canShowCreateButton =
-  user && !restrictedPaths.includes(pathname);
-
-  const navigate = useNavigate();
+  // Dugme se prikazuje samo ako je user ulogovan i ruta NIJE na restricted listi.
+  const canShowCreateButton = user && !restrictedPaths.includes(pathname);
 
   const {
     setSearchTerm,
@@ -53,7 +61,7 @@ const Header = () => {
     },
   };
 
-  // Dok se proverava autentikacija, prikazuje se spinner
+  // Dok se proverava autentikacija (inicijalni load), prikazuje se spinner
   if (isCheckingAuth) {
     return (
       <div>
@@ -67,7 +75,7 @@ const Header = () => {
   return (
     <header className="d-flex flex-column p-2 bg-light">
       <div className="d-flex justify-content-between align-items-center">
-        {/* Logo + naziv brenda */}
+        {/* Logo + naziv brenda (link ka Home) */}
         <NavLink
           to="/"
           className="navbar-brand text-dark text-decoration-none fs-4"
@@ -120,16 +128,16 @@ const Header = () => {
         </motion.div>
       )}
 
+      {/* Create dugme: kontrolisano preko canShowCreateButton */}
       <div>
         {canShowCreateButton && (
           <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          onClick={() => navigate("/dashboard/create")}
-        >
-          Create New Post
-        </button>
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            onClick={() => navigate("/dashboard/create")}
+          >
+            Create New Post
+          </button>
         )}
-        
       </div>
     </header>
   );

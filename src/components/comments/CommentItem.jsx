@@ -374,18 +374,15 @@ const CommentItem = ({
                   Reply
                 </button>
 
-                {/* Report dugme (placeholder) */}
-                {!locked && (
-                  <button
-                    type="button"
-                    onClick={onReportClick}
-                    className="hover:underline"
-                    aria-label="Report comment"
-                  >
-                    Report
-                  </button>
-                )}
-
+                {/* Report dugme */}
+                <button
+                  type="button"
+                  onClick={onReportClick}
+                  className="hover:underline"
+                  aria-label="Report comment"
+                >
+                  Report
+                </button>
                 <div className="h-4 w-px bg-gray-300" />
 
                 {/* Reakcije na komentar */}
@@ -520,9 +517,11 @@ const CommentItem = ({
         }}
       />
 
+      {/* Modal za potvrdu prijave */}
       <ConfirmModal
         isOpen={showReportModal}
         title="Are you sure you want to report this comment?"
+        message="This will notify moderators about this comment."
         confirmText={"Yes"}
         onCancel={onCancelReport}
         onConfirm={onConfirmReport}
