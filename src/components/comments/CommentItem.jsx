@@ -296,7 +296,7 @@ const CommentItem = ({
             {/* Ime autora + meta podaci o vremenu */}
             <div className="flex flex-wrap items-center gap-x-2">
               <span className="font-semibold text-sm text-gray-800">
-                {user?.name || "Unknown user"}
+                {user?.name || "Unknown Author"}
               </span>
               <span className="text-xs text-gray-500">
                 {editedDate

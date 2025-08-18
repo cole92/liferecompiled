@@ -23,8 +23,8 @@ import ShieldIcon from "./ui/ShieldIcon";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
 
+import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import "../styles/PostCard.css";
-
 /**
  * @component PostCard
  * Vizuelna kartica za prikaz blog posta sa interakcijama, statusima i dodatnim UX slojevima.
@@ -180,7 +180,7 @@ const PostCard = ({
           <div className="post-author flex items-center gap-2">
             <div className="relative inline-block">
               <img
-                src={author.profilePicture}
+                src={author.profilePicture || DEFAULT_PROFILE_PICTURE}
                 alt="Author"
                 className={`w-10 h-10 rounded-full ${
                   author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
@@ -200,16 +200,18 @@ const PostCard = ({
                 </div>
               )}
             </div>
+
             {author?.id ? (
               <AuthorLink author={author}>
                 <span className="font-semibold text-sm">{author.name}</span>
               </AuthorLink>
             ) : (
               <span className="font-semibold text-sm text-gray-500">
-                Unknown Author
+                {author.name}
               </span>
             )}
           </div>
+
           {/* Info dugme otvara ReactionInfoModal (UX fallback za mobilne uredjaje) */}
           <div className="absolute top-2 right-2">
             <button
@@ -442,9 +444,9 @@ PostCard.propTypes = {
     ).isRequired,
     // Autor
     author: PropTypes.shape({
-      id: PropTypes.string.isRequired,
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.oneOf([null])]),
       name: PropTypes.string.isRequired,
-      profilePicture: PropTypes.string.isRequired,
+      profilePicture: PropTypes.string,
       badges: PropTypes.shape({
         topContributor: PropTypes.bool,
       }),

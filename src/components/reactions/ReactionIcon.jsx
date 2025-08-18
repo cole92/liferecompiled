@@ -38,6 +38,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
   const Icon = iconMap[type];
   const [count, setCount] = useState(0);
   const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!postId || !type) return;
@@ -63,6 +64,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
 
       setCount(currentCount);
       setIsActive(userHasReacted);
+      setIsLoading(false);
     };
 
     fetchReactions();
@@ -140,7 +142,18 @@ const ReactionIcon = ({ type, postId, locked }) => {
         data-tooltip-content={reactionLabels[type]}
       >
         <Icon />
-        <span style={{ marginLeft: "4px" }}>{count}</span>
+        <span style={{ marginLeft: "4px" }}>
+          {isLoading ? (
+            // minimalni inline spinner
+            <span
+              className="inline-block h-3.5 w-3.5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin align-[-2px]"
+              aria-label="Loading"
+              title="Loading"
+            />
+          ) : (
+            count
+          )}
+        </span>
       </button>
       <ReactTooltip id={`tooltip-${type}-${postId}`} position="" />
     </>

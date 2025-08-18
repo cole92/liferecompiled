@@ -159,7 +159,11 @@ const PostDetails = () => {
     >
       <div className="max-w-5xl mx-auto my-8 space-y-8">
         {/* --- POST HEADER --- */}
-        <div className="bg-white rounded-xl shadow-md p-6">
+        <div
+          className={`bg-white rounded-xl shadow-md p-6 ${
+            post.badges?.trending ? "border-2 border-red-500" : ""
+          }`}
+        >
           {/* Naslov i statusne oznake */}
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
