@@ -35,6 +35,9 @@ const Profile = () => {
   const [isCounting, setIsCounting] = useState(false);
   const [reactionsCount, setReactionsCount] = useState(null);
   const [isCountingReactions, setIsCountingReactions] = useState(false);
+  const [isLoadingTop3, setIsLoadingTop3] = useState(false);
+  const [top3, setTop3] = useState([]);
+  const [errorTop3, setErrorTop3] = useState(null);
   const isTopContributor = true; // privremeno, samo za test
 
   const auth = getAuth();
@@ -106,7 +109,7 @@ const Profile = () => {
       cancelled = true;
     };
   }, [targetUid]);
- 
+
   // Reactions
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +162,60 @@ const Profile = () => {
     return () => {
       cancelled = true;
     };
+  }, [targetUid]);
+
+  // top 3
+
+  useEffect(() => {
+     let cancelled = false;
+
+    async function fetchTop3() {
+      if (!targetUid) {
+        setIsLoadingTop3(false);
+        setTop3([]);
+        return;
+      }
+      setIsLoadingTop3(true);
+      setErrorTop3(null);
+
+      try {
+        const postsQuery = query(
+          collection(db, "posts"),
+          where("userId", "==", targetUid),
+          where("deleted", "==", false)
+        );
+        const postSnap = await getDocs(postsQuery);
+        const postIds = postSnap.docs.map((doc) => doc.id);
+
+        console.log("postIds count:", postIds.length, postIds);
+
+        if(postIds.length === 0) {
+          if(!cancelled) setTop3([])
+            return
+        }
+        
+        const counts = {};
+        console.log(("init Counts for", postIds.length));
+        const firstId = postIds[0];
+
+        const reactionsQ = query(
+          collection(db, "reactions"),
+          where("postId", "==", firstId)
+        );
+
+        const countSnap = await getCountFromServer(reactionsQ);
+        const count = countSnap.data().count || 0;
+
+        console.log("firsId", firstId);
+        console.log("firstId reactions count:");
+      } catch (err) {
+        console.log(err);
+        setErrorTop3(err.message ?? "Top3 failed");
+      } finally {
+        setIsLoadingTop3(false);
+      }
+    }
+    fetchTop3();
   }, [targetUid]);
 
   if (loading) return <p>Loading...</p>;
@@ -236,7 +293,9 @@ const Profile = () => {
 
       <StatsRow
         posts={isCounting || postCount == null ? 0 : postCount}
-        reactions={isCountingReactions || reactionsCount == null ? 0 : reactionsCount}
+        reactions={
+          isCountingReactions || reactionsCount == null ? 0 : reactionsCount
+        }
       />
 
       <div>
