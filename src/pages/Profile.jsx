@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getCountFromServer,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "../firebase";
 import { getAuth } from "firebase/auth";
 import ShieldIcon from "../components/ui/ShieldIcon";
@@ -23,6 +31,10 @@ import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [postCount, setPostsCount] = useState(null);
+  const [isCounting, setIsCounting] = useState(false);
+  const [reactionsCount, setReactionsCount] = useState(null);
+  const [isCountingReactions, setIsCountingReactions] = useState(false);
   const isTopContributor = true; // privremeno, samo za test
 
   const auth = getAuth();
@@ -56,6 +68,97 @@ const Profile = () => {
     };
 
     fetchUserData();
+  }, [targetUid]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchCount() {
+      // Ako nema targetUid (gost otvorio /profile) – nema šta da brojimo
+      if (!targetUid) {
+        setPostsCount(0);
+        setIsCounting(false);
+        return;
+      }
+      setIsCounting(true);
+
+      try {
+        const postsCol = collection(db, "posts");
+        const q = query(
+          postsCol,
+          where("userId", "==", targetUid),
+          where("deleted", "==", false)
+        );
+        const snap = await getCountFromServer(q);
+
+        if (!cancelled) {
+          setPostsCount(snap.data().count || 0);
+        }
+      } catch (err) {
+        console.error("Count failed", err);
+        if (!cancelled) setPostsCount(0);
+      } finally {
+        if (!cancelled) setIsCounting(false);
+      }
+    }
+
+    fetchCount();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetUid]);
+ 
+  // Reactions
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchReactionsReceived() {
+      if (!targetUid) {
+        setIsCountingReactions(false);
+        setReactionsCount(0);
+        return;
+      }
+      setIsCountingReactions(true);
+
+      try {
+        const postQ = query(
+          collection(db, "posts"),
+          where("userId", "==", targetUid),
+          where("deleted", "==", false)
+        );
+        const postSnap = await getDocs(postQ);
+        const postIds = postSnap.docs.map((d) => d.id);
+
+        if (postIds.length === 0) {
+          if (!cancelled) setReactionsCount(0);
+          return;
+        }
+
+        const chunkSize = 10;
+        let total = 0;
+
+        for (let i = 0; i < postIds.length; i += chunkSize) {
+          const chunk = postIds.slice(i, i + chunkSize);
+
+          const reactionsQ = query(
+            collection(db, "reactions"),
+            where("postId", "in", chunk)
+          );
+          const snap = await getCountFromServer(reactionsQ);
+          total += snap.data().count || 0;
+        }
+        if (!cancelled) setReactionsCount(total);
+      } catch (err) {
+        console.error("Reactions count failed", err);
+        if (!cancelled) setReactionsCount(0);
+      } finally {
+        if (!cancelled) setIsCountingReactions(false);
+      }
+    }
+
+    fetchReactionsReceived();
+    return () => {
+      cancelled = true;
+    };
   }, [targetUid]);
 
   if (loading) return <p>Loading...</p>;
@@ -131,7 +234,10 @@ const Profile = () => {
         <BioSection bio={userData.bio} />
       </div>
 
-      <StatsRow posts={42} reactions={128} />
+      <StatsRow
+        posts={isCounting || postCount == null ? 0 : postCount}
+        reactions={isCountingReactions || reactionsCount == null ? 0 : reactionsCount}
+      />
 
       <div>
         <h2>Top posts by this author</h2>
