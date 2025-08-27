@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   collection,
   doc,
+  documentId,
   getCountFromServer,
   getDoc,
   getDocs,
@@ -167,7 +168,7 @@ const Profile = () => {
   // top 3
 
   useEffect(() => {
-     let cancelled = false;
+    let cancelled = false;
 
     async function fetchTop3() {
       if (!targetUid) {
@@ -189,25 +190,67 @@ const Profile = () => {
 
         console.log("postIds count:", postIds.length, postIds);
 
-        if(postIds.length === 0) {
-          if(!cancelled) setTop3([])
-            return
+        if (postIds.length === 0) {
+          if (!cancelled) setTop3([]);
+          return;
         }
-        
-        const counts = {};
-        console.log(("init Counts for", postIds.length));
-        const firstId = postIds[0];
 
-        const reactionsQ = query(
-          collection(db, "reactions"),
-          where("postId", "==", firstId)
+        // const firstId = postIds[0];
+        // if (firstId) {
+        //   const reactionsQ = query(
+        //     collection(db, "reactions"),
+        //     where("postId", "==", firstId)
+        //   );
+
+        //   const qSnap = await getCountFromServer(reactionsQ);
+        //   const count = qSnap.data().count || 0;
+        //   console.log("test COUNT for firstId =",firstId, ">", count  );
+
+        // }
+
+        const counts = {};
+
+        for (const postId of postIds) {
+          //svaki post zasebno ?
+          const reactionsQ = query(
+            collection(db, "reactions"),
+            where("postId", "==", postId) // vrati svaku reakciju vezanu za dati post?
+          );
+          const reactionsSnap = await getCountFromServer(reactionsQ);
+          counts[postId] = reactionsSnap.data().count || 0;
+        }
+        console.log("counts =", counts);
+
+        const entries = Object.entries(counts);
+        console.log(entries, "entries");
+
+        const pairs = entries.map(([postId, count]) => ({ postId, count }));
+        pairs.sort((a, b) => b.count - a.count);
+        console.log(pairs);
+
+        const top3Pairs = pairs.slice(0, 3);
+        console.log("top3Pairs =", top3Pairs);
+
+        const top3Ids = top3Pairs.map((p) => p.postId);
+        console.log("top3Ids", top3Ids);
+
+        if (top3Ids.length === 0) {
+          if (!cancelled) setTop3([]);
+          return;
+        }
+
+        const postq = query(collection(db, "posts"),
+        where(documentId(), "in", top3Ids)
         );
 
-        const countSnap = await getCountFromServer(reactionsQ);
-        const count = countSnap.data().count || 0;
+        const postsSnap = await getDocs(postq);
 
-        console.log("firsId", firstId);
-        console.log("firstId reactions count:");
+        let topPosts = postSnap.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+          reactionsCount:counts[d.id] ?? 0
+        }));
+        
       } catch (err) {
         console.log(err);
         setErrorTop3(err.message ?? "Top3 failed");
