@@ -15,7 +15,7 @@ import ShieldIcon from "../components/ui/ShieldIcon";
 import BioSection from "../components/profile/BioSection";
 import StatsRow from "../components/profile/StatsRow";
 import { useParams } from "react-router-dom";
-import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+import Spinner from "../components/Spinner";
 
 /**
  * @component Profile
@@ -188,69 +188,52 @@ const Profile = () => {
         const postSnap = await getDocs(postsQuery);
         const postIds = postSnap.docs.map((doc) => doc.id);
 
-        console.log("postIds count:", postIds.length, postIds);
-
         if (postIds.length === 0) {
           if (!cancelled) setTop3([]);
           return;
         }
 
-        // const firstId = postIds[0];
-        // if (firstId) {
-        //   const reactionsQ = query(
-        //     collection(db, "reactions"),
-        //     where("postId", "==", firstId)
-        //   );
-
-        //   const qSnap = await getCountFromServer(reactionsQ);
-        //   const count = qSnap.data().count || 0;
-        //   console.log("test COUNT for firstId =",firstId, ">", count  );
-
-        // }
-
         const counts = {};
 
         for (const postId of postIds) {
-          //svaki post zasebno ?
           const reactionsQ = query(
             collection(db, "reactions"),
-            where("postId", "==", postId) // vrati svaku reakciju vezanu za dati post?
+            where("postId", "==", postId)
           );
           const reactionsSnap = await getCountFromServer(reactionsQ);
           counts[postId] = reactionsSnap.data().count || 0;
         }
-        console.log("counts =", counts);
 
         const entries = Object.entries(counts);
-        console.log(entries, "entries");
 
         const pairs = entries.map(([postId, count]) => ({ postId, count }));
         pairs.sort((a, b) => b.count - a.count);
-        console.log(pairs);
 
         const top3Pairs = pairs.slice(0, 3);
-        console.log("top3Pairs =", top3Pairs);
 
         const top3Ids = top3Pairs.map((p) => p.postId);
-        console.log("top3Ids", top3Ids);
 
         if (top3Ids.length === 0) {
           if (!cancelled) setTop3([]);
           return;
         }
 
-        const postq = query(collection(db, "posts"),
-        where(documentId(), "in", top3Ids)
+        const postq = query(
+          collection(db, "posts"),
+          where(documentId(), "in", top3Ids)
         );
 
         const postsSnap = await getDocs(postq);
 
-        let topPosts = postSnap.docs.map(d => ({
+        let topPosts = postsSnap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
-          reactionsCount:counts[d.id] ?? 0
+          reactionsCount: counts[d.id] ?? 0,
         }));
-        
+
+        topPosts.sort((a, b) => b.reactionsCount - a.reactionsCount);
+
+        setTop3(topPosts);
       } catch (err) {
         console.log(err);
         setErrorTop3(err.message ?? "Top3 failed");
@@ -258,39 +241,14 @@ const Profile = () => {
         setIsLoadingTop3(false);
       }
     }
+
     fetchTop3();
   }, [targetUid]);
 
+  console.log(top3, "State");
+
   if (loading) return <p>Loading...</p>;
   if (!userData) return <p>No user data found!</p>;
-
-  // Hardkodovani podaci !!
-  const topPosts = [
-    {
-      id: "abc123",
-      title: "Zašto volim React?",
-      preview: "Kratka priča o komponentama i strpljenju.",
-      image: "https://source.unsplash.com/random/300x200",
-      likes: 42,
-      badge: "💡",
-    },
-    {
-      id: "def456",
-      title: "Kako sam naučio Firebase",
-      preview: "Od haosa do harmonije u tri klika.",
-      image: "https://source.unsplash.com/random/301x200",
-      likes: 38,
-      badge: "🔥",
-    },
-    {
-      id: "ghi789",
-      title: "CSS nije tako loš… možda.",
-      preview: "Borba sa marginama i paddingom.",
-      image: "https://source.unsplash.com/random/302x200",
-      likes: 31,
-      badge: "🔥",
-    },
-  ];
 
   return (
     <div className="text-center mb-4">
@@ -342,22 +300,61 @@ const Profile = () => {
       />
 
       <div>
-        <h2>Top posts by this author</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-          {topPosts.map((post) => (
-            <div key={post.id} className="bg-white shadow rounded p-4">
-              <img
-                src={DEFAULT_PROFILE_PICTURE}
-                alt={post.title}
-                className="w-24 h-24 object-cover rounded-full mx-auto mb-2"
-              />
-              <h3 className="text-lg font-bold">{post.title}</h3>
-              <p className="text-sm text-gray-600">{post.preview}</p>
-              <p className="text-sm mt-2">👍 {post.likes}</p>
-              {post.badge && <p className="text-2xl">{post.badge}</p>}
-            </div>
-          ))}
-        </div>
+        <h2 className="text-xl font-semibold mb-4">Top posts by this author</h2>
+
+        {/* Loading */}
+        {isLoadingTop3 && <Spinner message="Loading posts..." />}
+
+        {/* Error */}
+        {errorTop3 && <p className="text-red-500">{errorTop3}</p>}
+
+        {/* Empty state */}
+        {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
+          <p>No top posts yet.</p>
+        )}
+
+        {/* Render posts */}
+        {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+            {top3.map((post) => {
+              // Fallback za description → ako ga nema, koristi content ili “No description”
+              const previewText =
+                post.description?.trim() ||
+                (post.content
+                  ? post.content.slice(0, 120) +
+                    (post.content.length > 120 ? "..." : "")
+                  : "No description");
+
+              // Tagovi → prikaži max 3
+              const tagList = (post.tags || [])
+                .slice(0, 3)
+                .map((t) =>
+                  typeof t === "string" ? t : t.text || t.name || "tag"
+                )
+                .join(" • ");
+
+              return (
+                <div key={post.id} className="bg-white shadow rounded p-4">
+                  <h3 className="text-lg font-bold">{post.title}</h3>
+                  <p className="text-sm text-gray-600">{previewText}</p>
+
+                  <div className="mt-2 text-xs text-gray-500">
+                    <span className="inline-block rounded bg-gray-100 px-2 py-0.5 mr-2">
+                      {post.category}
+                    </span>
+                    {tagList && (
+                      <span className="inline-block rounded bg-gray-100 px-2 py-0.5">
+                        {tagList}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-sm mt-3">👍 {post.reactionsCount}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
