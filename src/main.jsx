@@ -13,11 +13,11 @@ const rootElement = document.getElementById("root");
 
 if (rootElement) {
   createRoot(rootElement).render(
-    <AuthProvider>  {/* AuthProvider obuhvata celu aplikaciju i obezbeđuje globalni kontekst za pracenje korisnika i autentifikaciju */}
-      <BrowserRouter>   {/* BrowserRouter omogucava navigaciju izmedju razlicitih ruta aplikacije */}
+    <BrowserRouter>      
+      <AuthProvider>  
         <App />
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 } else {
   console.error("Root element not found!");  // Log greske ako root element ne postoji

@@ -54,7 +54,7 @@ const MyPosts = () => {
         // Uzimamo uvek najnovije korisnicke podatke iz AuthContext
         const author = {
           id: user.uid,
-          name: user.name || "Anonymous",
+          name: user.name || "Unknown author",
           profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
         };
 

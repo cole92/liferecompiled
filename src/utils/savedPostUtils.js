@@ -1,5 +1,5 @@
 import { unsavePost, savePost } from "../services/savedService";
-import { showErrorToast, showSuccessToast } from "./toastUtils";
+import { showErrorToast, showInfoToast, showSuccessToast } from "./toastUtils";
 
 /**
  * Menja status posta u sacuvano / nesacuvano za trenutno ulogovanog korisnika.
@@ -18,7 +18,7 @@ import { showErrorToast, showSuccessToast } from "./toastUtils";
 export const toggleSavePost = async (user, postId, isSaved) => {
 
     if (!user) {
-        return showErrorToast("Please login to save posts.");
+        return showInfoToast("Please login to save posts.");
     }
 
     try {

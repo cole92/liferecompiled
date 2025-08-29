@@ -41,14 +41,14 @@ function App() {
             <Route path="edit/:postId" element={<EditPost />} />
           </Route>
           <Route path="/dashboard/settings" element={<Settings />} />
-          <Route path="/profile/:uid" element={<Profile />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
+        <Route path="/profile/:uid" element={<Profile />} />
         {/* Default preusmeravanje ako ruta ne postoji */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
       {/*  ToastContainer: Komponenta za prikaz globalnih toast poruka*/}
-      <ToastContainer />
+      <ToastContainer pauseOnFocusLoss={false} />
     </Layout>
   );
 }

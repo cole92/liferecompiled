@@ -78,8 +78,8 @@ const Login = () => {
       });
       // Preusmeravanje na dashboard
       setTimeout(() => {
-        navigate("/dashboard");
-      }, 2000);
+        navigate("/");
+      }, 500);
     } catch (error) {
       // Prikaz friendly user Firebase gresaka
       const message =

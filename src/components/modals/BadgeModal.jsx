@@ -26,40 +26,35 @@ import topContributorBadge from "../ui/badges/badge_top_contributor.webp";
 
 const BadgeModal = ({ isOpen, onClose, authorBadge, badgeKey, locked }) => (
   <ModalPortal isOpen={isOpen} onClose={onClose} locked={locked}>
-    <div
-      className={`${locked ? "opacity-60 grayscale pointer-events-none" : ""}`}
-    >
-      {/* Vizuelni prikaz bedzeva */}
-      <div className="flex flex-wrap justify-center items-center gap-6">
+    <div className={locked ? "opacity-60 grayscale pointer-events-none" : ""}>
+      {/* Naslov */}
+      <h2 className="text-base md:text-lg font-semibold text-center mb-4">
+        {authorBadge === "topContributor"
+          ? "Top Contributor"
+          : badgeKey === "mostInspiring"
+          ? "Most Inspiring"
+          : badgeKey === "trending"
+          ? "Trending"
+          : "Badge"}
+      </h2>
+
+      <div className="flex flex-wrap justify-center items-center gap-6 mb-3">
         {badgeKey === "mostInspiring" && (
-          <>
-            <img
-              src={inspiringFull}
-              alt="Most Inspiring"
-              className="w-48 object-contain transition hover:scale-105"
-            />
-            <p className="text-center text-sm text-gray-600 mt-2">
-              💡 This post sparked thoughtful reactions and stood out for its
-              message. <br />
-              Trenutno kao placeholder smislicemo poruku!
-            </p>
-          </>
+          <img
+            src={inspiringFull}
+            alt="Most Inspiring"
+            className="w-48 object-contain transition hover:scale-105"
+          />
         )}
 
         {badgeKey === "trending" && (
-          <>
-            <img
-              src={toHotFull}
-              alt="Trending"
-              className="w-48 object-contain transition hover:scale-105"
-            />
-            <p className="text-center text-sm text-gray-600 mt-2">
-              🔥 This post quickly gained momentum, attracting attention and
-              sparking engagement across the platform. <br />
-              Trenutno kao placeholder smislicemo poruku!
-            </p>
-          </>
+          <img
+            src={toHotFull}
+            alt="Trending"
+            className="w-48 object-contain transition hover:scale-105"
+          />
         )}
+
         {authorBadge === "topContributor" && (
           <img
             src={topContributorBadge}
@@ -69,17 +64,42 @@ const BadgeModal = ({ isOpen, onClose, authorBadge, badgeKey, locked }) => (
         )}
       </div>
 
-      {/*Uslovno dugme za zatvaranje modala */}
-      {!locked && (
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-amber-900 text-white rounded"
-          >
-            Got it
-          </button>
-        </div>
-      )}
+      <div className="text-center space-y-2 text-sm">
+        {badgeKey === "mostInspiring" && (
+          <p className="text-gray-700 dark:text-gray-900">
+            💡 Your post inspired the community — thoughtful reactions
+            highlighted your unique perspective.
+          </p>
+        )}
+
+        {badgeKey === "trending" && (
+          <p className="text-gray-700 dark:text-gray-900">
+            🔥 Your post caught fire — the community reacted quickly, making it
+            one of the hottest topics.
+          </p>
+        )}
+
+        {authorBadge === "topContributor" && (
+          <p className="text-gray-700 dark:text-gray-900">
+            ⚡ Your consistent contributions empower others — you have been
+            recognized as a Top Contributor.
+          </p>
+        )}
+
+        <p className="text-gray-500 dark:text-gray-500 text-xs italic">
+          Badges are awarded automatically based on community reactions.
+        </p>
+      </div>
+
+      {/* Akcije */}
+      <div className="flex justify-center mt-4">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+        >
+          Close
+        </button>
+      </div>
     </div>
   </ModalPortal>
 );
