@@ -15,16 +15,18 @@ import ShieldIcon from "../components/ui/ShieldIcon";
 import BioSection from "../components/profile/BioSection";
 import StatsRow from "../components/profile/StatsRow";
 import { useParams } from "react-router-dom";
-import Spinner from "../components/Spinner";
+import TopPostCard from "../components/TopPostCard";
+import SkeletonGrid from "../components/ui/skeletonLoader/SkeletonGrid";
 
 /**
  * @component Profile
  *
- * Prikazuje podatke o korisniku i omogucava izmenu putem modala.
+ * Prikaz javnog ili sopstvenog profila korisnika uz osnovne metrike.
  *
- * - Dohvata podatke iz Firestore na osnovu ulogovanog korisnika
- * - Prikazuje ime, email, status, datum kreiranja i biografiju
- * - Omogucava izmenu podataka kroz `EditProfileModal`
+ * - Dohvata user dokument iz Firestore na osnovu uid-a
+ * - Prikazuje ime, email, status, datum kreiranja i bio
+ * - Racuna broj postova i ukupan broj reakcija
+ * - Prikazuje Top 3 posta korisnika po broju reakcija
  *
  * @returns {JSX.Element}
  */
@@ -39,15 +41,16 @@ const Profile = () => {
   const [isLoadingTop3, setIsLoadingTop3] = useState(false);
   const [top3, setTop3] = useState([]);
   const [errorTop3, setErrorTop3] = useState(null);
-  const isTopContributor = true; // privremeno, samo za test
+
+  // DEV-ONLY: hardcode badge za vizuelni test
+  const isTopContributor = true;
 
   const auth = getAuth();
   const ownUid = auth.currentUser?.uid || null;
   const { uid } = useParams();
   const targetUid = uid || ownUid;
-  // const isOwn = targetUid === ownUid;   // za buduci Edit profile, ako se odlucim da bude i ovde!
 
-  // Dohvata podatke o trenutnom korisniku iz Firestore
+  // Dohvati user dokument
   useEffect(() => {
     if (!targetUid) {
       setLoading(false);
@@ -74,10 +77,11 @@ const Profile = () => {
     fetchUserData();
   }, [targetUid]);
 
+  // Broj aktivnih postova
   useEffect(() => {
     let cancelled = false;
+
     async function fetchCount() {
-      // Ako nema targetUid (gost otvorio /profile) – nema šta da brojimo
       if (!targetUid) {
         setPostsCount(0);
         setIsCounting(false);
@@ -111,7 +115,7 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Reactions
+  // Ukupan broj reakcija na sve postove korisnika
   useEffect(() => {
     let cancelled = false;
 
@@ -137,6 +141,7 @@ const Profile = () => {
           return;
         }
 
+        // Chunk pristup zbog Firestore limita (max 10 ID-ova u "in" query)
         const chunkSize = 10;
         let total = 0;
 
@@ -165,8 +170,7 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // top 3
-
+  // Top 3 posta po broju reakcija
   useEffect(() => {
     let cancelled = false;
 
@@ -193,8 +197,8 @@ const Profile = () => {
           return;
         }
 
+        // Racunaj broj reakcija za svaki post
         const counts = {};
-
         for (const postId of postIds) {
           const reactionsQ = query(
             collection(db, "reactions"),
@@ -204,33 +208,34 @@ const Profile = () => {
           counts[postId] = reactionsSnap.data().count || 0;
         }
 
-        const entries = Object.entries(counts);
-
-        const pairs = entries.map(([postId, count]) => ({ postId, count }));
+        // Odredi top 3 ID-a po count-u
+        const pairs = Object.entries(counts).map(([postId, count]) => ({
+          postId,
+          count,
+        }));
         pairs.sort((a, b) => b.count - a.count);
 
-        const top3Pairs = pairs.slice(0, 3);
-
-        const top3Ids = top3Pairs.map((p) => p.postId);
+        const top3Ids = pairs.slice(0, 3).map((p) => p.postId);
 
         if (top3Ids.length === 0) {
           if (!cancelled) setTop3([]);
           return;
         }
 
+        // Dohvati detalje za top 3 posta
         const postq = query(
           collection(db, "posts"),
           where(documentId(), "in", top3Ids)
         );
-
         const postsSnap = await getDocs(postq);
 
-        let topPosts = postsSnap.docs.map((d) => ({
+        const topPosts = postsSnap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
           reactionsCount: counts[d.id] ?? 0,
         }));
 
+        // Ponovo sortiraj prema broju reakcija
         topPosts.sort((a, b) => b.reactionsCount - a.reactionsCount);
 
         setTop3(topPosts);
@@ -244,8 +249,6 @@ const Profile = () => {
 
     fetchTop3();
   }, [targetUid]);
-
-  console.log(top3, "State");
 
   if (loading) return <p>Loading...</p>;
   if (!userData) return <p>No user data found!</p>;
@@ -271,13 +274,12 @@ const Profile = () => {
         )}
       </div>
 
-      {/* Podaci o korisniku */}
+      {/* Osnovni podaci */}
       <div className="row mb-4">
         <div className="col-md-6 text-center text-md-start">
           <h4>{userData.name}</h4>
           <p>{userData.email}</p>
         </div>
-
         <div className="col-md-6 text-center text-md-end">
           <p>
             Account Created: {userData.createdAt?.toDate().toLocaleString()}
@@ -286,7 +288,7 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Biografija i izmena */}
+      {/* Biografija */}
       <div className="text-center">
         <h5>Bio:</h5>
         <BioSection bio={userData.bio} />
@@ -299,60 +301,20 @@ const Profile = () => {
         }
       />
 
+      {/* Top 3 */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Top posts by this author</h2>
 
-        {/* Loading */}
-        {isLoadingTop3 && <Spinner message="Loading posts..." />}
-
-        {/* Error */}
-        {errorTop3 && <p className="text-red-500">{errorTop3}</p>}
-
-        {/* Empty state */}
+        {isLoadingTop3 && <SkeletonGrid count={3} />}
+        {errorTop3 && <p className="text-red-500">{String(errorTop3)}</p>}
         {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
           <p>No top posts yet.</p>
         )}
-
-        {/* Render posts */}
         {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-            {top3.map((post) => {
-              // Fallback za description → ako ga nema, koristi content ili “No description”
-              const previewText =
-                post.description?.trim() ||
-                (post.content
-                  ? post.content.slice(0, 120) +
-                    (post.content.length > 120 ? "..." : "")
-                  : "No description");
-
-              // Tagovi → prikaži max 3
-              const tagList = (post.tags || [])
-                .slice(0, 3)
-                .map((t) =>
-                  typeof t === "string" ? t : t.text || t.name || "tag"
-                )
-                .join(" • ");
-
-              return (
-                <div key={post.id} className="bg-white shadow rounded p-4">
-                  <h3 className="text-lg font-bold">{post.title}</h3>
-                  <p className="text-sm text-gray-600">{previewText}</p>
-
-                  <div className="mt-2 text-xs text-gray-500">
-                    <span className="inline-block rounded bg-gray-100 px-2 py-0.5 mr-2">
-                      {post.category}
-                    </span>
-                    {tagList && (
-                      <span className="inline-block rounded bg-gray-100 px-2 py-0.5">
-                        {tagList}
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-sm mt-3">👍 {post.reactionsCount}</p>
-                </div>
-              );
-            })}
+          <div className="grid gap-4 mt-4 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
+            {top3.map((post) => (
+              <TopPostCard key={post.id} post={post} />
+            ))}
           </div>
         )}
       </div>
