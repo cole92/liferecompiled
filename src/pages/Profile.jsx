@@ -17,6 +17,7 @@ import StatsRow from "../components/profile/StatsRow";
 import { useParams } from "react-router-dom";
 import TopPostCard from "../components/TopPostCard";
 import SkeletonGrid from "../components/ui/skeletonLoader/SkeletonGrid";
+import dayjs from "dayjs";
 
 /**
  * @component Profile
@@ -268,7 +269,10 @@ const Profile = () => {
           <ShieldIcon className="absolute -top-2 -right-2 w-6 h-6 text-purple-800" />
         )}
         {isTopContributor && (
-          <p className="mt-2 text-sm font-semibold text-purple-800 italic">
+          <p
+            className="mt-2 text-sm font-semibold text-purple-800 italic cursor-default select-none"
+            title="Built with code ? (Placholder dok ne smislimo tekst!)" // Obrati paznju da ne zaboravis!
+          >
             .code-powered
           </p>
         )}
@@ -281,16 +285,21 @@ const Profile = () => {
           <p>{userData.email}</p>
         </div>
         <div className="col-md-6 text-center text-md-end">
-          <p>
-            Account Created: {userData.createdAt?.toDate().toLocaleString()}
+          <p className="text-sm text-gray-600 italic cursor-default select-none">
+            Member since:{" "}
+            {userData.createdAt
+              ? dayjs(userData.createdAt.toDate()).format("DD MMMM 'YYYY")
+              : "---"}
           </p>
-          <p>Status: {userData.status}</p>
+          <p className="cursor-default select-none">
+            Status: {userData.status}
+          </p>
         </div>
       </div>
 
       {/* Biografija */}
       <div className="text-center">
-        <h5>Bio:</h5>
+        <h5 className="cursor-default select-none">Bio:</h5>
         <BioSection bio={userData.bio} />
       </div>
 
@@ -303,7 +312,9 @@ const Profile = () => {
 
       {/* Top 3 */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Top posts by this author</h2>
+        <h2 className="text-xl font-semibold mb-4 cursor-default select-none">
+          Top posts by this author
+        </h2>
 
         {isLoadingTop3 && <SkeletonGrid count={3} />}
         {errorTop3 && <p className="text-red-500">{String(errorTop3)}</p>}
