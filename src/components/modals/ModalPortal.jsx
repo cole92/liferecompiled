@@ -18,7 +18,13 @@ import PropTypes from "prop-types";
  * @returns {JSX.Element|null} Portal sa modalom ili null ako nije prikazan
  */
 
-export default function ModalPortal({ isOpen, onClose, children }) {
+export default function ModalPortal({
+  isOpen,
+  onClose,
+  children,
+  backdropClassName = "bg-black/80",
+  contentClassName = "bg-amber-100 border-[3px] border-amber-700 rounded-xl shadow-xl p-6 max-w-xl w-full",
+}) {
   // Zakljucava skrol tela dok je modal otvoren
   useEffect(() => {
     if (!isOpen) return;
@@ -41,12 +47,12 @@ export default function ModalPortal({ isOpen, onClose, children }) {
   // Portal render modala unutar #modal-root
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose} // klik na pozadinu zatvara modal
+      className={`fixed inset-0 z-50 flex items-center justify-center ${backdropClassName}`}
+      onClick={onClose}
     >
       <div
-        className="bg-amber-100 border-[3px] border-amber-700 rounded-xl shadow-xl p-6 max-w-xl w-full"
-        onClick={(e) => e.stopPropagation()} // sprecava zatvaranje klikom unutar modala
+        className={contentClassName}
+        onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>

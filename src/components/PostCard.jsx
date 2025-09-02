@@ -20,6 +20,7 @@ import BadgeModal from "./modals/BadgeModal";
 import Badge from "./ui/Bagde";
 import AuthorLink from "./AuthorLink";
 import ShieldIcon from "./ui/ShieldIcon";
+import Avatar from "./common/Avatar";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
 
@@ -179,12 +180,11 @@ const PostCard = ({
         >
           <div className="post-author flex items-center gap-2">
             <div className="relative inline-block">
-              <img
+              <Avatar
                 src={author.profilePicture || DEFAULT_PROFILE_PICTURE}
-                alt="Author"
-                className={`w-10 h-10 rounded-full ${
-                  author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
-                }`}
+                size={40}
+                zoomable
+                badge={author.badges?.topContributor}
               />
 
               {author.badges?.topContributor && (
