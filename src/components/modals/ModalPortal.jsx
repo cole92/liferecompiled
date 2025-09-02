@@ -48,7 +48,10 @@ export default function ModalPortal({
   return createPortal(
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center ${backdropClassName}`}
-      onClick={onClose}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClose()
+      }}
     >
       <div
         className={contentClassName}

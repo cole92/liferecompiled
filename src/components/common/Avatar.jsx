@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import ModalPortal from "../modals/ModalPortal";
 
 export default function Avatar({
@@ -10,16 +10,6 @@ export default function Avatar({
   alt = "Avatar",
 }) {
   const [open, setOpen] = useState(false);
-
-  // ESC za zatvaranje modala
-  useEffect(() => {
-    if (!open) return;
-
-    const onKey = (e) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
 
   const ring = badge ? "ring-2 ring-purple-800" : "";
 
@@ -36,6 +26,7 @@ export default function Avatar({
         onKeyDown={(e) => {
           if ((e.key === "Enter" || e.key === " ") && zoomable) {
             e.stopPropagation();
+            if (e.key === " ") e.preventDefault();
             setOpen(true);
           }
         }}
@@ -51,13 +42,13 @@ export default function Avatar({
         isOpen={open && zoomable}
         onClose={() => setOpen(false)}
         // za image-zoom: tamni overlay i čist sadržaj bez kutije
-        backdropClassName="bg-black/60"
-        contentClassName="bg-transparent p-0 shadow-none border-0 max-w-[90vw] max-h-[90vh]"
+        backdropClassName="bg-black/90 backdrop-blur-sm"
+        contentClassName="bg-transparent p-0 shadow-none border-0"
       >
         <img
           src={src}
           alt={alt}
-          className="rounded shadow-lg max-w-[90vw] max-h-[90vh] object-contain"
+          className="rounded-full object-cover shadow-2xl w-[80vmin] h-[80vmin] max-w-[90vw] max-h-[90vh]"
         />
       </ModalPortal>
     </>

@@ -23,6 +23,7 @@ import CommentReaction from "./CommentReaction";
 import ConfirmModal from "../modals/ConfirmModal";
 import BadgeModal from "../modals/BadgeModal";
 import ShieldIcon from "../ui/ShieldIcon";
+import Avatar from "../common/Avatar";
 
 /**
  * @component CommentItem
@@ -267,12 +268,12 @@ const CommentItem = ({
         <div className="flex items-start gap-3">
           {/* Avatar autora + opcioni Top Contributor badge */}
           <div className="relative shrink-0">
-            <img
-              src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
-              alt={`Profile picture of ${user?.name || "user"}`}
-              className={`w-8 h-8 rounded-full object-cover ${
-                user?.badges?.topContributor ? "ring-2 ring-purple-800" : ""
-              }`}
+            <Avatar
+              src={user?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+              size={32} // w-8 = 32px
+              zoomable
+              badge={user?.badges?.topContributor ?? false}
+              alt={`Profile picture of ${user?.name ?? "user"}`}
             />
             {user?.badges?.topContributor && (
               <div
