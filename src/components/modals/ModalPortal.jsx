@@ -68,4 +68,6 @@ ModalPortal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   children: PropTypes.node.isRequired,
+  backdropClassName: PropTypes.string,   
+  contentClassName: PropTypes.string,    
 };
