@@ -18,6 +18,10 @@ import { useParams } from "react-router-dom";
 import TopPostCard from "../components/TopPostCard";
 import SkeletonGrid from "../components/ui/skeletonLoader/SkeletonGrid";
 import dayjs from "dayjs";
+import {
+  SkeletonCircle,
+  SkeletonLine,
+} from "../components/ui/skeletonLoader/SkeletonBits";
 
 /**
  * @component Profile
@@ -28,6 +32,8 @@ import dayjs from "dayjs";
  * - Prikazuje ime, email, status, datum kreiranja i bio
  * - Racuna broj postova i ukupan broj reakcija
  * - Prikazuje Top 3 posta korisnika po broju reakcija
+ * - UX: tokom loading-a prikazuje skeleton za avatar, ime/email i bio
+ * - Datum "Member since" formatiran preko dayjs (DD MMMM 'YYYY)
  *
  * @returns {JSX.Element}
  */
@@ -251,66 +257,108 @@ const Profile = () => {
     fetchTop3();
   }, [targetUid]);
 
-  if (loading) return <p>Loading...</p>;
-  if (!userData) return <p>No user data found!</p>;
+  if (!loading && !userData) return <p>No user data found!</p>;
 
   return (
     <div className="text-center mb-4">
+      {/* HEADER: avatar + badge / oznaka */}
       <div className="relative inline-block">
-        <img
-          src={userData.profilePicture}
-          alt="Profile pic"
-          className={`rounded-full object-cover border-2 border-gray-300 ${
-            isTopContributor ? "ring-2 ring-purple-800" : ""
-          }`}
-          style={{ width: "150px", height: "150px" }}
-        />
-        {isTopContributor && (
-          <ShieldIcon className="absolute -top-2 -right-2 w-6 h-6 text-purple-800" />
+        {loading ? (
+          <SkeletonCircle size={150} />
+        ) : (
+          <img
+            src={userData.profilePicture}
+            alt="Profile pic"
+            className={`rounded-full object-cover border-2 border-gray-300 ${
+              isTopContributor ? "ring-2 ring-purple-800" : ""
+            }`}
+            style={{ width: "150px", height: "150px" }}
+          />
         )}
-        {isTopContributor && (
-          <p
-            className="mt-2 text-sm font-semibold text-purple-800 italic cursor-default select-none"
-            title="Built with code ? (Placholder dok ne smislimo tekst!)" // Obrati paznju da ne zaboravis!
-          >
-            .code-powered
-          </p>
+
+        {/* Badge i .code-powered tek kad imamo podatke (da ne "skace") */}
+        {!loading && isTopContributor && (
+          <>
+            <ShieldIcon className="absolute -top-2 -right-2 w-6 h-6 text-purple-800" />
+            <p
+              className="mt-2 text-sm font-semibold text-purple-800 italic cursor-default select-none"
+              title="Built with code ? (Placeholder dok ne smislimo tekst!)"
+            >
+              .code-powered
+            </p>
+          </>
         )}
       </div>
 
-      {/* Osnovni podaci */}
-      <div className="row mb-4">
+      {/* OSNOVNI PODACI: ime/email levo, member since/status desno */}
+      <div className="row mb-4 mt-4">
         <div className="col-md-6 text-center text-md-start">
-          <h4>{userData.name}</h4>
-          <p>{userData.email}</p>
+          {loading ? (
+            <>
+              <div className="mt-2">
+                <SkeletonLine w="w-48" h="h-6" />
+              </div>
+              <div className="mt-2">
+                <SkeletonLine w="w-56" h="h-4" />
+              </div>
+            </>
+          ) : (
+            <>
+              <h4>{userData.name}</h4>
+              <p>{userData.email}</p>
+            </>
+          )}
         </div>
+
         <div className="col-md-6 text-center text-md-end">
-          <p className="text-sm text-gray-600 italic cursor-default select-none">
-            Member since:{" "}
-            {userData.createdAt
-              ? dayjs(userData.createdAt.toDate()).format("DD MMMM 'YYYY")
-              : "---"}
-          </p>
-          <p className="cursor-default select-none">
-            Status: {userData.status}
-          </p>
+          {loading ? (
+            <>
+              <div className="mt-2">
+                <SkeletonLine w="w-64" h="h-4" />
+              </div>
+              <div className="mt-2">
+                <SkeletonLine w="w-32" h="h-4" />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 italic cursor-default select-none">
+                Member since:{" "}
+                {userData.createdAt
+                  ? dayjs(userData.createdAt.toDate()).format("DD MMMM 'YYYY")
+                  : "---"}
+              </p>
+              <p className="cursor-default select-none">
+                Status: {userData.status}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Biografija */}
+      {/* BIO */}
       <div className="text-center">
         <h5 className="cursor-default select-none">Bio:</h5>
-        <BioSection bio={userData.bio} />
+        {loading ? (
+          <div className="mx-auto mt-2 space-y-2 max-w-xl">
+            <SkeletonLine w="w-full" h="h-4" />
+            <SkeletonLine w="w-5/6" h="h-4" />
+            <SkeletonLine w="w-2/3" h="h-4" />
+          </div>
+        ) : (
+          <BioSection bio={userData.bio} />
+        )}
       </div>
 
+      {/* STATS */}
       <StatsRow
-        posts={isCounting || postCount == null ? 0 : postCount}
-        reactions={
-          isCountingReactions || reactionsCount == null ? 0 : reactionsCount
-        }
+        posts={postCount}
+        reactions={reactionsCount}
+        loadingPosts={isCounting || postCount == null}
+        loadingReactions={isCountingReactions || reactionsCount == null}
       />
 
-      {/* Top 3 */}
+      {/* TOP 3 */}
       <div>
         <h2 className="text-xl font-semibold mb-4 cursor-default select-none">
           Top posts by this author
@@ -319,7 +367,7 @@ const Profile = () => {
         {isLoadingTop3 && <SkeletonGrid count={3} />}
         {errorTop3 && <p className="text-red-500">{String(errorTop3)}</p>}
         {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
-          <p>No top posts yet.</p>
+          <p>This author has no public posts yet.</p>
         )}
         {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
           <div className="grid gap-4 mt-4 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
