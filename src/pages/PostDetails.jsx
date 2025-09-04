@@ -20,6 +20,7 @@ import ShieldIcon from "../components/ui/ShieldIcon";
 import ConfirmModal from "../components/modals/ConfirmModal";
 import BadgeModal from "../components/modals/BadgeModal";
 import Badge from "../components/ui/Bagde";
+import Avatar from "../components/common/Avatar";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
 import {
@@ -198,14 +199,12 @@ const PostDetails = () => {
           <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-gray-500 border-b pb-4">
             <div className="flex items-center gap-2">
               <div className="relative">
-                <img
-                  src={author?.profilePicture || DEFAULT_PROFILE_PICTURE}
-                  alt="Author avatar"
-                  className={`w-10 h-10 rounded-full object-cover ${
-                    author?.badges?.topContributor
-                      ? "ring-2 ring-purple-800"
-                      : ""
-                  }`}
+                <Avatar
+                  src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+                  size={40}
+                  zoomable
+                  badge={author?.badges?.topContributor ?? false}
+                  alt={author?.name ?? "Author"}
                 />
                 {author?.badges?.topContributor && (
                   <div
