@@ -11,13 +11,13 @@ import { useNavigate } from "react-router-dom";
  * Omotava aplikaciju i obezbeđuje globalni kontekst za autentifikaciju.
  *
  * - Prati trenutno ulogovanog korisnika i njegovo stanje
- * - Omogućava logout sa proverom mreže i vizuelnim indikatorima
+ * - Omogucava logout sa proverom mreze i vizuelnim indikatorima
  * - Proverava stanje autentifikacije na mount-u
  *
  * @param {Object} props
  * @param {React.ReactNode} props.children - Sve child komponente
  *
- * @returns {JSX.Element} Kontekst sa korisničkim podacima i statusima
+ * @returns {JSX.Element} Kontekst sa korisnickim podacima i statusima
  */
 
 

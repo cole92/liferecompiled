@@ -19,6 +19,12 @@ import CloudinaryUpload from "../../CloudinaryUpload";
  * @returns {JSX.Element}
  */
 
+const nameRegex = /^[\p{L}' -]+$/u;
+const sanitizeName = (s) => s.replace(/\s+/g, " ").trim();
+
+const NAME_MIN = 3;
+const NAME_MAX = 30;
+
 const EditProfileForm = ({ userData }) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -30,6 +36,7 @@ const EditProfileForm = ({ userData }) => {
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [hoverMessage, setHoverMessage] = useState("Save changes");
+  const [touchedName, setTouchedName] = useState(false);
 
   useEffect(() => {
     if (userData) {
@@ -58,20 +65,23 @@ const EditProfileForm = ({ userData }) => {
   // Validacija forme
   const validateForm = () => {
     const newErrors = {};
-    const nameRegex = /^[\p{L}' -]+$/u;
+
+    const cleanName = sanitizeName(formData.name);
     const allowedStatuses = ["Active", "Inactive"];
 
-    if (!formData.name.trim()) {
+    if (!cleanName) {
       newErrors.name = "Name is required.";
-    } else if (!nameRegex.test(formData.name)) {
+    } else if (!nameRegex.test(cleanName)) {
       newErrors.name =
         "Allowed characters: letters (A-Z, a-z), spaces, hyphens (-), and apostrophes (').";
-    } else if (formData.name.length > 20) {
-      newErrors.name = "Name cannot exceed 20 characters.";
+    } else if (cleanName.length > NAME_MAX) {
+      newErrors.name = "Name cannot exceed 30 characters.";
+    } else if (cleanName.length < NAME_MIN) {
+      newErrors.name = "Name must be at least 3 characters.";
     }
 
-    if (formData.bio.length > 200) {
-      newErrors.bio = "Bio must be 200 characters or less.";
+    if (formData.bio.length > 280) {
+      newErrors.bio = "Bio must be 280 characters or less.";
     }
 
     if (!allowedStatuses.includes(formData.status)) {
@@ -87,7 +97,12 @@ const EditProfileForm = ({ userData }) => {
 
     if (validateForm()) {
       const updatedData = {};
-      if (formData.name !== userData.name) updatedData.name = formData.name;
+      const cleanName = sanitizeName(formData.name);
+
+      if (cleanName !== userData.name) {
+        updatedData.name = cleanName;
+      }
+
       if (formData.bio !== userData.bio) updatedData.bio = formData.bio;
       if (formData.status !== userData.status)
         updatedData.status = formData.status;
@@ -154,13 +169,29 @@ const EditProfileForm = ({ userData }) => {
           value={formData.name}
           onChange={(e) => {
             const value = e.target.value;
-            const capitalizedName =
-              value.charAt(0).toUpperCase() + value.slice(1);
+
+            const capitalizedName = value
+              ? value.charAt(0).toUpperCase() + value.slice(1)
+              : "";
             setFormData({ ...formData, name: capitalizedName });
           }}
+          onBlur={() => {
+            setTouchedName(true);
+            validateForm();
+          }}
+          aria-describedby="name-help name-error"
+          maxLength={30}
         />
-        {errors.name && (
-          <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+
+        <p id="name-help" className="text-xs text-gray-500 mt-1">
+          Allowed: letters, spaces, hyphens (-), apostrophes (&apos;). 3-30
+          chars.
+        </p>
+
+        {touchedName && errors.name && (
+          <p id="name-error" className="text-red-500 text-sm mt-1">
+            {errors.name}
+          </p>
         )}
       </div>
 
@@ -178,11 +209,11 @@ const EditProfileForm = ({ userData }) => {
           className="w-full border border-gray-300 rounded px-3 py-2"
           value={formData.bio}
           onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-          maxLength={200}
+          maxLength={280}
         />
         <div className="text-sm mt-1 text-gray-500">
-          <span className={200 - formData.bio.length < 1 ? "text-red-500" : ""}>
-            {200 - formData.bio.length} characters left
+          <span className={280 - formData.bio.length < 1 ? "text-red-500" : ""}>
+            {280 - formData.bio.length} characters left
           </span>
         </div>
         {errors.bio && (
