@@ -55,6 +55,7 @@ const EditProfileForm = ({ userData }) => {
 
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [touchedName, setTouchedName] = useState(false);
 
   // Inicijalno punjenje forme i sync pri promeni userData
@@ -154,7 +155,7 @@ const EditProfileForm = ({ userData }) => {
         showSuccessToast("Profile updated");
       } catch (error) {
         console.error("Error updating document:", error);
-        showErrorToast("Update failed");
+        showErrorToast(error?.message || "Update failed");
       } finally {
         setIsSaving(false);
       }
@@ -194,7 +195,14 @@ const EditProfileForm = ({ userData }) => {
           className="rounded-full mb-3"
           style={{ width: "100px", height: "100px" }}
         />
-        <CloudinaryUpload onUploadComplete={handleUploadComplete} />
+        <CloudinaryUpload
+          onUploadStart={() => setIsUploading(true)}
+          onUploadComplete={(url) => {
+            setIsUploading(false);
+            handleUploadComplete(url);
+          }}
+          onUploadError={() => setIsUploading(false)}
+        />
       </div>
 
       {/* Ime */}
@@ -297,13 +305,13 @@ const EditProfileForm = ({ userData }) => {
             disabled={isSaving}
             className="border border-gray-300 text-gray-700 px-4 py-2 rounded disabled:opacity-50"
           >
-            Cancel
+            Reset
           </button>
 
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || isUploading}
             className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50 min-w-[9rem] whitespace-nowrap"
           >
             Save Changes
