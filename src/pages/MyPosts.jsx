@@ -20,7 +20,7 @@ import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import ConfirmModal from "../components/modals/ConfirmModal";
 // Komponente
-import Spinner from "../components/Spinner";
+import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import PostsList from "../components/PostsList";
 // Dashboard komponente
 import EmptyState from "./dashboard/components/EmptyState";
@@ -182,7 +182,7 @@ const MyPosts = () => {
       </button>
 
       {/* Loading state */}
-      {isLoading && <Spinner message="Loading your posts..." />}
+      {isLoading && <SkeletonCard />}
 
       {/* Empty state */}
       {!isLoading && posts.length === 0 && (
