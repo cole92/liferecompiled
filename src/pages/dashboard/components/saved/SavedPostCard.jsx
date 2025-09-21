@@ -14,7 +14,6 @@ import Comments from "../../../../components/comments/Comments";
 
 import { toggleSavePost } from "../../../../utils/savedPostUtils";
 
-
 /**
  * @component SavedPostCard
  * Prikazuje pregled sacuvanog posta u Dashboard-u korisnika.
@@ -65,130 +64,138 @@ const SavedPostCard = ({ post }) => {
   return (
     <div
       onClick={handleClick}
-      className={`border p-4 rounded shadow bg-white text-black ${
-        locked
-          ? "opacity-80 grayscale hover:opacity-100 transition duration-200"
-          : ""
-      }`}
+      className={`rounded cursor-pointer
+    ${
+      post.badges?.trending
+        ? "ring-2 ring-red-500 ring-offset-2 ring-offset-white"
+        : "ring ring-gray-200"
+    }
+  `}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="relative inline-block">
-            <img
-              src={profilePicture}
-              alt={`Avatar of ${name}`}
-              className={`w-10 h-10 rounded-full ${
-                author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
-              }`}
-            />
-            {author.badges?.topContributor && (
-              <div
-                title="Top Contributor · Code-powered"
-                className="group relative"
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                <ShieldIcon className="w-5 h-5 absolute -top-12 -right-2 group-hover:scale-110 transition-transform" />
-              </div>
-            )}
+      <div
+        className={`border rounded shadow bg-white text-black
+    ${locked ? "opacity-80 grayscale hover:opacity-100 transition" : ""}
+  `}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="relative inline-block">
+              <img
+                src={profilePicture}
+                alt={`Avatar of ${name}`}
+                className={`w-10 h-10 rounded-full ${
+                  author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
+                }`}
+              />
+              {author.badges?.topContributor && (
+                <div
+                  title="Top Contributor · Code-powered"
+                  className="group relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <ShieldIcon className="w-5 h-5 absolute -top-12 -right-2 group-hover:scale-110 transition-transform" />
+                </div>
+              )}
+            </div>
+
+            <div
+              className="flex gap-1 items-center hover:scale-105"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              {post.badges?.mostInspiring && (
+                <div title="This post inspired the community">
+                  <Badge text="Most Inspiring" />
+                </div>
+              )}
+
+              {post.badges?.trending && (
+                <div title="This post is on 🔥">
+                  <Badge text="Trending" />
+                </div>
+              )}
+            </div>
+
+            {/* Bookmark dugme za uklanjanje iz sacuvanih postova */}
+            <div
+              onClick={handleSaveToggle}
+              className="hover:scale-110 transition"
+              title={isSaved ? "Remove from saved" : "Save this post"}
+            >
+              {isSaved ? (
+                <BsBookmarkFill className="text-slate-950" />
+              ) : (
+                <BsBookmark className="text-gray-400" />
+              )}
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-800">{name}</p>
+              <p className="text-xs text-gray-500">
+                {updatedAt
+                  ? `Edited: ${updatedAt.toDate().toLocaleDateString()}`
+                  : `Posted: ${createdAt.toDate().toLocaleDateString()}`}
+              </p>
+            </div>
           </div>
 
-          <div
-            className="flex gap-1 items-center hover:scale-105"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            {post.badges?.mostInspiring && (
-              <div title="This post inspired the community">
-                <Badge text="Most Inspiring" />
-              </div>
-            )}
-
-            {post.badges?.trending && (
-              <div title="This post is on 🔥">
-                <Badge text="Trending" />
-              </div>
-            )}
-          </div>
-
-          {/* Bookmark dugme za uklanjanje iz sacuvanih postova */}
-          <div
-            onClick={handleSaveToggle}
-            className="hover:scale-110 transition"
-            title={isSaved ? "Remove from saved" : "Save this post"}
-          >
-            {isSaved ? (
-              <BsBookmarkFill className="text-slate-950" />
-            ) : (
-              <BsBookmark className="text-gray-400" />
-            )}
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-gray-800">{name}</p>
-            <p className="text-xs text-gray-500">
-              {updatedAt
-                ? `Edited: ${updatedAt.toDate().toLocaleDateString()}`
-                : `Posted: ${createdAt.toDate().toLocaleDateString()}`}
-            </p>
-          </div>
+          {locked && (
+            <span
+              className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full flex items-center gap-1"
+              title="This post is locked and cannot be edited or commented"
+            >
+              <FiLock className="text-sm" />
+              Locked on: {formattedDate}
+            </span>
+          )}
         </div>
 
-        {locked && (
-          <span
-            className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full flex items-center gap-1"
-            title="This post is locked and cannot be edited or commented"
-          >
-            <FiLock className="text-sm" />
-            Locked on: {formattedDate}
-          </span>
+        {/* Title */}
+        <h2 className="text-xl font-bold mb-2">{title}</h2>
+
+        {/* Description */}
+        {description && (
+          <p className="text-sm text-gray-700 mb-2">{description}</p>
         )}
-      </div>
 
-      {/* Title */}
-      <h2 className="text-xl font-bold mb-2">{title}</h2>
+        {/* Content */}
+        {content && (
+          <p className="text-sm text-gray-800 mb-3 whitespace-pre-line">
+            {content.slice(0, 300)}
+            {content.length > 300 && "..."}
+          </p>
+        )}
 
-      {/* Description */}
-      {description && (
-        <p className="text-sm text-gray-700 mb-2">{description}</p>
-      )}
-
-      {/* Content */}
-      {content && (
-        <p className="text-sm text-gray-800 mb-3 whitespace-pre-line">
-          {content.slice(0, 300)}
-          {content.length > 300 && "..."}
-        </p>
-      )}
-
-      {/* Category + Tags */}
-      <div className="flex flex-wrap items-center gap-2 mt-3 mb-2">
-        <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
-          {category}
-        </span>
-
-        {tags.map((tag, index) => (
-          <span
-            key={index}
-            className="bg-gray-200 text-gray-800 text-xs px-2 py-0.5 rounded"
-          >
-            #{tag.text}
+        {/* Category + Tags */}
+        <div className="flex flex-wrap items-center gap-2 mt-3 mb-2">
+          <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+            {category}
           </span>
-        ))}
-      </div>
 
-      {/* Comment preview (prva 2) */}
-      <div className="mt-4">
-        <Comments
-          postID={id}
-          userId={user?.uid}
-          showAll={false}
-          locked={true} // sakriva formu
-          disableBadgeModal={true}
-        />
+          {(tags || []).map((tag, i) => (
+            <span
+              key={i}
+              className="bg-gray-200 text-gray-800 text-xs px-2 py-0.5 rounded"
+            >
+              #{tag.text}
+            </span>
+          ))}
+        </div>
+
+        {/* Comment preview (prva 2) */}
+        <div className="mt-4">
+          <Comments
+            postID={id}
+            userId={user?.uid}
+            showAll={false}
+            locked={true} // sakriva formu
+            disableBadgeModal={true}
+          />
+        </div>
       </div>
     </div>
   );

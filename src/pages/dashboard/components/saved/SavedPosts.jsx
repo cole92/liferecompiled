@@ -1,5 +1,14 @@
 import { useContext, useEffect, useState } from "react";
-import { doc, getDoc, getDocs, collection } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  getDocs,
+  collection,
+  orderBy,
+  query,
+  limit,
+  startAfter,
+} from "firebase/firestore";
 
 import { AuthContext } from "../../../../context/AuthContext";
 import { db } from "../../../../firebase";
@@ -10,6 +19,7 @@ import { showErrorToast } from "../../../../utils/toastUtils";
 import SavedPostCard from "./SavedPostCard";
 import EmptyState from "../EmptyState";
 import Spinner from "../../../../components/Spinner";
+import SkeletonCard from "../../../../components/ui/skeletonLoader/SkeletonCard";
 
 /**
  * Lista sačuvanih postova korisnika (MVP fix):
@@ -23,6 +33,13 @@ const SavedPosts = () => {
   const [savedPosts, setSavedPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Paginacija
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  const POST_PER_PAGE = 10;
+
   useEffect(() => {
     // CHANGE #1: ne pokrećemo fetch dok se auth ne završi
     if (isCheckingAuth) return;
@@ -33,11 +50,26 @@ const SavedPosts = () => {
       try {
         // čitanje subkolekcije savedPosts samo za current user-a
         const savedRef = collection(db, "users", user.uid, "savedPosts");
-        const savedSnap = await getDocs(savedRef);
+        const q = query(
+          savedRef,
+          orderBy("savedAt", "desc"),
+          limit(POST_PER_PAGE)
+        );
+
+        const savedSnap = await getDocs(q);
 
         if (savedSnap.empty) {
           setSavedPosts([]);
+          setHasMore(false);
+          setIsLoading(false);
           return;
+        }
+
+        setLastDoc(savedSnap.docs[savedSnap.docs.length - 1]);
+        setHasMore(savedSnap.size === POST_PER_PAGE);
+
+        if (savedSnap.size < POST_PER_PAGE) {
+          setHasMore(false);
         }
 
         // CHANGE #2: Promise.allSettled umesto Promise.all
@@ -77,7 +109,63 @@ const SavedPosts = () => {
     };
 
     fetchSavedPosts();
-  }, [user, isCheckingAuth]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, isCheckingAuth]);
+
+  const handleLoadMore = async () => {
+    if (!hasMore || isLoadingMore || !lastDoc) return;
+    setIsLoadingMore(true);
+
+    try {
+      const savedRef = collection(db, "users", user.uid, "savedPosts");
+      const q = query(
+        savedRef,
+        orderBy("savedAt", "desc"),
+        startAfter(lastDoc),
+        limit(POST_PER_PAGE)
+      );
+
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        setHasMore(false);
+        return;
+      }
+
+      // kursor i hasMore
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.size === POST_PER_PAGE);
+
+      if (snap.size < POST_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      const results = await Promise.allSettled(
+        snap.docs.map(async (docItem) => {
+          const postRef = doc(db, "posts", docItem.id);
+          const postSnap = await getDoc(postRef);
+          if (!postSnap.exists()) throw new Error("missing-post");
+          const postData = { id: postSnap.id, ...postSnap.data() };
+          return await enrichPostWithAuthor(postData);
+        })
+      );
+      const posts = results
+        .filter((r) => r.status === "fulfilled")
+        .map((r) => r.value);
+
+      setSavedPosts((prev) => {
+        const merged = [...prev, ...posts];
+        const byId = new Map(merged.map((p) => [p.id, p]));
+        return Array.from(byId.values());
+      });
+    } catch (e) {
+      showErrorToast("Failed to load more saved posts.");
+      console.error("Error loading more posts:", e);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   if (isCheckingAuth || isLoading) {
     return <Spinner message="Loading saved posts..." />;
@@ -94,11 +182,25 @@ const SavedPosts = () => {
   return (
     <div>
       <h1>Saved Posts</h1>
+
       {savedPosts.map((post) => (
         <div key={post.id}>
           <SavedPostCard post={post} />
         </div>
       ))}
+
+      {/* Loading state */}
+      {isLoadingMore && <SkeletonCard />}
+
+      {hasMore ? (
+        <button onClick={handleLoadMore} disabled={isLoadingMore || !hasMore}>
+          {isLoadingMore ? "Loading..." : "Load more"}
+        </button>
+      ) : (
+        <p className="mt-4 text-sm text-gray-500 text-center">
+          You reached the end.
+        </p>
+      )}
     </div>
   );
 };
