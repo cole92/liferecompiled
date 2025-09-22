@@ -1,32 +1,28 @@
 import { useContext, useEffect, useState } from "react";
-import {
-  doc,
-  getDoc,
-  getDocs,
-  collection,
-  orderBy,
-  query,
-  limit,
-  startAfter,
-} from "firebase/firestore";
+import { doc, getDoc, getDocs } from "firebase/firestore";
 
 import { AuthContext } from "../../../../context/AuthContext";
 import { db } from "../../../../firebase";
+import { buildSavedQuery } from "../../../../services/savedPostsService";
 
 import { enrichPostWithAuthor } from "../../../../services/userService";
 import { showErrorToast } from "../../../../utils/toastUtils";
 
 import SavedPostCard from "./SavedPostCard";
 import EmptyState from "../EmptyState";
-import Spinner from "../../../../components/Spinner";
 import SkeletonCard from "../../../../components/ui/skeletonLoader/SkeletonCard";
 
 /**
- * Lista sačuvanih postova korisnika (MVP fix):
- * - čita users/{uid}/savedPosts
- * - za svaki ID pokušava da učita posts/{id}
- * - SKIDA iz liste one koji ne mogu da se pročitaju (permission-denied / !exists)
- * - renderuje samo validne rezultate
+ * @component SavedPosts
+ *
+ * Lista sacuvanih postova korisnika.
+ *
+ * - Cita users/{uid}/savedPosts sa paginacijom (startAfter + limit)
+ * - Za svaku referencu pokusava da ucita posts/{id}
+ * - Promise.allSettled omogucava da se "lose" stavke preskoce (privatno/obrisano)
+ * - Renderuje samo validne rezultate i drzi UX stabilnim (Skeleton, end-of-list)
+ *
+ * @returns {JSX.Element}
  */
 const SavedPosts = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
@@ -41,22 +37,24 @@ const SavedPosts = () => {
   const POST_PER_PAGE = 10;
 
   useEffect(() => {
-    // CHANGE #1: ne pokrećemo fetch dok se auth ne završi
+    let canceled = false;
+
+    // Ne pokrecemo fetch dok auth provera ne zavrsi; gosti ne citaju
     if (isCheckingAuth) return;
-    if (!user) return; // gost – nema čitanja
+    if (!user) return;
+
+    // Reset state-a pri promeni user-a (ili kada se vrati sa drugih stranica)
+    setSavedPosts([]);
+    setLastDoc(null);
+    setHasMore(true);
+    setIsLoadingMore(false);
 
     const fetchSavedPosts = async () => {
       setIsLoading(true);
       try {
-        // čitanje subkolekcije savedPosts samo za current user-a
-        const savedRef = collection(db, "users", user.uid, "savedPosts");
-        const q = query(
-          savedRef,
-          orderBy("savedAt", "desc"),
-          limit(POST_PER_PAGE)
-        );
-
+        const q = buildSavedQuery({ uid: user.uid, pageSize: POST_PER_PAGE });
         const savedSnap = await getDocs(q);
+        if (canceled) return;
 
         if (savedSnap.empty) {
           setSavedPosts([]);
@@ -65,66 +63,65 @@ const SavedPosts = () => {
           return;
         }
 
+        // Kursor i indikator ima li jos podataka
         setLastDoc(savedSnap.docs[savedSnap.docs.length - 1]);
         setHasMore(savedSnap.size === POST_PER_PAGE);
 
-        if (savedSnap.size < POST_PER_PAGE) {
-          setHasMore(false);
-        }
-
-        // CHANGE #2: Promise.allSettled umesto Promise.all
-        // - omogućava da se "problematične" stavke (npr. privatni/obrisani post)
-        //   jednostavno preskoče umesto da padne cela lista
+        // Promise.allSettled: degraduje "lose" stavke umesto da padne ceo batch
         const results = await Promise.allSettled(
           savedSnap.docs.map(async (docItem) => {
-            // ostaje tvoja logika: doc id == postId
+            // Referenca: doc id == postId
             const postRef = doc(db, "posts", docItem.id);
             const postSnap = await getDoc(postRef);
 
-            // ako post ne postoji – tretiramo kao nevažeću referencu
+            // Ako post ne postoji → tretiramo kao nevalidnu referencu
             if (!postSnap.exists()) {
               throw new Error("missing-post");
             }
 
             const postData = { id: postSnap.id, ...postSnap.data() };
 
-            // i dalje bogatimo autora; ako ovde pukne (npr. author rules) – biće "rejected"
+            // Enrich autora (ako ovde pukne, bice "rejected" i preskace se)
             return await enrichPostWithAuthor(postData);
           })
         );
 
-        // CHANGE #3: uzimamo samo uspešne rezultate
+        // Uzimamo samo uspesne rezultate
         const posts = results
           .filter((r) => r.status === "fulfilled")
           .map((r) => r.value);
 
+        if (canceled) return;
         setSavedPosts(posts);
       } catch (error) {
-        // ovo je top-level greška (npr. mreža); permission-denied po stavkama se ne diže ovde
+        // Top-level greska (mreza i sl.); per-item permission-denied ne dolazi ovde
         console.error("Error fetching saved posts (top-level):", error);
-        showErrorToast("Something went wrong.");
+        if (!canceled) showErrorToast("Something went wrong.");
       } finally {
-        setIsLoading(false);
+        if (!canceled) setIsLoading(false);
       }
     };
 
     fetchSavedPosts();
 
+    return () => {
+      canceled = true; // cleanup da spreci setState posle unmount-a
+    };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, isCheckingAuth]);
 
+  // Dovlaci sledecu stranicu referenci i enrich-uje validne postove
   const handleLoadMore = async () => {
-    if (!hasMore || isLoadingMore || !lastDoc) return;
+    if (!user || !hasMore || isLoadingMore || !lastDoc) return;
     setIsLoadingMore(true);
 
     try {
-      const savedRef = collection(db, "users", user.uid, "savedPosts");
-      const q = query(
-        savedRef,
-        orderBy("savedAt", "desc"),
-        startAfter(lastDoc),
-        limit(POST_PER_PAGE)
-      );
+      const q = buildSavedQuery({
+        uid: user.uid,
+        afterDoc: lastDoc,
+        pageSize: POST_PER_PAGE,
+      });
 
       const snap = await getDocs(q);
 
@@ -133,14 +130,11 @@ const SavedPosts = () => {
         return;
       }
 
-      // kursor i hasMore
+      // Kursor i hasMore
       setLastDoc(snap.docs[snap.docs.length - 1]);
       setHasMore(snap.size === POST_PER_PAGE);
 
-      if (snap.size < POST_PER_PAGE) {
-        setHasMore(false);
-      }
-
+      // Ponovo koristimo allSettled da preskocimo nevalidne reference
       const results = await Promise.allSettled(
         snap.docs.map(async (docItem) => {
           const postRef = doc(db, "posts", docItem.id);
@@ -150,10 +144,12 @@ const SavedPosts = () => {
           return await enrichPostWithAuthor(postData);
         })
       );
+
       const posts = results
         .filter((r) => r.status === "fulfilled")
         .map((r) => r.value);
 
+      // Merge bez duplikata (novi pregaze stare po id-u)
       setSavedPosts((prev) => {
         const merged = [...prev, ...posts];
         const byId = new Map(merged.map((p) => [p.id, p]));
@@ -167,18 +163,22 @@ const SavedPosts = () => {
     }
   };
 
+  // Loading state
   if (isCheckingAuth || isLoading) {
-    return <Spinner message="Loading saved posts..." />;
+    return <SkeletonCard />;
   }
 
+  // Guest gate
   if (!user) {
     return <p>Please log in to view saved posts.</p>;
   }
 
+  // Empty state
   if (savedPosts.length === 0) {
     return <EmptyState message="You haven't saved any posts yet." />;
   }
 
+  // Lista sacuvanih postova + paginacija
   return (
     <div>
       <h1>Saved Posts</h1>
@@ -189,14 +189,17 @@ const SavedPosts = () => {
         </div>
       ))}
 
-      {/* Loading state */}
+      {/* Loading more */}
       {isLoadingMore && <SkeletonCard />}
 
-      {hasMore ? (
-        <button onClick={handleLoadMore} disabled={isLoadingMore || !hasMore}>
+      {/* Load more / end-of-list */}
+      {!isLoading && hasMore && (
+        <button onClick={handleLoadMore} disabled={isLoadingMore}>
           {isLoadingMore ? "Loading..." : "Load more"}
         </button>
-      ) : (
+      )}
+
+      {!isLoading && !hasMore && (
         <p className="mt-4 text-sm text-gray-500 text-center">
           You reached the end.
         </p>
