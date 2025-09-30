@@ -18,17 +18,33 @@ import { toggleSavePost } from "../../../../utils/savedPostUtils";
  * @component SavedPostCard
  * Prikazuje pregled sacuvanog posta u Dashboard-u korisnika.
  *
- * - Prikazuje osnovne informacije: naslov, autor, datum, sadrzaj, tagove
- * - Reakcije i forma za komentare su zakljucane (read-only preview)
- * - Ukljucuje bedzeve (💡, 🔥) i status zakljucavanja (🔒)
- * - Omogucava cuvanje/brisanje posta iz liste sacuvanih (bookmark toggle)
+ * Namena:
+ * - Read-only pregled sadrzaja i komentara (bez forme), sa isticanjem bedzeva i lock statusa.
+ * - Bookmark dugme radi u 2 moda: parent Undo (onUnsave) ili lokalni toggle (fallback).
  *
- * @param {Object} post - Objekat koji sadrzi sve podatke o sacuvanom postu
- * @returns {JSX.Element} Kartica sacuvanog posta
+ * Kljucno ponasanje:
+ * - Header sa autorom i bedzevima (informativno; klikovi na oznake ne pokrecu navigaciju).
+ * - Ako je prosledjen `onUnsave`, koristi se parent Undo prozor (deterministican UX);
+ *   u suprotnom koristi se lokalni `toggleSavePost` (bez Undo).
+ * - Locked stanje: vizuelno naglasavanje (opacity/grayscale) + tooltip; Comments u read-only modu.
+ *
+ * Limiti i ugovori:
+ * - CONTENT_PREVIEW_MAX = 300 (karaktera) → dodaje "..." kada je content duzi.
+ * - Pretpostavka: ako je `locked === true`, postoji `lockedAt`
+ *   (u suprotnom formatiran datum moze biti nevalidan).
+ * - Data contract (Comments): read-only preview (showAll=false), bez badge modala i bez forme.
+ *
+ * @param {Object} post - Podaci o sacuvanom postu.
+ * @param {Function} [onUnsave] - Ako postoji, koristi se parent Undo flow umesto lokalnog toggla.
+ * @param {boolean} [isPendingUndo=false] - Kada je true, bookmark je privremeno onemogucen zbog Undo prozora.
+ * @returns {JSX.Element}
  */
 
-const SavedPostCard = ({ post }) => {
+const CONTENT_PREVIEW_MAX = 300; // limit pregleda (broj karaktera)
+
+const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const { user } = useContext(AuthContext);
+
   const {
     author,
     title,
@@ -44,19 +60,20 @@ const SavedPostCard = ({ post }) => {
   } = post;
 
   const { name, profilePicture } = author || {};
-  const formattedDate = lockedAt?.toDate().toLocaleDateString();
+  const formattedDate = lockedAt?.toDate().toLocaleDateString(); // moze biti undefined ako lockedAt ne postoji
   const navigate = useNavigate();
 
   const handleClick = () => {
+    // Klik na karticu vodi na detalje posta
     return navigate(`/post/${post.id}`);
   };
 
-  // Hook koji proverava da li je post sacuvan od strane korisnika
+  // Hook: proverava da li je post sacuvan od strane trenutnog korisnika
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
-
+    // Lokalni fallback (bez Undo): preklopi saved stanje preko util funkcije
     const newState = await toggleSavePost(user, post.id, isSaved);
     setIsSaved(newState);
   };
@@ -77,7 +94,9 @@ const SavedPostCard = ({ post }) => {
     ${locked ? "opacity-80 grayscale hover:opacity-100 transition" : ""}
   `}
       >
-        {/* Header */}
+        {/* Header
+           Autor sekcija: ring istice topContributor bedz;
+           stopPropagation sprecava navigaciju pri kliku na bedzeve/ikonice */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="relative inline-block">
@@ -88,11 +107,13 @@ const SavedPostCard = ({ post }) => {
                   author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
                 }`}
               />
+
               {author.badges?.topContributor && (
                 <div
                   title="Top Contributor · Code-powered"
                   className="group relative"
                   onClick={(e) => {
+                    // Interakcija sa bedzom ne treba da pokrene navigaciju
                     e.stopPropagation();
                   }}
                 >
@@ -101,9 +122,11 @@ const SavedPostCard = ({ post }) => {
               )}
             </div>
 
+            {/* Bedzevi (read-only): informativne oznake u Saved kontekstu */}
             <div
               className="flex gap-1 items-center hover:scale-105"
               onClick={(e) => {
+                // Spreci navigaciju pri kliku na bedzeve
                 e.stopPropagation();
               }}
             >
@@ -120,11 +143,30 @@ const SavedPostCard = ({ post }) => {
               )}
             </div>
 
-            {/* Bookmark dugme za uklanjanje iz sacuvanih postova */}
+            {/* Bookmark:
+               - Ako parent da onUnsave → koristimo njegov Undo (deterministican prozor).
+               - U suprotnom lokalni toggle (bez Undo).
+               - Tokom pending Undo, dugme je onemoguceno da izbegnemo dvoklik trku. */}
             <div
-              onClick={handleSaveToggle}
-              className="hover:scale-110 transition"
-              title={isSaved ? "Remove from saved" : "Save this post"}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isPendingUndo) return;
+                if (onUnsave) {
+                  onUnsave(post);
+                } else {
+                  handleSaveToggle(e);
+                }
+              }}
+              className={`hover:scale-110 transition ${
+                isPendingUndo ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              title={
+                isPendingUndo
+                  ? "Undo pending..."
+                  : isSaved
+                  ? "Remove from saved"
+                  : "Save this post"
+              }
             >
               {isSaved ? (
                 <BsBookmarkFill className="text-slate-950" />
@@ -133,6 +175,7 @@ const SavedPostCard = ({ post }) => {
               )}
             </div>
 
+            {/* Autor + datum (edited vs posted) */}
             <div>
               <p className="text-sm font-semibold text-gray-800">{name}</p>
               <p className="text-xs text-gray-500">
@@ -143,6 +186,7 @@ const SavedPostCard = ({ post }) => {
             </div>
           </div>
 
+          {/* Locked: vizuelna oznaka + tooltip; ispod komentari su read-only */}
           {locked && (
             <span
               className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full flex items-center gap-1"
@@ -154,23 +198,24 @@ const SavedPostCard = ({ post }) => {
           )}
         </div>
 
-        {/* Title */}
+        {/* Naslov */}
         <h2 className="text-xl font-bold mb-2">{title}</h2>
 
-        {/* Description */}
+        {/* Opis */}
         {description && (
           <p className="text-sm text-gray-700 mb-2">{description}</p>
         )}
 
-        {/* Content */}
+        {/* Sadrzaj (preview)
+           Prikaz prvih CONTENT_PREVIEW_MAX karaktera; cuva razmake/linije preko 'whitespace-pre-line' */}
         {content && (
           <p className="text-sm text-gray-800 mb-3 whitespace-pre-line">
-            {content.slice(0, 300)}
-            {content.length > 300 && "..."}
+            {content.slice(0, CONTENT_PREVIEW_MAX)}
+            {content.length > CONTENT_PREVIEW_MAX && "..."}
           </p>
         )}
 
-        {/* Category + Tags */}
+        {/* Kategorija + tagovi */}
         <div className="flex flex-wrap items-center gap-2 mt-3 mb-2">
           <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
             {category}
@@ -186,7 +231,8 @@ const SavedPostCard = ({ post }) => {
           ))}
         </div>
 
-        {/* Comment preview (prva 2) */}
+        {/* Komentari – read-only preview (prva N preko showAll=false)
+           Sakrij formu (locked=true) i iskljuci badge modal radi kompaktnosti */}
         <div className="mt-4">
           <Comments
             postID={id}
@@ -211,7 +257,7 @@ SavedPostCard.propTypes = {
     createdAt: PropTypes.object, // Firestore Timestamp
     updatedAt: PropTypes.object,
     locked: PropTypes.bool,
-    lockedAt: PropTypes.object,
+    lockedAt: PropTypes.object, // Firestore Timestamp (pretpostavka kada je locked === true)
     tags: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string,
@@ -229,6 +275,8 @@ SavedPostCard.propTypes = {
       trending: PropTypes.bool,
     }),
   }).isRequired,
+  onUnsave: PropTypes.func, // parent Undo flow (opciono)
+  isPendingUndo: PropTypes.bool, // onemoguci bookmark tokom pending Undo
 };
 
 export default SavedPostCard;
