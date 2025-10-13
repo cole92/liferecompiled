@@ -1,13 +1,21 @@
 /* eslint-disable */
 
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const cloudinary = require('./cloudinary'); // Cloudinary helper konfigurisan kroz functions:config:set
-const { default: context } = require('react-bootstrap/esm/AccordionContext');
-const { data } = require('autoprefixer');
+
+const { setGlobalOptions } = require('firebase-functions/v2/options');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+
 
 admin.initializeApp();
+setGlobalOptions({ region: 'europe-central2' });
 const db = admin.firestore();
+
+exports.ping = functions
+  .region('europe-central2')
+  .https.onRequest((req, res) => res.send('pong'));
+
 
 /**
  * Privatna pomocna funkcija koja obavlja kompletno kaskadno brisanje posta.
@@ -304,23 +312,24 @@ exports.cleanupExpiredPosts = functions
     return null;
   });
 
-  exports.UpdateUserStatsOnPostCreate = functions
-    .region("europe-central2")
-    .firestore.document("posts/{postId}")
-    .onCreate((snap, context) => {
-      const data = snap.data();
-      const userId = data.userId;
-      const createdAt = data.createdAt;
+  
 
-      if (!userId) {
-        console.warn("Post created without userId:", context.params.postId);
-        return null;
-      }
+    exports.updateUserStatsOnPostCreateV2 = onDocumentCreated('posts/{postId}', (event) => {
+  const data = event.data?.data();
+  const userId = data?.userId;
+  const createdAt = data?.createdAt;
 
-      const date = createdAt?.toDate ? createdAt.toDate() : new Date();
-      const y = date.getUTCFullYear();
-      const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-      const monthKey = `${y} - ${m}`;
-      console.log("userId:", userId, "monthKey:", monthKey);
-    });
+  if (!userId) {
+    console.warn('[v2] Post created without userId:', event.params.postId);
+    return;
+  }
+
+  const date = createdAt?.toDate ? createdAt.toDate() : new Date();
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const monthKey = `${y}-${m}`;
+
+  console.log('[v2] userId:', userId, 'monthKey:', monthKey);
+});
+
     
