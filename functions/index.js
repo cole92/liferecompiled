@@ -3,6 +3,8 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const cloudinary = require('./cloudinary'); // Cloudinary helper konfigurisan kroz functions:config:set
+const { default: context } = require('react-bootstrap/esm/AccordionContext');
+const { data } = require('autoprefixer');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -302,3 +304,23 @@ exports.cleanupExpiredPosts = functions
     return null;
   });
 
+  exports.UpdateUserStatsOnPostCreate = functions
+    .region("europe-central2")
+    .firestore.document("posts/{postId}")
+    .onCreate((snap, context) => {
+      const data = snap.data();
+      const userId = data.userId;
+      const createdAt = data.createdAt;
+
+      if (!userId) {
+        console.warn("Post created without userId:", context.params.postId);
+        return null;
+      }
+
+      const date = createdAt?.toDate ? createdAt.toDate() : new Date();
+      const y = date.getUTCFullYear();
+      const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const monthKey = `${y} - ${m}`;
+      console.log("userId:", userId, "monthKey:", monthKey);
+    });
+    
