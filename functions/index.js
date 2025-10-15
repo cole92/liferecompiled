@@ -1,34 +1,61 @@
 /* eslint-disable */
 
-const functions = require('firebase-functions/v1');
-const admin = require('firebase-admin');
-const cloudinary = require('./cloudinary'); // Cloudinary helper konfigurisan kroz functions:config:set
+// -------------------- IMPORTS --------------------
+const admin = require("firebase-admin");
 
-const { setGlobalOptions } = require('firebase-functions/v2/options');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+// v2 core
+const { setGlobalOptions } = require("firebase-functions/v2/options");
+const {
+  onRequest,
+  onCall,
+  HttpsError,
+} = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 
+// (zadrži cloudinary helper ako ti treba u produkciji)
+const cloudinary = require("./cloudinary");
 
+// -------------------- INIT --------------------
 admin.initializeApp();
-setGlobalOptions({ region: 'europe-central2' });
+setGlobalOptions({ region: "europe-central2" });
+
 const db = admin.firestore();
+const isEmulator = !!process.env.FUNCTIONS_EMULATOR;
 
-exports.ping = functions
-  .region('europe-central2')
-  .https.onRequest((req, res) => res.send('pong'));
+// -------------------- PING (v2) --------------------
+exports.ping = onRequest((req, res) => {
+  res.send("pong");
+});
 
+// -------------------- HELPERS --------------------
 
-/**
- * Privatna pomocna funkcija koja obavlja kompletno kaskadno brisanje posta.
- * - Brise sve komentare, reakcije i sliku ako postoji
- * - Ne koristi context.auth – mora se eksplicitno proslediti `uid`
- *
- * @param {Object} params
- * @param {string} params.postId - ID posta koji se brise
- * @param {string} params.uid - ID korisnika koji je vlasnik posta
- */
+// BFS brisanje cele grane komentara
+async function deleteCommentBatch(rootId) {
+  const toDelete = [rootId];
 
+  // prikupi sve potomke
+  for (let i = 0; i < toDelete.length; i++) {
+    const parentId = toDelete[i];
+    const snap = await db
+      .collection("comments")
+      .where("parentID", "==", parentId)
+      .get();
+    snap.docs.forEach((doc) => toDelete.push(doc.id));
+  }
+
+  // batched delete (max 500)
+  while (toDelete.length) {
+    const batch = db.batch();
+    const chunk = toDelete.splice(0, 500);
+    chunk.forEach((id) => batch.delete(db.collection("comments").doc(id)));
+    await batch.commit();
+  }
+}
+
+// Kaskadno brisanje posta + veza
 async function deletePostCascadeInternal({ postId, uid }) {
-  const postRef = db.collection('posts').doc(postId);
+  const postRef = db.collection("posts").doc(postId);
   const postSnap = await postRef.get();
 
   if (!postSnap.exists) {
@@ -37,15 +64,21 @@ async function deletePostCascadeInternal({ postId, uid }) {
 
   const postData = postSnap.data();
   if (postData.userId !== uid) {
-    throw new Error('Permission denied: user is not the owner of the post.');
+    throw new Error("Permission denied: user is not the owner of the post.");
   }
 
-  // Brisanje komentara po postID (bez parent hijerarhije)
+  // Fallback: FieldPath.documentId() može biti undefined u nekim setup-ima
+  const docIdField = admin.firestore.FieldPath?.documentId
+    ? admin.firestore.FieldPath.documentId()
+    : "__name__";
+
+  // komentari
   let lastComment = null;
   do {
-    let q = db.collection('comments')
-      .where('postID', '==', postId)
-      .orderBy(admin.firestore.FieldPath.documentId())
+    let q = db
+      .collection("comments")
+      .where("postID", "==", postId)
+      .orderBy(docIdField)
       .limit(500);
 
     if (lastComment) q = q.startAfter(lastComment);
@@ -54,19 +87,19 @@ async function deletePostCascadeInternal({ postId, uid }) {
     if (snap.empty) break;
 
     const batch = db.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
+    snap.docs.forEach((d) => batch.delete(d.ref));
     await batch.commit();
 
     lastComment = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // Brisanje reakcija
+  // reakcije
   let last = null;
   do {
     let q = db
-      .collection('reactions')
-      .where('postId', '==', postId)
-      .orderBy(admin.firestore.FieldPath.documentId())
+      .collection("reactions")
+      .where("postId", "==", postId)
+      .orderBy(docIdField)
       .limit(500);
     if (last) q = q.startAfter(last);
 
@@ -80,256 +113,263 @@ async function deletePostCascadeInternal({ postId, uid }) {
     last = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // Brisanje slike sa Cloudinary ako postoji
+  // cloudinary slika (best-effort)
   if (postData.imagePublicId) {
     try {
       await cloudinary.uploader.destroy(postData.imagePublicId);
     } catch (err) {
-      console.warn('[Cloudinary] delete error:', err);
+      console.warn("[Cloudinary] delete error:", err);
     }
   }
 
-  // Na kraju brisemo post dokument
+  // na kraju obriši sam post
   await postRef.delete();
 }
 
+// -------------------- HTTPS onCall (v2) --------------------
 
-/**
- * Rekurzivno brise komentar i sve njegove potomke (koristi BFS + batcheve).
- *
- * @param {string} commentId - ID komentara koji treba obrisati
- * @returns {Promise<{ success: boolean }>}
- */
-
-exports.deleteCommentAndChildren = functions
-  .region("europe-central2")
-  .https.onCall(async (data, context) => {
-    const { commentId } = data || {};
-
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to delete a comment.');
-    }
-
-    const docSnap = await db.collection('comments').doc(commentId).get();
-    if (!docSnap.exists) {
-      throw new functions.https.HttpsError('not-found', `Comment with ID ${commentId} does not exist.`);
-    }
-
-    try {
-      await deleteCommentBatch(commentId);
-      return { success: true };
-    } catch (error) {
-      console.error('Error while deleting comment and its children:', error);
-      throw new functions.https.HttpsError('internal', 'An error occurred while deleting the comment.');
-    }
-  });
-
-/**
- * Pomocna funkcija koja rekurzivno brise sve komentare i njihove potomke.
- *
- * @param {string} rootId - ID korenskog komentara
- */
-
-async function deleteCommentBatch(rootId) {
-  const toDelete = [rootId];
-
-  // Prikupljamo sve potomke komentara (BFS)
-  for (let i = 0; i < toDelete.length; i++) {
-    const parentId = toDelete[i];
-    const snap = await db.collection('comments').where('parentID', '==', parentId).get();
-    snap.docs.forEach((doc) => toDelete.push(doc.id));
-  }
-
-  // Brisemo u batch-ovima (max 500 dokumenata)
-  while (toDelete.length) {
-    const batch = db.batch();
-    const chunk = toDelete.splice(0, 500);
-    chunk.forEach((id) => {
-      batch.delete(db.collection('comments').doc(id));
-    });
-    await batch.commit();
-  }
-}
-
-/**
- * Soft-delete komentar → oznacava ga kao obrisan (ne brise iz baze).
- *
- * @param {string} commentId - ID komentara koji se soft-brise
- * @returns {Promise<{ success: boolean }>}
- */
-
-exports.softDeleteComment = functions
-  .region("europe-central2")
-  .https.onCall(async (data, context) => {
-    const { commentId } = data || {};
-
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to delete a comment.');
-    }
-
-    const docSnap = await db.collection('comments').doc(commentId).get();
-    if (!docSnap.exists) {
-      throw new functions.https.HttpsError('not-found', `Comment with ID ${commentId} does not exist.`);
-    }
-
-    const commentData = docSnap.data();
-    if (commentData.userID !== context.auth.uid) {
-      throw new functions.https.HttpsError('permission-denied', 'You are not authorized to delete this comment.');
-    }
-
-    await db.collection('comments').doc(commentId).update({
-      deleted: true,
-      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
+// deletePostCascade (v2)
+exports.deletePostCascade = onCall(
+  { memory: "512MiB", timeoutSeconds: 120 },
+  async (req) => {
+    if (!req.auth)
+      throw new HttpsError("unauthenticated", "You are not logged in.");
+    const { postId } = req.data || {};
+    if (!postId) throw new HttpsError("invalid-argument", "Missing postId.");
+    await deletePostCascadeInternal({ postId, uid: req.auth.uid });
     return { success: true };
+  }
+);
+
+// deleteCommentAndChildren (v2)
+exports.deleteCommentAndChildren = onCall(async (req) => {
+  if (!req.auth)
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be logged in to delete a comment."
+    );
+  const { commentId } = req.data || {};
+  if (!commentId)
+    throw new HttpsError("invalid-argument", "Missing commentId.");
+
+  const docSnap = await db.collection("comments").doc(commentId).get();
+  if (!docSnap.exists)
+    throw new HttpsError("not-found", `Comment ${commentId} does not exist.`);
+
+  try {
+    await deleteCommentBatch(commentId);
+    return { success: true };
+  } catch (err) {
+    console.error("Error while deleting comment and its children:", err);
+    throw new HttpsError(
+      "internal",
+      "An error occurred while deleting the comment."
+    );
+  }
+});
+
+// softDeleteComment (v2)
+exports.softDeleteComment = onCall(async (req) => {
+  if (!req.auth)
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be logged in to delete a comment."
+    );
+  const { commentId } = req.data || {};
+  if (!commentId)
+    throw new HttpsError("invalid-argument", "Missing commentId.");
+
+  const docRef = db.collection("comments").doc(commentId);
+  const docSnap = await docRef.get();
+  if (!docSnap.exists)
+    throw new HttpsError("not-found", `Comment ${commentId} does not exist.`);
+
+  const commentData = docSnap.data();
+  if (commentData.userID !== req.auth.uid) {
+    throw new HttpsError(
+      "permission-denied",
+      "You are not authorized to delete this comment."
+    );
+  }
+
+  await docRef.update({
+    deleted: true,
+    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-/**
- * Dodaje novi komentar uz validaciju sadrzaja i ogranicenje brzine.
- *
- * @param {string} postId - ID posta kojem pripada komentar
- * @param {string} content - Tekst komentara
- * @param {string|null} parentId - (opciono) ID roditeljskog komentara
- * @returns {Promise<{ success: boolean, commentId: string }>}
- */
+  return { success: true };
+});
 
-exports.addCommentSecure = functions
-  .region("europe-central2")
-  .runWith({ memory: '256MB' })
-  .https.onCall(async (data, context) => {
-    const { postId, content, parentId = null } = data || {};
+// addCommentSecure (v2)
+exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
+  if (!req.auth)
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be authenticated to add a comment."
+    );
 
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You must be authenticated to add a comment.');
+  const { postId, content, parentId = null } = req.data || {};
+  const trimmedContent = content?.trim();
+
+  if (!postId || !trimmedContent) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Missing postId or comment content is empty."
+    );
+  }
+
+  if (trimmedContent.length > 500) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Comment must not exceed 500 characters."
+    );
+  }
+
+  // Rate limit: max 3 komentara u 30 sekundi
+  const now = admin.firestore.Timestamp.now();
+  const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(
+    now.toMillis() - 30_000
+  );
+
+  const recent = await db
+    .collection("comments")
+    .where("userID", "==", req.auth.uid)
+    .where("timestamp", ">", thirtySecondsAgo)
+    .limit(4)
+    .get();
+
+  if (recent.size >= 4) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "You are sending comments too quickly. Try again in a few seconds."
+    );
+  }
+
+  const newComment = {
+    postID: postId,
+    userID: req.auth.uid,
+    content: trimmedContent,
+    parentID: parentId ?? null,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    likes: [],
+  };
+
+  try {
+    const docRef = await db.collection("comments").add(newComment);
+    return { success: true, commentId: docRef.id };
+  } catch (error) {
+    console.error("Error adding comment:", error);
+    throw new HttpsError(
+      "internal",
+      "An error occurred while saving the comment."
+    );
+  }
+});
+
+// -------------------- FIRESTORE TRIGGERS (v2) --------------------
+exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
+  "posts/{postId}",
+  (event) => {
+    const data = event.data?.data();
+    const userId = data?.userId;
+    const createdAt = data?.createdAt;
+
+    if (!userId) {
+      console.warn("[v2] Post created without userId:", event.params.postId);
+      return;
     }
 
-    const trimmedContent = content?.trim();
-    if (!postId || !trimmedContent) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing postId or comment content is empty.');
-    }
+    const date = createdAt?.toDate ? createdAt.toDate() : new Date();
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const monthKey = `${y}-${m}`;
 
-    if (trimmedContent.length > 500) {
-      throw new functions.https.HttpsError('invalid-argument', 'Comment must not exceed 500 characters.');
-    }
+    console.log("[v2] userId:", userId, "monthKey:", monthKey);
+  }
+);
 
-    // Rate limit: max 3 komentara u 30 sekundi
-    const now = admin.firestore.Timestamp.now();
-    const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 30_000);
-
-    const recent = await db
-      .collection('comments')
-      .where('userID', '==', context.auth.uid)
-      .where('timestamp', '>', thirtySecondsAgo)
-      .limit(4)
-      .get();
-
-    if (recent.size >= 4) {
-      throw new functions.https.HttpsError(
-        'resource-exhausted',
-        "You're sending comments too quickly. Please try again in a few seconds."
-      );
-    }
-
-    const newComment = {
-      postID: postId,
-      userID: context.auth.uid,
-      content: trimmedContent,
-      parentID: parentId ?? null,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      likes: [],
-    };
-
-    try {
-      const docRef = await db.collection('comments').add(newComment);
-      return { success: true, commentId: docRef.id };
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      throw new functions.https.HttpsError('internal', 'An error occurred while saving the comment.');
-    }
-  });
-
-/**
- * Cloud Function: Kaskadno brisanje posta i svih povezanih podataka
- */
-
-exports.deletePostCascade = functions
-  .region('europe-central2')
-  .runWith({ memory: '512MB', timeoutSeconds: 120 })
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You are not logged in.');
-    }
-
-    const { postId } = data || {};
-    if (!postId) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing postId.');
-    }
-
-    try {
-      await deletePostCascadeInternal({ postId, uid: context.auth.uid });
-      return { success: true };
-    } catch (err) {
-      console.error('deletePostCascade error:', err);
-      throw new functions.https.HttpsError('internal', 'Cascade delete failed.');
-    }
-  });
-
-exports.cleanupExpiredPosts = functions
-  .region('europe-central2')
-  .runWith({ memory: '512MB', timeoutSeconds: 120 })
-  .pubsub.schedule('every 24 hours')
-  .timeZone('Europe/Belgrade')
-  .onRun(async () => {
+// -------------------- SCHEDULER (v2) --------------------
+exports.cleanupExpiredPostsV2 = onSchedule(
+  {
+    schedule: "every 24 hours",
+    timeZone: "Europe/Belgrade",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+  },
+  async () => {
     const now = admin.firestore.Timestamp.now();
     const cutoff = admin.firestore.Timestamp.fromMillis(
       now.toMillis() - 30 * 24 * 60 * 60 * 1000
     );
 
-    const snap = await db.collection('posts')
-      .where('deleted', '==', true)
-      .where('deletedAt', '<=', cutoff)
+    const snap = await db
+      .collection("posts")
+      .where("deleted", "==", true)
+      .where("deletedAt", "<=", cutoff)
       .get();
 
     if (snap.empty) {
-      console.log(' No posts to hard-delete.');
+      console.log("No posts to hard-delete.");
       return null;
     }
 
-    console.log(` Hard-deleting ${snap.size} expired post(s)…`);
+    console.log(`Hard-deleting ${snap.size} expired post(s)…`);
 
     for (const doc of snap.docs) {
       const postId = doc.id;
-      const authorId = doc.get('userId');
+      const authorId = doc.get("userId");
       try {
         await deletePostCascadeInternal({ postId, uid: authorId });
-        console.log(` Deleted post ${postId}`);
+        console.log(`Deleted post ${postId}`);
       } catch (err) {
         console.error(`Failed to delete post ${postId}:`, err);
       }
     }
 
     return null;
+  }
+);
+
+// -------------------- DEV TEST ROUTES (only in emulator) --------------------
+// Ovo služi da lako testiraš callable logiku bez functions:shell.
+// Aktivno samo kad radi emulator. Ne deploy-ovati u prod.
+
+if (isEmulator) {
+  // Brisanje posta preko GET / _testDeletePost?id=POST_ID&uid=USER_ID
+  exports.testDeletePost = onRequest(async (req, res) => {
+    try {
+      const postId = String(req.query.id || "");
+      const uid = String(req.query.uid || "");
+      if (!postId || !uid) return res.status(400).send("Missing id or uid");
+
+      await deletePostCascadeInternal({ postId, uid });
+      res.send("ok");
+    } catch (e) {
+      res.status(400).send(String(e));
+    }
   });
 
-  
+  // Soft delete komentara: /_testSoftDeleteComment?id=COMMENT_ID&uid=USER_ID
+  exports.testSoftDeleteComment = onRequest(async (req, res) => {
+    try {
+      const commentId = String(req.query.id || "");
+      const uid = String(req.query.uid || "");
+      if (!commentId || !uid) return res.status(400).send("Missing id or uid");
 
-    exports.updateUserStatsOnPostCreateV2 = onDocumentCreated('posts/{postId}', (event) => {
-  const data = event.data?.data();
-  const userId = data?.userId;
-  const createdAt = data?.createdAt;
+      const ref = db.collection("comments").doc(commentId);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).send("comment not found");
 
-  if (!userId) {
-    console.warn('[v2] Post created without userId:', event.params.postId);
-    return;
-  }
+      if (snap.data().userID !== uid) return res.status(403).send("forbidden");
 
-  const date = createdAt?.toDate ? createdAt.toDate() : new Date();
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const monthKey = `${y}-${m}`;
+      await ref.update({
+        deleted: true,
+        deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-  console.log('[v2] userId:', userId, 'monthKey:', monthKey);
-});
-
-    
+      res.send("ok");
+    } catch (e) {
+      res.status(400).send(String(e));
+    }
+  });
+}

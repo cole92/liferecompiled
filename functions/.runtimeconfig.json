@@ -1,0 +1,7 @@
+{
+  "cloudinary": {
+    "cloud_name": "demo",
+    "api_key": "xxx",
+    "api_secret": "xxx"
+  }
+}
