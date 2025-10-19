@@ -2,6 +2,7 @@
 
 // -------------------- IMPORTS --------------------
 const admin = require("firebase-admin");
+console.log("[CF] index loaded");
 
 // v2 core
 const { setGlobalOptions } = require("firebase-functions/v2/options");
@@ -10,7 +11,10 @@ const {
   onCall,
   HttpsError,
 } = require("firebase-functions/v2/https");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+} = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 // (zadrži cloudinary helper ako ti treba u produkciji)
@@ -266,25 +270,93 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
   }
 });
 
-// -------------------- FIRESTORE TRIGGERS (v2) --------------------
+// -------------------- FIRESTORE TRIGGER: onCreate (v2) --------------------
 exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
   "posts/{postId}",
-  (event) => {
+  async (event) => {
     const data = event.data?.data();
     const userId = data?.userId;
     const createdAt = data?.createdAt;
+    if (!userId) return;
 
-    if (!userId) {
-      console.warn("[v2] Post created without userId:", event.params.postId);
-      return;
-    }
-
-    const date = createdAt?.toDate ? createdAt.toDate() : new Date();
-    const y = date.getUTCFullYear();
-    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    // monthKey = "YYYY-MM"
+    const d = createdAt?.toDate ? createdAt.toDate() : new Date();
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
     const monthKey = `${y}-${m}`;
 
-    console.log("[v2] userId:", userId, "monthKey:", monthKey);
+    const db = admin.firestore();
+    const ref = db.collection("userStats").doc(userId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      // prvi put – kreiramo dokument i setujemo createdAt SAMO sada
+      await ref.set({
+        totalPosts: 1,
+        postsPerMonth: { [monthKey]: 1 },
+        restoredPosts: 0,
+        permanentlyDeletedPosts: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(), // samo prvi put
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      // sledeći put – samo inkrementi i updatedAt (createdAt ostaje netaknut)
+      await ref.set(
+        {
+          totalPosts: admin.firestore.FieldValue.increment(1),
+          [`postsPerMonth.${monthKey}`]:
+            admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    console.log("[v2] stats bumped for", userId, "month", monthKey);
+  }
+);
+
+// On restore
+
+exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
+  "posts/{postId}",
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+
+    const wasDeleted = before.deleted === true;
+    const isDeleted = after.deleted === true;
+    if (!(wasDeleted && !isDeleted)) return; // samo restore
+
+    const userId = after.userId;
+    if (!userId) return;
+
+    const db = admin.firestore();
+    const ref = db.collection("userStats").doc(userId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      // prvi put nastaje userStats kroz RESTORE → setuj createdAt
+      await ref.set({
+        restoredPosts: 1,
+        totalPosts: 0,
+        permanentlyDeletedPosts: 0,
+        postsPerMonth: {},
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await ref.set(
+        {
+          restoredPosts: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    console.log("[v2] restore++ for", userId, "post", event.params.postId);
   }
 );
 
@@ -329,47 +401,3 @@ exports.cleanupExpiredPostsV2 = onSchedule(
     return null;
   }
 );
-
-// -------------------- DEV TEST ROUTES (only in emulator) --------------------
-// Ovo služi da lako testiraš callable logiku bez functions:shell.
-// Aktivno samo kad radi emulator. Ne deploy-ovati u prod.
-
-if (isEmulator) {
-  // Brisanje posta preko GET / _testDeletePost?id=POST_ID&uid=USER_ID
-  exports.testDeletePost = onRequest(async (req, res) => {
-    try {
-      const postId = String(req.query.id || "");
-      const uid = String(req.query.uid || "");
-      if (!postId || !uid) return res.status(400).send("Missing id or uid");
-
-      await deletePostCascadeInternal({ postId, uid });
-      res.send("ok");
-    } catch (e) {
-      res.status(400).send(String(e));
-    }
-  });
-
-  // Soft delete komentara: /_testSoftDeleteComment?id=COMMENT_ID&uid=USER_ID
-  exports.testSoftDeleteComment = onRequest(async (req, res) => {
-    try {
-      const commentId = String(req.query.id || "");
-      const uid = String(req.query.uid || "");
-      if (!commentId || !uid) return res.status(400).send("Missing id or uid");
-
-      const ref = db.collection("comments").doc(commentId);
-      const snap = await ref.get();
-      if (!snap.exists) return res.status(404).send("comment not found");
-
-      if (snap.data().userID !== uid) return res.status(403).send("forbidden");
-
-      await ref.update({
-        deleted: true,
-        deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      res.send("ok");
-    } catch (e) {
-      res.status(400).send(String(e));
-    }
-  });
-}
