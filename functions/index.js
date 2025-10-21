@@ -2,7 +2,7 @@
 
 // -------------------- IMPORTS --------------------
 const admin = require("firebase-admin");
-console.log("[CF] index loaded");
+console.log("[CF] index loadedd");
 
 // v2 core
 const { setGlobalOptions } = require("firebase-functions/v2/options");
@@ -33,6 +33,31 @@ exports.ping = onRequest((req, res) => {
 });
 
 // -------------------- HELPERS --------------------
+
+// Azuriranje permDelete statistike
+async function bumpPermanentDeletesForUser(userId) {
+  const ref = admin.firestore().collection("userStats").doc(userId);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    await ref.set({
+      totalPosts: 0,
+      postsPerMonth: {},
+      restoredPosts: 0,
+      permanentlyDeletedPosts: 1,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } else {
+    await ref.set(
+      {
+        permanentlyDeletedPosts: admin.firestore.FieldValue.increment(1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+}
 
 // BFS brisanje cele grane komentara
 async function deleteCommentBatch(rootId) {
@@ -126,8 +151,11 @@ async function deletePostCascadeInternal({ postId, uid }) {
     }
   }
 
-  // na kraju obriši sam post
+  // na kraju obrisi sam post
   await postRef.delete();
+
+  // stat bump tek kada je post stvarno obrisan (azuriranje perm delete stats)
+  await bumpPermanentDeletesForUser(uid);
 }
 
 // -------------------- HTTPS onCall (v2) --------------------
@@ -285,7 +313,6 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
     const m = String(d.getUTCMonth() + 1).padStart(2, "0");
     const monthKey = `${y}-${m}`;
 
-    const db = admin.firestore();
     const ref = db.collection("userStats").doc(userId);
     const snap = await ref.get();
 
@@ -332,7 +359,6 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
     const userId = after.userId;
     if (!userId) return;
 
-    const db = admin.firestore();
     const ref = db.collection("userStats").doc(userId);
     const snap = await ref.get();
 
