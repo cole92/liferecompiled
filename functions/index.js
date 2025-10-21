@@ -2,7 +2,7 @@
 
 // -------------------- IMPORTS --------------------
 const admin = require("firebase-admin");
-console.log("[CF] index loadedd");
+console.log("[CF] index loaded");
 
 // v2 core
 const { setGlobalOptions } = require("firebase-functions/v2/options");
