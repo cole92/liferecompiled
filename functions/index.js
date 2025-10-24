@@ -313,33 +313,45 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
     const m = String(d.getUTCMonth() + 1).padStart(2, "0");
     const monthKey = `${y}-${m}`;
 
-    const ref = db.collection("userStats").doc(userId);
-    const snap = await ref.get();
+    const statsRef = db.collection("userStats").doc(userId);
+    const markerRef = db.collection("processedEvents").doc(event.id);
 
-    if (!snap.exists) {
-      // prvi put – kreiramo dokument i setujemo createdAt SAMO sada
-      await ref.set({
-        totalPosts: 1,
-        postsPerMonth: { [monthKey]: 1 },
-        restoredPosts: 0,
-        permanentlyDeletedPosts: 0,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(), // samo prvi put
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } else {
-      // sledeći put – samo inkrementi i updatedAt (createdAt ostaje netaknut)
-      await ref.set(
-        {
-          totalPosts: admin.firestore.FieldValue.increment(1),
-          [`postsPerMonth.${monthKey}`]:
-            admin.firestore.FieldValue.increment(1),
+    await db.runTransaction(async (tx) => {
+      const markerSnap = await tx.get(markerRef);
+      if (markerSnap.exists) return;
+
+      const statsSnap = await tx.get(statsRef);
+      if (!statsSnap.exists) {
+        tx.set(statsRef, {
+          totalPosts: 1,
+          postsPerMonth: { [monthKey]: 1 },
+          restoredPosts: 0,
+          permanentlyDeletedPosts: 0,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(), // samo prvi put
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-    }
+        });
+      } else {
+        tx.set(
+          statsRef,
+          {
+            totalPosts: admin.firestore.FieldValue.increment(1),
+            [`postsPerMonth.${monthKey}`]:
+              admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
 
-    console.log("[v2] stats bumped for", userId, "month", monthKey);
+          { merge: true }
+        );
+      }
+
+      tx.set(markerRef, {
+        type: "posts.onCreate",
+        postId: event.params.postId,
+        userId,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    console.log("[v2] onCreate idempotent ok →", event.id, userId, monthKey);
   }
 );
 
@@ -359,30 +371,48 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
     const userId = after.userId;
     if (!userId) return;
 
-    const ref = db.collection("userStats").doc(userId);
-    const snap = await ref.get();
+    const statsRef = db.collection("userStats").doc(userId);
+    const markerRef = db.collection("processedEvents").doc(event.id);
 
-    if (!snap.exists) {
-      // prvi put nastaje userStats kroz RESTORE → setuj createdAt
-      await ref.set({
-        restoredPosts: 1,
-        totalPosts: 0,
-        permanentlyDeletedPosts: 0,
-        postsPerMonth: {},
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } else {
-      await ref.set(
-        {
-          restoredPosts: admin.firestore.FieldValue.increment(1),
+    await db.runTransaction(async (tx) => {
+      const markerSnap = await tx.get(markerRef);
+      if (markerSnap.exists) return; // već obrađeno
+
+      const statsSnap = await tx.get(statsRef);
+      if (!statsSnap.exists) {
+        tx.set(statsRef, {
+          totalPosts: 0,
+          postsPerMonth: {},
+          restoredPosts: 1,
+          permanentlyDeletedPosts: 0,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-    }
+        });
+      } else {
+        tx.set(
+          statsRef,
+          {
+            restoredPosts: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
 
-    console.log("[v2] restore++ for", userId, "post", event.params.postId);
+      tx.set(markerRef, {
+        type: "posts.onUpdate.restore",
+        postId: event.params.postId,
+        userId,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    console.log(
+      "[v2] restore idempotent ok →",
+      event.id,
+      userId,
+      event.params.postId
+    );
   }
 );
 
