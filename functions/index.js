@@ -25,7 +25,7 @@ admin.initializeApp();
 setGlobalOptions({ region: "europe-central2" });
 
 const db = admin.firestore();
-const isEmulator = !!process.env.FUNCTIONS_EMULATOR;
+//const isEmulator = !!process.env.FUNCTIONS_EMULATOR;
 
 // -------------------- PING (v2) --------------------
 exports.ping = onRequest((req, res) => {
