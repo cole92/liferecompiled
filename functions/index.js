@@ -36,26 +36,37 @@ exports.ping = onRequest((req, res) => {
 
 // Azuriranje permDelete statistike
 async function bumpPermanentDeletesForUser(userId) {
-  const ref = admin.firestore().collection("userStats").doc(userId);
-  const snap = await ref.get();
+  try {
+    const ref = admin.firestore().collection("userStats").doc(userId);
+    const snap = await ref.get();
 
-  if (!snap.exists) {
-    await ref.set({
-      totalPosts: 0,
-      postsPerMonth: {},
-      restoredPosts: 0,
-      permanentlyDeletedPosts: 1,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  } else {
-    await ref.set(
-      {
-        permanentlyDeletedPosts: admin.firestore.FieldValue.increment(1),
+    if (!snap.exists) {
+      await ref.set({
+        totalPosts: 0,
+        postsPerMonth: {},
+        restoredPosts: 0,
+        permanentlyDeletedPosts: 1,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+      });
+    } else {
+      await ref.set(
+        {
+          permanentlyDeletedPosts: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    console.log("[ok] permDelete++", { userId });
+  } catch (err) {
+    console.error("[err] bumpPermanentDeletesForUser", {
+      userId,
+      message: err?.message,
+      stack: err?.stack,
+    });
+    throw err;
   }
 }
 
@@ -153,9 +164,15 @@ async function deletePostCascadeInternal({ postId, uid }) {
 
   // na kraju obrisi sam post
   await postRef.delete();
-
-  // stat bump tek kada je post stvarno obrisan (azuriranje perm delete stats)
-  await bumpPermanentDeletesForUser(uid);
+  try {
+    await bumpPermanentDeletesForUser(uid);
+  } catch (err) {
+    console.error("[warn] post deleted, but stat bump failed", {
+      postId,
+      userId: uid,
+      message: err?.message,
+    });
+  }
 }
 
 // -------------------- HTTPS onCall (v2) --------------------
@@ -302,56 +319,73 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
 exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
   "posts/{postId}",
   async (event) => {
-    const data = event.data?.data();
-    const userId = data?.userId;
-    const createdAt = data?.createdAt;
-    if (!userId) return;
+    try {
+      const data = event.data?.data();
+      const userId = data?.userId;
+      const createdAt = data?.createdAt;
+      if (!userId) return;
 
-    // monthKey = "YYYY-MM"
-    const d = createdAt?.toDate ? createdAt.toDate() : new Date();
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const monthKey = `${y}-${m}`;
+      // monthKey = "YYYY-MM"
+      const d = createdAt?.toDate ? createdAt.toDate() : new Date();
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const monthKey = `${y}-${m}`;
 
-    const statsRef = db.collection("userStats").doc(userId);
-    const markerRef = db.collection("processedEvents").doc(event.id);
+      const statsRef = db.collection("userStats").doc(userId);
+      const markerRef = db.collection("processedEvents").doc(event.id);
 
-    await db.runTransaction(async (tx) => {
-      const markerSnap = await tx.get(markerRef);
-      if (markerSnap.exists) return;
+      await db.runTransaction(async (tx) => {
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
 
-      const statsSnap = await tx.get(statsRef);
-      if (!statsSnap.exists) {
-        tx.set(statsRef, {
-          totalPosts: 1,
-          postsPerMonth: { [monthKey]: 1 },
-          restoredPosts: 0,
-          permanentlyDeletedPosts: 0,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(), // samo prvi put
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } else {
-        tx.set(
-          statsRef,
-          {
-            totalPosts: admin.firestore.FieldValue.increment(1),
-            [`postsPerMonth.${monthKey}`]:
-              admin.firestore.FieldValue.increment(1),
+        const statsSnap = await tx.get(statsRef);
+        if (!statsSnap.exists) {
+          tx.set(statsRef, {
+            totalPosts: 1,
+            postsPerMonth: { [monthKey]: 1 },
+            restoredPosts: 0,
+            permanentlyDeletedPosts: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(), // samo prvi put
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
+          });
+        } else {
+          tx.set(
+            statsRef,
+            {
+              totalPosts: admin.firestore.FieldValue.increment(1),
+              [`postsPerMonth.${monthKey}`]:
+                admin.firestore.FieldValue.increment(1),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
 
-          { merge: true }
-        );
-      }
+            { merge: true }
+          );
+        }
 
-      tx.set(markerRef, {
-        type: "posts.onCreate",
-        postId: event.params.postId,
-        userId,
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        tx.set(markerRef, {
+          type: "posts.onCreate",
+          postId: event.params.postId,
+          userId,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
       });
-    });
-    console.log("[v2] onCreate idempotent ok →", event.id, userId, monthKey);
+      onsole.log("[ok] onCreate", {
+        eventId: event.id,
+        userId,
+        postId: event.params.postId,
+        monthKey,
+      });
+    } catch (err) {
+      console.error("[err] updateUserStatsOnPostCreateV2", {
+        eventId: event.id,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      return null;
+    }
   }
 );
 
@@ -360,59 +394,70 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
 exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
   "posts/{postId}",
   async (event) => {
-    const before = event.data?.before?.data();
-    const after = event.data?.after?.data();
-    if (!before || !after) return;
+    try {
+      const before = event.data?.before?.data();
+      const after = event.data?.after?.data();
+      if (!before || !after) return;
 
-    const wasDeleted = before.deleted === true;
-    const isDeleted = after.deleted === true;
-    if (!(wasDeleted && !isDeleted)) return; // samo restore
+      const wasDeleted = before.deleted === true;
+      const isDeleted = after.deleted === true;
+      if (!(wasDeleted && !isDeleted)) return; // samo restore
 
-    const userId = after.userId;
-    if (!userId) return;
+      const userId = after.userId;
+      if (!userId) return;
 
-    const statsRef = db.collection("userStats").doc(userId);
-    const markerRef = db.collection("processedEvents").doc(event.id);
+      const statsRef = db.collection("userStats").doc(userId);
+      const markerRef = db.collection("processedEvents").doc(event.id);
 
-    await db.runTransaction(async (tx) => {
-      const markerSnap = await tx.get(markerRef);
-      if (markerSnap.exists) return; // već obrađeno
+      await db.runTransaction(async (tx) => {
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return; // već obrađeno
 
-      const statsSnap = await tx.get(statsRef);
-      if (!statsSnap.exists) {
-        tx.set(statsRef, {
-          totalPosts: 0,
-          postsPerMonth: {},
-          restoredPosts: 1,
-          permanentlyDeletedPosts: 0,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } else {
-        tx.set(
-          statsRef,
-          {
-            restoredPosts: admin.firestore.FieldValue.increment(1),
+        const statsSnap = await tx.get(statsRef);
+        if (!statsSnap.exists) {
+          tx.set(statsRef, {
+            totalPosts: 0,
+            postsPerMonth: {},
+            restoredPosts: 1,
+            permanentlyDeletedPosts: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
+          });
+        } else {
+          tx.set(
+            statsRef,
+            {
+              restoredPosts: admin.firestore.FieldValue.increment(1),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
 
-      tx.set(markerRef, {
-        type: "posts.onUpdate.restore",
-        postId: event.params.postId,
-        userId,
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        tx.set(markerRef, {
+          type: "posts.onUpdate.restore",
+          postId: event.params.postId,
+          userId,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
       });
-    });
 
-    console.log(
-      "[v2] restore idempotent ok →",
-      event.id,
-      userId,
-      event.params.postId
-    );
+      console.log("[ok] bumpRestoredOnPostUpdate", {
+        eventId: event.id,
+        userId,
+        postId: event.params.postId,
+      });
+    } catch (err) {
+      console.error("[err] bumpRestoredOnPostUpdateV2", {
+        eventId: event.id,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      return null;
+    }
   }
 );
 
