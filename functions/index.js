@@ -17,8 +17,16 @@ const {
 } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
-// (zadrži cloudinary helper ako ti treba u produkciji)
-const cloudinary = require("./cloudinary");
+// Cloudinary helper je opcion (best-effort). Ako fali config ili modul — ne ruši ceo container.
+let cloudinary = { uploader: { destroy: async () => {} } };
+try {
+  // samo ako postoji i moze da se ucita
+  // (ako baca zbog env var ili paketa, ostaje stub iznad)
+  cloudinary = require("./cloudinary");
+  console.log("[CF] cloudinary helper loaded");
+} catch (e) {
+  console.warn("[CF] cloudinary helper NOT loaded (using stub):", e?.message);
+}
 
 // -------------------- INIT --------------------
 admin.initializeApp();
@@ -28,7 +36,7 @@ const db = admin.firestore();
 //const isEmulator = !!process.env.FUNCTIONS_EMULATOR;
 
 // -------------------- PING (v2) --------------------
-exports.ping = onRequest((req, res) => {
+exports.ping = onRequest({ invoker: "public" }, (req, res) => {
   res.send("pong");
 });
 
@@ -326,6 +334,7 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
       if (!userId) return;
 
       // monthKey = "YYYY-MM"
+      // Ako nema createdAt, fallback je new Date()
       const d = createdAt?.toDate ? createdAt.toDate() : new Date();
       const y = d.getUTCFullYear();
       const m = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -335,29 +344,36 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
       const markerRef = db.collection("processedEvents").doc(event.id);
 
       await db.runTransaction(async (tx) => {
+        // Idempotency marker: ako postoji, prekidamo
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
         const statsSnap = await tx.get(statsRef);
+
         if (!statsSnap.exists) {
+          // Prvo kreiranje stats dokumenta
           tx.set(statsRef, {
             totalPosts: 1,
             postsPerMonth: { [monthKey]: 1 },
             restoredPosts: 0,
             permanentlyDeletedPosts: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(), // samo prvi put
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
         } else {
+          // 1) Globalni inkrementi
+          tx.update(statsRef, {
+            totalPosts: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          // 2) Siguran inkrement u mapi preko merge objekta
           tx.set(
             statsRef,
             {
-              totalPosts: admin.firestore.FieldValue.increment(1),
-              [`postsPerMonth.${monthKey}`]:
-                admin.firestore.FieldValue.increment(1),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              postsPerMonth: {
+                [monthKey]: admin.firestore.FieldValue.increment(1),
+              },
             },
-
             { merge: true }
           );
         }
@@ -372,7 +388,8 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
           ),
         });
       });
-      onsole.log("[ok] onCreate", {
+
+      console.log("[ok] onCreate", {
         eventId: event.id,
         userId,
         postId: event.params.postId,
