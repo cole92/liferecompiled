@@ -12,6 +12,7 @@ import {
   Legend,
 } from "recharts";
 import { doc, getDoc } from "firebase/firestore";
+import { normalizeMonthlyArray } from "../../utils/statsUtils";
 
 import { db } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
@@ -40,6 +41,7 @@ const Stats = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pieData, setPieData] = useState([]);
   const [isPieEmpty, setIsPieEmpty] = useState(false);
+  
 
   useEffect(() => {
     const fetchUserStats = async () => {
@@ -61,12 +63,8 @@ const Stats = () => {
         const restored = data.restoredPosts || 0;
         const deleted = data.permanentlyDeletedPosts || 0;
 
-        const monthlyArray = Object.entries(data.postsPerMonth || {}).map(
-          ([month, count]) => ({
-            month,
-            count,
-          })
-        );
+        const monthlyArray = normalizeMonthlyArray(data.postsPerMonth || {});
+
 
         setPostsPerMonth(monthlyArray);
 

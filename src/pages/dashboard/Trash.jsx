@@ -4,11 +4,13 @@ import { useOutletContext } from "react-router-dom";
 import {
   collection,
   doc,
-  onSnapshot,
   orderBy,
   query,
   where,
   updateDoc,
+  getDocs,
+  limit,
+  startAfter,
 } from "firebase/firestore";
 // Konfiguracija i kontekst
 import { httpsCallable } from "firebase/functions";
@@ -50,53 +52,128 @@ const Trash = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [postIdToDelete, setPostIdToDelete] = useState(null);
 
-  // Subscribujemo se na real-time promene za obrisane postove korisnika
+  // Paginacija
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  const POST_PER_PAGE = 10;
+
+  const author = {
+    id: user.uid,
+    name: user.name || "Anonymous",
+    profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
+  };
+
   useEffect(() => {
-    let unsubscribe;
+    let canceled = false;
+
+    if (!user) return;
+
+    const fetchFirstPage = async () => {
+      setIsLoading(true);
+      setDeletedPosts([]);
+      setLastDoc(null);
+      setHasMore(true);
+      setIsLoadingMore(false);
+
+      try {
+        const postRef = collection(db, "posts");
+        const q = query(
+          postRef,
+          where("userId", "==", user.uid),
+          where("deleted", "==", true),
+          orderBy("deletedAt", "desc"),
+          limit(POST_PER_PAGE)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          setDeletedPosts([]);
+          setHasMore(false);
+          return;
+        }
+        if (canceled) return;
+
+        setLastDoc(snap.docs[snap.docs.length - 1]);
+        setHasMore(snap.size === POST_PER_PAGE);
+
+        const posts = snap.docs.map((doc) => {
+          const data = doc.data();
+
+          return {
+            id: doc.id,
+            ...data,
+            author,
+            comments: data.comments || [],
+          };
+        });
+        setDeletedPosts(posts);
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        if (!canceled)
+          showErrorToast("Failed to load your posts. Please try again.");
+      } finally {
+        if (!canceled) setIsLoading(false);
+      }
+    };
 
     if (user?.uid) {
+      fetchFirstPage();
+    }
+
+    return () => {
+      canceled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const handleLoadMore = async () => {
+    if (!user || !hasMore || isLoadingMore || !lastDoc) return;
+    setIsLoadingMore(true);
+
+    try {
       const postRef = collection(db, "posts");
       const q = query(
         postRef,
         where("userId", "==", user.uid),
         where("deleted", "==", true),
-        orderBy("createdAt", "desc")
+        orderBy("deletedAt", "desc"),
+        startAfter(lastDoc),
+        limit(POST_PER_PAGE)
       );
+      const snap = await getDocs(q);
 
-      const author = {
-        id: user.uid,
-        name: user.name || "Anonymous",
-        profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
-      };
-      // Mapiramo svaki dokument u post objekat sa autorom iz AuthContext
-      unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const posts = snapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              author,
-              comments: data.comments || [],
-            };
-          });
-          setDeletedPosts(posts);
-          setIsLoading(false);
-        },
-        (error) => {
-          console.error("Error with real-time subscription:", error);
-          showErrorToast("Failed to load deleted posts.");
-          setIsLoading(false);
-        }
-      );
+      if (snap.empty) {
+        setHasMore(false);
+        return;
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.size === POST_PER_PAGE);
+
+      const newPosts = snap.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+          id: doc.id,
+          ...data,
+          author,
+          comments: data.comments || [],
+        };
+      });
+
+      setDeletedPosts((prev) => {
+        const map = new Map(prev.map((p) => [p.id, p]));
+        newPosts.forEach((p) => map.set(p.id, p));
+        return Array.from(map.values());
+      });
+    } catch (error) {
+      console.error("Error loading more posts:", error);
+      showErrorToast("Failed to load more posts.");
+    } finally {
+      setIsLoadingMore(false);
     }
-
-    // Cleanup funkcija
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [user]);
+  };
 
   // Vraca post iz Trash-a tako sto resetuje `deleted` i `deletedAt` polja
   const handleRestore = async (postId) => {

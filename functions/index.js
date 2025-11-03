@@ -1,24 +1,109 @@
 /* eslint-disable */
 
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const cloudinary = require('./cloudinary'); // Cloudinary helper konfigurisan kroz functions:config:set
+// -------------------- IMPORTS --------------------
+const admin = require("firebase-admin");
+console.log("[CF] index loaded");
 
+// v2 core
+const { setGlobalOptions } = require("firebase-functions/v2/options");
+const {
+  onRequest,
+  onCall,
+  HttpsError,
+} = require("firebase-functions/v2/https");
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+} = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+
+// Cloudinary helper je opcion (best-effort). Ako fali config ili modul — ne ruši ceo container.
+let cloudinary = { uploader: { destroy: async () => {} } };
+try {
+  // samo ako postoji i moze da se ucita
+  // (ako baca zbog env var ili paketa, ostaje stub iznad)
+  cloudinary = require("./cloudinary");
+  console.log("[CF] cloudinary helper loaded");
+} catch (e) {
+  console.warn("[CF] cloudinary helper NOT loaded (using stub):", e?.message);
+}
+
+// -------------------- INIT --------------------
 admin.initializeApp();
+setGlobalOptions({ region: "europe-central2" });
+
 const db = admin.firestore();
+//const isEmulator = !!process.env.FUNCTIONS_EMULATOR;
 
-/**
- * Privatna pomocna funkcija koja obavlja kompletno kaskadno brisanje posta.
- * - Brise sve komentare, reakcije i sliku ako postoji
- * - Ne koristi context.auth – mora se eksplicitno proslediti `uid`
- *
- * @param {Object} params
- * @param {string} params.postId - ID posta koji se brise
- * @param {string} params.uid - ID korisnika koji je vlasnik posta
- */
+// -------------------- PING (v2) --------------------
+exports.ping = onRequest({ invoker: "public" }, (req, res) => {
+  res.send("pong");
+});
 
+// -------------------- HELPERS --------------------
+
+// Azuriranje permDelete statistike
+async function bumpPermanentDeletesForUser(userId) {
+  try {
+    const ref = admin.firestore().collection("userStats").doc(userId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      await ref.set({
+        totalPosts: 0,
+        postsPerMonth: {},
+        restoredPosts: 0,
+        permanentlyDeletedPosts: 1,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await ref.set(
+        {
+          permanentlyDeletedPosts: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    console.log("[ok] permDelete++", { userId });
+  } catch (err) {
+    console.error("[err] bumpPermanentDeletesForUser", {
+      userId,
+      message: err?.message,
+      stack: err?.stack,
+    });
+    throw err;
+  }
+}
+
+// BFS brisanje cele grane komentara
+async function deleteCommentBatch(rootId) {
+  const toDelete = [rootId];
+
+  // prikupi sve potomke
+  for (let i = 0; i < toDelete.length; i++) {
+    const parentId = toDelete[i];
+    const snap = await db
+      .collection("comments")
+      .where("parentID", "==", parentId)
+      .get();
+    snap.docs.forEach((doc) => toDelete.push(doc.id));
+  }
+
+  // batched delete (max 500)
+  while (toDelete.length) {
+    const batch = db.batch();
+    const chunk = toDelete.splice(0, 500);
+    chunk.forEach((id) => batch.delete(db.collection("comments").doc(id)));
+    await batch.commit();
+  }
+}
+
+// Kaskadno brisanje posta + veza
 async function deletePostCascadeInternal({ postId, uid }) {
-  const postRef = db.collection('posts').doc(postId);
+  const postRef = db.collection("posts").doc(postId);
   const postSnap = await postRef.get();
 
   if (!postSnap.exists) {
@@ -27,15 +112,21 @@ async function deletePostCascadeInternal({ postId, uid }) {
 
   const postData = postSnap.data();
   if (postData.userId !== uid) {
-    throw new Error('Permission denied: user is not the owner of the post.');
+    throw new Error("Permission denied: user is not the owner of the post.");
   }
 
-  // Brisanje komentara po postID (bez parent hijerarhije)
+  // Fallback: FieldPath.documentId() može biti undefined u nekim setup-ima
+  const docIdField = admin.firestore.FieldPath?.documentId
+    ? admin.firestore.FieldPath.documentId()
+    : "__name__";
+
+  // komentari
   let lastComment = null;
   do {
-    let q = db.collection('comments')
-      .where('postID', '==', postId)
-      .orderBy(admin.firestore.FieldPath.documentId())
+    let q = db
+      .collection("comments")
+      .where("postID", "==", postId)
+      .orderBy(docIdField)
       .limit(500);
 
     if (lastComment) q = q.startAfter(lastComment);
@@ -44,19 +135,19 @@ async function deletePostCascadeInternal({ postId, uid }) {
     if (snap.empty) break;
 
     const batch = db.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
+    snap.docs.forEach((d) => batch.delete(d.ref));
     await batch.commit();
 
     lastComment = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // Brisanje reakcija
+  // reakcije
   let last = null;
   do {
     let q = db
-      .collection('reactions')
-      .where('postId', '==', postId)
-      .orderBy(admin.firestore.FieldPath.documentId())
+      .collection("reactions")
+      .where("postId", "==", postId)
+      .orderBy(docIdField)
       .limit(500);
     if (last) q = q.startAfter(last);
 
@@ -70,235 +161,361 @@ async function deletePostCascadeInternal({ postId, uid }) {
     last = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // Brisanje slike sa Cloudinary ako postoji
+  // cloudinary slika (best-effort)
   if (postData.imagePublicId) {
     try {
       await cloudinary.uploader.destroy(postData.imagePublicId);
     } catch (err) {
-      console.warn('[Cloudinary] delete error:', err);
+      console.warn("[Cloudinary] delete error:", err);
     }
   }
 
-  // Na kraju brisemo post dokument
+  // na kraju obrisi sam post
   await postRef.delete();
-}
-
-
-/**
- * Rekurzivno brise komentar i sve njegove potomke (koristi BFS + batcheve).
- *
- * @param {string} commentId - ID komentara koji treba obrisati
- * @returns {Promise<{ success: boolean }>}
- */
-
-exports.deleteCommentAndChildren = functions
-  .region("europe-central2")
-  .https.onCall(async (data, context) => {
-    const { commentId } = data || {};
-
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to delete a comment.');
-    }
-
-    const docSnap = await db.collection('comments').doc(commentId).get();
-    if (!docSnap.exists) {
-      throw new functions.https.HttpsError('not-found', `Comment with ID ${commentId} does not exist.`);
-    }
-
-    try {
-      await deleteCommentBatch(commentId);
-      return { success: true };
-    } catch (error) {
-      console.error('Error while deleting comment and its children:', error);
-      throw new functions.https.HttpsError('internal', 'An error occurred while deleting the comment.');
-    }
-  });
-
-/**
- * Pomocna funkcija koja rekurzivno brise sve komentare i njihove potomke.
- *
- * @param {string} rootId - ID korenskog komentara
- */
-
-async function deleteCommentBatch(rootId) {
-  const toDelete = [rootId];
-
-  // Prikupljamo sve potomke komentara (BFS)
-  for (let i = 0; i < toDelete.length; i++) {
-    const parentId = toDelete[i];
-    const snap = await db.collection('comments').where('parentID', '==', parentId).get();
-    snap.docs.forEach((doc) => toDelete.push(doc.id));
-  }
-
-  // Brisemo u batch-ovima (max 500 dokumenata)
-  while (toDelete.length) {
-    const batch = db.batch();
-    const chunk = toDelete.splice(0, 500);
-    chunk.forEach((id) => {
-      batch.delete(db.collection('comments').doc(id));
+  try {
+    await bumpPermanentDeletesForUser(uid);
+  } catch (err) {
+    console.error("[warn] post deleted, but stat bump failed", {
+      postId,
+      userId: uid,
+      message: err?.message,
     });
-    await batch.commit();
   }
 }
 
-/**
- * Soft-delete komentar → oznacava ga kao obrisan (ne brise iz baze).
- *
- * @param {string} commentId - ID komentara koji se soft-brise
- * @returns {Promise<{ success: boolean }>}
- */
+// -------------------- HTTPS onCall (v2) --------------------
 
-exports.softDeleteComment = functions
-  .region("europe-central2")
-  .https.onCall(async (data, context) => {
-    const { commentId } = data || {};
-
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to delete a comment.');
-    }
-
-    const docSnap = await db.collection('comments').doc(commentId).get();
-    if (!docSnap.exists) {
-      throw new functions.https.HttpsError('not-found', `Comment with ID ${commentId} does not exist.`);
-    }
-
-    const commentData = docSnap.data();
-    if (commentData.userID !== context.auth.uid) {
-      throw new functions.https.HttpsError('permission-denied', 'You are not authorized to delete this comment.');
-    }
-
-    await db.collection('comments').doc(commentId).update({
-      deleted: true,
-      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
+// deletePostCascade (v2)
+exports.deletePostCascade = onCall(
+  { memory: "512MiB", timeoutSeconds: 120 },
+  async (req) => {
+    if (!req.auth)
+      throw new HttpsError("unauthenticated", "You are not logged in.");
+    const { postId } = req.data || {};
+    if (!postId) throw new HttpsError("invalid-argument", "Missing postId.");
+    await deletePostCascadeInternal({ postId, uid: req.auth.uid });
     return { success: true };
+  }
+);
+
+// deleteCommentAndChildren (v2)
+exports.deleteCommentAndChildren = onCall(async (req) => {
+  if (!req.auth)
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be logged in to delete a comment."
+    );
+  const { commentId } = req.data || {};
+  if (!commentId)
+    throw new HttpsError("invalid-argument", "Missing commentId.");
+
+  const docSnap = await db.collection("comments").doc(commentId).get();
+  if (!docSnap.exists)
+    throw new HttpsError("not-found", `Comment ${commentId} does not exist.`);
+
+  try {
+    await deleteCommentBatch(commentId);
+    return { success: true };
+  } catch (err) {
+    console.error("Error while deleting comment and its children:", err);
+    throw new HttpsError(
+      "internal",
+      "An error occurred while deleting the comment."
+    );
+  }
+});
+
+// softDeleteComment (v2)
+exports.softDeleteComment = onCall(async (req) => {
+  if (!req.auth)
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be logged in to delete a comment."
+    );
+  const { commentId } = req.data || {};
+  if (!commentId)
+    throw new HttpsError("invalid-argument", "Missing commentId.");
+
+  const docRef = db.collection("comments").doc(commentId);
+  const docSnap = await docRef.get();
+  if (!docSnap.exists)
+    throw new HttpsError("not-found", `Comment ${commentId} does not exist.`);
+
+  const commentData = docSnap.data();
+  if (commentData.userID !== req.auth.uid) {
+    throw new HttpsError(
+      "permission-denied",
+      "You are not authorized to delete this comment."
+    );
+  }
+
+  await docRef.update({
+    deleted: true,
+    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-/**
- * Dodaje novi komentar uz validaciju sadrzaja i ogranicenje brzine.
- *
- * @param {string} postId - ID posta kojem pripada komentar
- * @param {string} content - Tekst komentara
- * @param {string|null} parentId - (opciono) ID roditeljskog komentara
- * @returns {Promise<{ success: boolean, commentId: string }>}
- */
+  return { success: true };
+});
 
-exports.addCommentSecure = functions
-  .region("europe-central2")
-  .runWith({ memory: '256MB' })
-  .https.onCall(async (data, context) => {
-    const { postId, content, parentId = null } = data || {};
+// addCommentSecure (v2)
+exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
+  if (!req.auth)
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be authenticated to add a comment."
+    );
 
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You must be authenticated to add a comment.');
-    }
+  const { postId, content, parentId = null } = req.data || {};
+  const trimmedContent = content?.trim();
 
-    const trimmedContent = content?.trim();
-    if (!postId || !trimmedContent) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing postId or comment content is empty.');
-    }
+  if (!postId || !trimmedContent) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Missing postId or comment content is empty."
+    );
+  }
 
-    if (trimmedContent.length > 500) {
-      throw new functions.https.HttpsError('invalid-argument', 'Comment must not exceed 500 characters.');
-    }
+  if (trimmedContent.length > 500) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Comment must not exceed 500 characters."
+    );
+  }
 
-    // Rate limit: max 3 komentara u 30 sekundi
-    const now = admin.firestore.Timestamp.now();
-    const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 30_000);
+  // Rate limit: max 3 komentara u 30 sekundi
+  const now = admin.firestore.Timestamp.now();
+  const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(
+    now.toMillis() - 30_000
+  );
 
-    const recent = await db
-      .collection('comments')
-      .where('userID', '==', context.auth.uid)
-      .where('timestamp', '>', thirtySecondsAgo)
-      .limit(4)
-      .get();
+  const recent = await db
+    .collection("comments")
+    .where("userID", "==", req.auth.uid)
+    .where("timestamp", ">", thirtySecondsAgo)
+    .limit(4)
+    .get();
 
-    if (recent.size >= 4) {
-      throw new functions.https.HttpsError(
-        'resource-exhausted',
-        "You're sending comments too quickly. Please try again in a few seconds."
-      );
-    }
+  if (recent.size >= 4) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "You are sending comments too quickly. Try again in a few seconds."
+    );
+  }
 
-    const newComment = {
-      postID: postId,
-      userID: context.auth.uid,
-      content: trimmedContent,
-      parentID: parentId ?? null,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      likes: [],
-    };
+  const newComment = {
+    postID: postId,
+    userID: req.auth.uid,
+    content: trimmedContent,
+    parentID: parentId ?? null,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    likes: [],
+  };
 
+  try {
+    const docRef = await db.collection("comments").add(newComment);
+    return { success: true, commentId: docRef.id };
+  } catch (error) {
+    console.error("Error adding comment:", error);
+    throw new HttpsError(
+      "internal",
+      "An error occurred while saving the comment."
+    );
+  }
+});
+
+// -------------------- FIRESTORE TRIGGER: onCreate (v2) --------------------
+exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
+  "posts/{postId}",
+  async (event) => {
     try {
-      const docRef = await db.collection('comments').add(newComment);
-      return { success: true, commentId: docRef.id };
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      throw new functions.https.HttpsError('internal', 'An error occurred while saving the comment.');
-    }
-  });
+      const data = event.data?.data();
+      const userId = data?.userId;
+      const createdAt = data?.createdAt;
+      if (!userId) return;
 
-/**
- * Cloud Function: Kaskadno brisanje posta i svih povezanih podataka
- */
+      // monthKey = "YYYY-MM"
+      // Ako nema createdAt, fallback je new Date()
+      const d = createdAt?.toDate ? createdAt.toDate() : new Date();
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const monthKey = `${y}-${m}`;
 
-exports.deletePostCascade = functions
-  .region('europe-central2')
-  .runWith({ memory: '512MB', timeoutSeconds: 120 })
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'You are not logged in.');
-    }
+      const statsRef = db.collection("userStats").doc(userId);
+      const markerRef = db.collection("processedEvents").doc(event.id);
 
-    const { postId } = data || {};
-    if (!postId) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing postId.');
-    }
+      await db.runTransaction(async (tx) => {
+        // Idempotency marker: ako postoji, prekidamo
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
 
-    try {
-      await deletePostCascadeInternal({ postId, uid: context.auth.uid });
-      return { success: true };
+        const statsSnap = await tx.get(statsRef);
+
+        if (!statsSnap.exists) {
+          // Prvo kreiranje stats dokumenta
+          tx.set(statsRef, {
+            totalPosts: 1,
+            postsPerMonth: { [monthKey]: 1 },
+            restoredPosts: 0,
+            permanentlyDeletedPosts: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          // 1) Globalni inkrementi
+          tx.update(statsRef, {
+            totalPosts: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          // 2) Siguran inkrement u mapi preko merge objekta
+          tx.set(
+            statsRef,
+            {
+              postsPerMonth: {
+                [monthKey]: admin.firestore.FieldValue.increment(1),
+              },
+            },
+            { merge: true }
+          );
+        }
+
+        tx.set(markerRef, {
+          type: "posts.onCreate",
+          postId: event.params.postId,
+          userId,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
+      });
+
+      console.log("[ok] onCreate", {
+        eventId: event.id,
+        userId,
+        postId: event.params.postId,
+        monthKey,
+      });
     } catch (err) {
-      console.error('deletePostCascade error:', err);
-      throw new functions.https.HttpsError('internal', 'Cascade delete failed.');
+      console.error("[err] updateUserStatsOnPostCreateV2", {
+        eventId: event.id,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      return null;
     }
-  });
+  }
+);
 
-exports.cleanupExpiredPosts = functions
-  .region('europe-central2')
-  .runWith({ memory: '512MB', timeoutSeconds: 120 })
-  .pubsub.schedule('every 24 hours')
-  .timeZone('Europe/Belgrade')
-  .onRun(async () => {
+// On restore
+
+exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
+  "posts/{postId}",
+  async (event) => {
+    try {
+      const before = event.data?.before?.data();
+      const after = event.data?.after?.data();
+      if (!before || !after) return;
+
+      const wasDeleted = before.deleted === true;
+      const isDeleted = after.deleted === true;
+      if (!(wasDeleted && !isDeleted)) return; // samo restore
+
+      const userId = after.userId;
+      if (!userId) return;
+
+      const statsRef = db.collection("userStats").doc(userId);
+      const markerRef = db.collection("processedEvents").doc(event.id);
+
+      await db.runTransaction(async (tx) => {
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return; // već obrađeno
+
+        const statsSnap = await tx.get(statsRef);
+        if (!statsSnap.exists) {
+          tx.set(statsRef, {
+            totalPosts: 0,
+            postsPerMonth: {},
+            restoredPosts: 1,
+            permanentlyDeletedPosts: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          tx.set(
+            statsRef,
+            {
+              restoredPosts: admin.firestore.FieldValue.increment(1),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+
+        tx.set(markerRef, {
+          type: "posts.onUpdate.restore",
+          postId: event.params.postId,
+          userId,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
+      });
+
+      console.log("[ok] bumpRestoredOnPostUpdate", {
+        eventId: event.id,
+        userId,
+        postId: event.params.postId,
+      });
+    } catch (err) {
+      console.error("[err] bumpRestoredOnPostUpdateV2", {
+        eventId: event.id,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      return null;
+    }
+  }
+);
+
+// -------------------- SCHEDULER (v2) --------------------
+exports.cleanupExpiredPostsV2 = onSchedule(
+  {
+    schedule: "every 24 hours",
+    timeZone: "Europe/Belgrade",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+  },
+  async () => {
     const now = admin.firestore.Timestamp.now();
     const cutoff = admin.firestore.Timestamp.fromMillis(
       now.toMillis() - 30 * 24 * 60 * 60 * 1000
     );
 
-    const snap = await db.collection('posts')
-      .where('deleted', '==', true)
-      .where('deletedAt', '<=', cutoff)
+    const snap = await db
+      .collection("posts")
+      .where("deleted", "==", true)
+      .where("deletedAt", "<=", cutoff)
       .get();
 
     if (snap.empty) {
-      console.log(' No posts to hard-delete.');
+      console.log("No posts to hard-delete.");
       return null;
     }
 
-    console.log(` Hard-deleting ${snap.size} expired post(s)…`);
+    console.log(`Hard-deleting ${snap.size} expired post(s)…`);
 
     for (const doc of snap.docs) {
       const postId = doc.id;
-      const authorId = doc.get('userId');
+      const authorId = doc.get("userId");
       try {
         await deletePostCascadeInternal({ postId, uid: authorId });
-        console.log(` Deleted post ${postId}`);
+        console.log(`Deleted post ${postId}`);
       } catch (err) {
         console.error(`Failed to delete post ${postId}:`, err);
       }
     }
 
     return null;
-  });
-
+  }
+);

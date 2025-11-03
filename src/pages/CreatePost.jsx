@@ -4,7 +4,6 @@ import {
   collection,
   addDoc,
   serverTimestamp,
-  getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -16,7 +15,6 @@ import Spinner from "../components/Spinner";
 import TagsInput from "../components/TagsInput";
 
 import { validCategories } from "../constants/postCategories";
-import { updateUserStats } from "../services/statsService";
 
 /**
  * @component CreatePost
@@ -61,13 +59,7 @@ const CreatePost = () => {
         deletedAt: null,
         updatedAt: null,
         locked: false,
-      });
-
-      const newDocSnap = await getDoc(docRef);
-      const createdAt = newDocSnap.data().createdAt;
-
-      // Azuriramo statistiku korisnika (broj postova po mesecima i ukupno)
-      await updateUserStats(user.uid, createdAt);
+      });      
 
       showSuccessToast("Post successfully created!");
       console.log("Post added with ID:", docRef.id);
