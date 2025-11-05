@@ -191,10 +191,29 @@ const SavedPosts = () => {
     }
   };
 
-  // Loading state
+  // Auth-check moze ostati early-return da ne treperi UI tokom inicijalne provere
   if (isCheckingAuth || isLoading) {
-    return <SkeletonCard />;
+    return (
+      <div className="grid gap-4" role="status" aria-live="polite">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+    );
   }
+
+  // Inline komponenta za Undo toast (minimalno, fokus na UX)
+  const UndoToast = ({ onUndo }) => (
+    <div className="flex items-center gap-3">
+      <span>Removed from saved.</span>
+      <button onClick={onUndo} className="underline">
+        Undo
+      </button>
+    </div>
+  );
+  UndoToast.propTypes = {
+    onUndo: PropTypes.func.isRequired,
+  };
 
   // Guest gate
   if (!user) {
@@ -254,18 +273,6 @@ const SavedPosts = () => {
     });
   };
 
-  // Inline komponenta za Undo toast (minimalno, fokus na UX)
-  const UndoToast = ({ onUndo }) => {
-    return (
-      <div className="flex items-center gap-3">
-        <span>Removed from saved.</span>
-        <button onClick={onUndo} className="underline">
-          Undo
-        </button>
-      </div>
-    );
-  };
-
   // Lista sacuvanih postova + paginacija
   return (
     <div>
@@ -284,27 +291,37 @@ const SavedPosts = () => {
         );
       })}
 
-      {/* Loading more */}
-      {isLoadingMore && <SkeletonCard />}
+      {/* Loading more (mini skeletoni tokom fetch-a) */}
+      {isLoadingMore && (
+        <div className="mt-2 space-y-2" role="status" aria-live="polite">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
 
-      {/* Load more / end-of-list */}
-      {!isLoading && hasMore && (
-        <button onClick={handleLoadMore} disabled={isLoadingMore}>
+      {/* Dugme "Load more" */}
+      {hasMore && (
+        <button
+          onClick={handleLoadMore}
+          disabled={isLoadingMore || !hasMore}
+          aria-busy={isLoadingMore}
+          aria-disabled={isLoadingMore || !hasMore}
+        >
           {isLoadingMore ? "Loading..." : "Load more"}
         </button>
       )}
 
-      {!isLoading && !hasMore && (
-        <p className="mt-4 text-sm text-gray-500 text-center">
+      {/* Poruka "You reached the end" */}
+      {!hasMore && savedPosts.length > 0 && (
+        <p
+          className="mt-4 text-sm text-gray-500 text-center"
+          aria-live="polite"
+        >
           You reached the end.
         </p>
       )}
     </div>
   );
-};
-
-SavedPosts.propTypes = {
-  onUndo: PropTypes.func.isRequired,
 };
 
 export default SavedPosts;

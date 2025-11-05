@@ -227,7 +227,20 @@ const Trash = () => {
         <EmptyState message="You haven't deleted any posts yet." />
       )}
       {/* Loading state */}
-      {isLoading && <SkeletonCard />}
+      {isLoading && (
+        <div className="grid gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      )}
+
+      {isLoadingMore && (
+        <div className="mt-2 space-y-2">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
 
       {!isLoading && filteredPosts.length > 0 && (
         <div className="grid gap-4">
