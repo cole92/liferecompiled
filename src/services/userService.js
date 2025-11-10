@@ -12,19 +12,11 @@ const makeFallbackAuthor = () => ({
   deleted: true,
 });
 
-/** Normalizacija postojećeg profila + (ostavljamo tvoje hardcodove) */
+/** Normalizacija postojeceg profila */
 const normalizeAuthor = (uid, data) => ({
   id: uid,
   name: data?.name || "Unknown author",
   profilePicture: data?.profilePicture || DEFAULT_PROFILE_PICTURE,
-
-  // ⚠️ TVOJ HARDCODE OSTAJE (dok ne povežeš backend logiku)
-  badges: {
-    topContributor: true,
-    mostInspiring: true,
-    trending: true,
-    ...(data?.badges || {}),
-  },
   deleted: false,
 });
 
@@ -46,7 +38,6 @@ export const getUserById = async (userId) => {
 
 /**
  * Obogaćuje post autorom. Autor je uvek postavljen (fallback kad ne postoji).
- * ⚠️ Ne diramo tvoje test badge-ove na postu — ostaju.
  */
 export const enrichPostWithAuthor = async (post) => {
   try {
@@ -54,23 +45,12 @@ export const enrichPostWithAuthor = async (post) => {
     return {
       ...post,
       author,
-      // ⚠️ TVOJ HARDCODE ZA POST BADGE-OVE OSTAJE
-      badges: {
-        mostInspiring: true, // 🔥 TEST BADGE ZA POST
-        trending: true,
-        ...(post.badges || {}),
-      },
     };
   } catch (error) {
     console.error("Author fetch failed in enrichPostWithAuthor:", error);
     return {
       ...post,
       author: makeFallbackAuthor(),
-      badges: {
-        mostInspiring: true,
-        trending: true,
-        ...(post.badges || {}),
-      },
     };
   }
 };
