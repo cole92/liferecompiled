@@ -111,8 +111,8 @@ const SearchAndFilterBar = ({
           >
             <option value="newest">Newest First</option>
             <option value="oldest">Oldest First</option>
-            <option value="comments">Most Comments(placeholder)</option>
-            <option value="likes">Most Likes(placeholder)</option>
+            {/* <option value="comments">Most Comments(placeholder)</option>
+                <option value="likes">Most Likes(placeholder)</option> */}
           </select>
           {/* Filter Button - otvara/zatvara filter panel */}
           <button

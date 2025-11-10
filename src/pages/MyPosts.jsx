@@ -134,7 +134,7 @@ const MyPosts = () => {
 
   // Dovlaci sledecu stranicu postova (paginacija)
   const handleLoadMore = async () => {
-    if (!hasMore || isLoadingMore || !lastDoc) return;
+    if (!user || !hasMore || isLoadingMore || !lastDoc) return;
     setIsLoadingMore(true);
 
     try {
@@ -195,8 +195,8 @@ const MyPosts = () => {
       await runTransaction(db, async (tx) => {
         const postRef = doc(db, "posts", postId);
         const snapshot = await tx.get(postRef);
-        if (!snapshot.exists()) throw "Post does not exist.";
-        if (snapshot.data().deleted) throw "Already deleted.";
+        if (!snapshot.exists()) throw new Error("Post does not exist.");
+        if (snapshot.data().deleted) throw new Error("Already deleted.");
 
         tx.update(postRef, {
           deleted: true,
@@ -225,10 +225,10 @@ const MyPosts = () => {
       await runTransaction(db, async (transaction) => {
         const postRef = doc(db, "posts", postId);
         const snapshot = await transaction.get(postRef);
-        if (!snapshot.exists()) throw "Post not found!";
+        if (!snapshot.exists()) throw new Error("Post not found!");
 
         const data = snapshot.data();
-        if (data.locked) throw "Already locked";
+        if (data.locked) throw new Error("Already locked");
 
         transaction.update(postRef, {
           locked: true,
@@ -279,9 +279,6 @@ const MyPosts = () => {
         Create New Post
       </button>
 
-      {/* Loading state */}
-      {isLoading && <SkeletonCard />}
-
       {/* Empty state */}
       {!isLoading && posts.length === 0 && (
         <EmptyState message="You haven't created any posts yet." />
@@ -304,14 +301,40 @@ const MyPosts = () => {
         />
       )}
 
-      {isLoadingMore && <SkeletonCard />}
+      {isLoading && (
+        <div className="grid gap-4" role="status" aria-live="polite">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      )}
 
-      {hasMore ? (
-        <button onClick={handleLoadMore} disabled={isLoadingMore || !hasMore}>
+      {/* Loading more (mini skeletoni) */}
+      {isLoadingMore && (
+        <div className="mt-2 space-y-2" role="status" aria-live="polite">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
+
+      {/* Dugme "Load more" */}
+      {hasMore && (
+        <button
+          onClick={handleLoadMore}
+          disabled={isLoadingMore || !hasMore}
+          aria-busy={isLoadingMore}
+          aria-disabled={isLoadingMore || !hasMore}
+        >
           {isLoadingMore ? "Loading..." : "Load more"}
         </button>
-      ) : (
-        <p className="mt-4 text-sm text-gray-500 text-center">
+      )}
+
+      {/* Poruka "You reached the end" */}
+      {!hasMore && filteredPosts.length > 0 && (
+        <p
+          className="mt-4 text-sm text-gray-500 text-center"
+          aria-live="polite"
+        >
           You reached the end.
         </p>
       )}

@@ -25,10 +25,10 @@ import { getDaysLeft } from "../../utils/dateUtils";
 import { motion, AnimatePresence } from "framer-motion";
 // Komponente
 import PostCard from "../../components/PostCard";
-import Spinner from "../../components/Spinner";
 
 // Dashboard komponente
 import EmptyState from "./components/EmptyState";
+import SkeletonCard from "../../components/ui/skeletonLoader/SkeletonCard";
 
 /**
  * Trash komponenta
@@ -59,11 +59,13 @@ const Trash = () => {
 
   const POST_PER_PAGE = 10;
 
-  const author = {
-    id: user.uid,
-    name: user.name || "Anonymous",
-    profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
-  };
+  const author = user
+    ? {
+        id: user.uid,
+        name: user.name || "Anonymous",
+        profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
+      }
+    : null;
 
   useEffect(() => {
     let canceled = false;
@@ -221,13 +223,26 @@ const Trash = () => {
   return (
     <div>
       {/* Empty state */}
-      {!isLoading && deletedPosts.length === 0 && (
+      {!isLoading && filteredPosts.length === 0 && (
         <EmptyState message="You haven't deleted any posts yet." />
       )}
       {/* Loading state */}
-      {isLoading && <Spinner message="Loading deleted posts..." />}
+      {isLoading && (
+        <div className="grid gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      )}
 
-      {!isLoading && deletedPosts.length > 0 && (
+      {isLoadingMore && (
+        <div className="mt-2 space-y-2">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
+
+      {!isLoading && filteredPosts.length > 0 && (
         <div className="grid gap-4">
           <AnimatePresence>
             {/* Prikaz liste obrisanih postova sa opcijama za Restore i Delete */}
@@ -261,6 +276,27 @@ const Trash = () => {
               );
             })}
           </AnimatePresence>
+          {/* Dugme "Load more" */}
+          {hasMore && (
+            <button
+              onClick={handleLoadMore}
+              disabled={isLoadingMore || !hasMore}
+              aria-busy={isLoadingMore}
+              aria-disabled={isLoadingMore || !hasMore}
+            >
+              {isLoadingMore ? "Loading..." : "Load more"}
+            </button>
+          )}
+
+          {/* Poruka "You reached the end" */}
+          {!hasMore && filteredPosts.length > 0 && (
+            <p
+              className="mt-4 text-sm text-gray-500 text-center"
+              aria-live="polite"
+            >
+              You reached the end.
+            </p>
+          )}
         </div>
       )}
       {/* Modal koji potvrdjuje da korisnik zeli da restore-uje post */}
