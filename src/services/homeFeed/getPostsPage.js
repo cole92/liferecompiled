@@ -31,7 +31,7 @@ export async function getPostsPage({
     ...doc.data(),
   }));
 
-  const lastDoc = snap.docs.lenght > 0 ? snap.docs[snap.docs.length - 1] : null;
+  const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
   const hasMore = snap.size === safePageSize;
 
   return { items, lastDoc, hasMore };
