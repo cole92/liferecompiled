@@ -37,12 +37,13 @@ export function buildHomeFeedQuery({
 
   // Logika kategorije i sortiranja
 
-  if (category) {
-    // Ako postoji kategorija, v1 fiksira desc da bi bio potreban samo jedan indeks
-    parts.push(where("category", "==", category));
+  const normalizedCategory =
+    typeof category === "string" ? category.trim() : "";
+
+  if (normalizedCategory) {
+    parts.push(where("category", "==", normalizedCategory));
     parts.push(orderBy("createdAt", "desc"));
   } else {
-    // Bez kategorije, postujemo sortBy (newest/oldest)
     const dir = safeSort === SORT_OLDEST ? "asc" : "desc";
     parts.push(orderBy("createdAt", dir));
   }

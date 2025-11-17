@@ -14,16 +14,18 @@ export function normalizePostDoc(docSnap) {
 
   const rawCreatedAt = data.createdAt;
 
-  const hasValidCreatedAt =
-    rawCreatedAt &&
-    typeof rawCreatedAt.toDate === "function" &&
-    rawCreatedAt.toDate() instanceof Date &&
-    !Number.isNaN(rawCreatedAt.toDate().getTime());
+  let createdAtDate = null;
 
-  if (!hasValidCreatedAt) {
-    return null;
+  if (rawCreatedAt && typeof rawCreatedAt.toDate === "function") {
+    const d = rawCreatedAt.toDate();
+    if (d instanceof Date && !Number.isNaN(d.getTime())) {
+      createdAtDate = d;
+    }
   }
 
+  if (!createdAtDate) {
+    return null;
+  }
   const description =
     typeof data.description === "string" ? data.description.trim() : "";
 
@@ -62,10 +64,9 @@ export function normalizePostDoc(docSnap) {
       ? data.userId.trim()
       : null;
 
-  // 7) Reaction counts (optional object)
   const reactionCounts =
     data.reactionCounts && typeof data.reactionCounts === "object"
-      ? data.reactionCounts
+      ? { ...data.reactionCounts }
       : undefined;
 
   // 8) Comments count (optional number)
@@ -79,7 +80,6 @@ export function normalizePostDoc(docSnap) {
   const createdAt = rawCreatedAt;
   const updatedAt = data.updatedAt !== undefined ? data.updatedAt : null;
 
-  
   return {
     id,
     userId,

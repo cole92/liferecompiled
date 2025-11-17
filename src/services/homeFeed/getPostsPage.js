@@ -10,6 +10,11 @@ import { buildHomeFeedQuery } from "../../queries/buildHomeFeedQuery";
 import { normalizePostDoc } from "../../mappers/posts/normalizePostDoc";
 import { enrichPostWithAuthor } from "../userService";
 
+/**
+ * Fetches one feed page with normalized posts and enriched authors.
+ * Assumes enrichPostWithAuthor never throws (Promise.all is safe).
+ */
+
 export async function getPostsPage({
   afterDoc = null,
   pageSize,

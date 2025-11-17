@@ -39,6 +39,11 @@ export const getUserById = async (userId) => {
 /**
  * Obogaćuje post autorom. Autor je uvek postavljen (fallback kad ne postoji).
  */
+
+/**
+ * Enriches post with author.
+ * Never throws: always returns a safe post+author shape (fallback on error).
+ */
 export const enrichPostWithAuthor = async (post) => {
   try {
     const author = await getUserById(post.userId);
