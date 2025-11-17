@@ -22,7 +22,10 @@ export default function DevHomeFeedTest() {
 
         console.log("[DEV] page1 (newest):");
         console.log("  size:", page1.items.length);
-        console.log("  ids:", page1.items.map((p) => p.id));
+        console.log(
+          "  ids:",
+          page1.items.map((p) => p.id)
+        );
         console.log("  hasMore:", page1.hasMore);
 
         // 2) Ako ima jos - druga strana sa kursorom
@@ -38,8 +41,14 @@ export default function DevHomeFeedTest() {
 
           console.log("[DEV] page2 (newest):");
           console.log("  size:", page2.items.length);
-          console.log("  ids:", page2.items.map((p) => p.id));
+          console.log(
+            "  ids:",
+            page2.items.map((p) => p.id)
+          );
           console.log("  hasMore:", page2.hasMore);
+
+          console.log("[DEV] page1 warnings:", page1.warnings);
+          console.log("[DEV] page2 warnings:", page2.warnings);
         }
 
         // 3) Opcioni test za "oldest"
@@ -54,7 +63,10 @@ export default function DevHomeFeedTest() {
 
         console.log("[DEV] page1 (oldest):");
         console.log("  size:", oldestPage.items.length);
-        console.log("  ids:", oldestPage.items.map((p) => p.id));
+        console.log(
+          "  ids:",
+          oldestPage.items.map((p) => p.id)
+        );
         console.log("  hasMore:", oldestPage.hasMore);
       } catch (e) {
         console.error("[DEV] Home feed test error:", e);

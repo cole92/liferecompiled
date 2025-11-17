@@ -28,16 +28,41 @@ export async function getPostsPage({
 
   const snap = await getDocs(q);
 
-  const normalized = snap.docs
-    .map((doc) => normalizePostDoc(doc))
-    .filter(Boolean);
+  const warnings = [];
 
+  // 5) Normalize docs (and collect warnings for skipped ones)
+  const normalized = [];
+  for (const docSnap of snap.docs) {
+    const post = normalizePostDoc(docSnap);
+
+    if (!post) {
+      warnings.push(`NORMALIZE_SKIP: invalid post (postId=${docSnap.id})`);
+      continue;
+    }
+
+    normalized.push(post);
+  }
+
+  // 6) Enrich authors per page
   const items = await Promise.all(
     normalized.map((post) => enrichPostWithAuthor(post))
   );
 
+  // 7) Detect fallback authors (optional diagnostics)
+  for (const item of items) {
+    const isMissingUserId = !item.userId;
+    const isFallbackAuthor = item.author?.deleted === true;
+
+    if (isMissingUserId || isFallbackAuthor) {
+      const userIdLabel = item.userId ?? "null-or-undefined";
+      warnings.push(
+        `AUTHOR_FALLBACK: userId=${userIdLabel} (postId=${item.id})`
+      );
+    }
+  }
+
   const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
   const hasMore = snap.size === safePageSize;
 
-  return { items, lastDoc, hasMore };
+  return { items, lastDoc, hasMore, warnings };
 }
