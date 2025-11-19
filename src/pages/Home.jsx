@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { getPosts } from "../services/fetchPosts";
+import { getPostsPage } from "../services/homeFeed/getPostsPage";
+
 import PostsList from "../components/PostsList";
 import useSearch from "../context/useSearch";
-import Spinner from "../components/Spinner";
+import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import NoResultsMessage from "../components/NoResultsMessage";
+
+const PAGE_SIZE_UI = 16;
 
 /**
  * @component Home
@@ -18,79 +21,162 @@ import NoResultsMessage from "../components/NoResultsMessage";
  */
 const Home = () => {
   const [posts, setPosts] = useState([]);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
   const { searchTerm, sortBy, selectedCategories } = useSearch();
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  // Pomocni derivati za server:
+  // 1) Jedna aktivna kategorija (v1) – ako ih je vise, tretiramo kao "nema filtera"
+  const activeCategory =
+    Array.isArray(selectedCategories) && selectedCategories.length === 1
+      ? selectedCategories[0]
+      : null;
+
+  // 2) Sort za server – v1 podrzava samo newest/oldest
+  const serverSort = sortBy === "oldest" ? "oldest" : "newest";
+
+  // Fetch PRVE strane na mount + na promenu category/sortBy
   useEffect(() => {
-    const fetchData = async () => {
+    let isCanceled = false;
+
+    const fetchFirstPage = async () => {
+      setIsLoading(true);
+      setIsLoadingMore(false);
+      setPosts([]);
+      setLastDoc(null);
+      setHasMore(true);
+
       try {
-        const postsData = await getPosts();
-        setPosts(postsData);
-        setIsLoading(false);
+        const page = await getPostsPage({
+          afterDoc: null,
+          pageSize: PAGE_SIZE_UI,
+          category: activeCategory,
+          sortBy: serverSort,
+        });
+
+        if (isCanceled) return;
+
+        setPosts(page.items);
+        setLastDoc(page.lastDoc);
+        setHasMore(page.hasMore);
+
+        if (page.warnings && page.warnings.length > 0) {
+          console.warn("[Home feed warnings]", page.warnings);
+        }
       } catch (error) {
-        console.error("Error fetching posts:", error);
+        if (!isCanceled) {
+          console.error("Error fetching first page:", error);
+        }
+      } finally {
+        if (!isCanceled) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchData();
-  }, []);
+    fetchFirstPage();
 
-  const getFilteredPosts = () => {
-    let filtered = posts;
+    return () => {
+      isCanceled = true;
+    };
+  }, [activeCategory, serverSort]);
 
-    if (selectedCategories && selectedCategories.length > 0) {
-      filtered = filtered.filter((post) =>
-        selectedCategories.includes(post.category)
-      );
+  const handleLoadMore = async () => {
+    if (isLoading || isLoadingMore || !hasMore || !lastDoc) {
+      return;
     }
 
-    if (searchTerm.trim() !== "") {
-      filtered = filtered.filter((post) =>
-        post.title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+    setIsLoadingMore(true);
 
-    return filtered;
+    try {
+      const page = await getPostsPage({
+        afterDoc: lastDoc,
+        pageSize: PAGE_SIZE_UI,
+        category: activeCategory,
+        sortBy: serverSort,
+      });
+
+      // Dedupe po id-u pri append-u
+
+      setPosts((prev) => {
+        const map = new Map(prev.map((p) => [p.id, p]));
+        for (const item of page.items) {
+          map.set(item.id, item);
+        }
+
+        return Array.from(map.values());
+      });
+
+      setLastDoc(page.lastDoc);
+      setHasMore(page.hasMore);
+
+      if (page.warnings && page.warnings.length > 0) {
+        console.warn("[Home feed warnings][loadMore]", page.warnings);
+      }
+    } catch (error) {
+      console.error("Error loading more posts:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
-  const getSortedPosts = (filteredPosts) => {
-    let sortedPosts = [...filteredPosts];
+  // Klijentski filter za searchTerm (v1 – samo nad vec ucitanim stranama)
+  const getClientFilteredPosts = () => {
+    let result = posts;
 
-    if (sortBy === "newest") {
-      sortedPosts.sort(
-        (a, b) =>
-          b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime()
+    if (searchTerm && searchTerm.trim() !== "") {
+      const lower = searchTerm.toLowerCase();
+      result = result.filter((post) =>
+        post.title.toLowerCase().includes(lower)
       );
-    } else if (sortBy === "oldest") {
-      sortedPosts.sort(
-        (a, b) =>
-          a.createdAt.toDate().getTime() - b.createdAt.toDate().getTime()
-      );
-    } else if (sortBy === "comments") {
-      sortedPosts.sort(
-        (a, b) => (b.commentsCount || 0) - (a.commentsCount || 0)
-      );
-    } else if (sortBy === "likes") {
-      sortedPosts.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
     }
 
-    return sortedPosts;
+    // Sort po datumu je vec uradjen na serveru (newest/oldest),
+    // ovde za v1 ne diramo taj poredak.
+    return result;
   };
 
-  const finalPosts = getSortedPosts(getFilteredPosts());
+  const finalPosts = getClientFilteredPosts();
+
+  const showNoResults = !isLoading && finalPosts.length === 0;
 
   return (
     <div className="mt-4">
       {isLoading ? (
-        <Spinner message="" />
-      ) : finalPosts.length === 0 ? (
+        <SkeletonCard />
+      ) : showNoResults ? (
         <NoResultsMessage
           posts={finalPosts}
           searchTerm={searchTerm}
           selectedCategories={selectedCategories}
         />
       ) : (
-        <PostsList posts={finalPosts} />
+        <>
+          <PostsList posts={finalPosts} />
+
+          {/* Load more / end helper */}
+          {hasMore ? (
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore || isLoading || !hasMore}
+                className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+              >
+                {isLoadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          ) : (
+            <p
+              className="mt-6 text-center text-gray-400 text-sm"
+              aria-live="polite"
+            >
+              You reached the end.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
