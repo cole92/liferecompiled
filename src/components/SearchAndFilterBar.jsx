@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories"; // Predefinisane kategorije za filtere
@@ -19,6 +19,16 @@ const SearchAndFilterBar = ({
   const [localSearchTerm, setLocalSearchTerm] = useState(""); // Lokalni unos pretrage
   const [localSortBy, setLocalSortBy] = useState("newest"); // Lokalno sortiranje
   const [isFilterOpen, setIsFilterOpen] = useState(false); // Kontrolise prikaz filter panela
+
+  const hasActiveCategory =
+    Array.isArray(selectedCategories) && selectedCategories.length === 1;
+
+  useEffect(() => {
+    if (hasActiveCategory && localSortBy === "oldest") {
+      setLocalSortBy("newest");
+      onSortChange("newest");
+    }
+  }, [hasActiveCategory, localSortBy, onSortChange]);
 
   //  Funkcija koja otvara/zatvara panel sa filterima.
   const toggleFilterPanel = () => {
@@ -86,6 +96,12 @@ const SearchAndFilterBar = ({
 
   const handleSortChange = (e) => {
     const value = e.target.value;
+
+    // Ako je aktivna kategorija, ne dozvoli "oldest" u v1
+    if (hasActiveCategory && value === "oldest") {
+      return;
+    }
+
     setLocalSortBy(value);
     onSortChange(value);
   };
@@ -110,9 +126,9 @@ const SearchAndFilterBar = ({
             className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
-            {/* <option value="comments">Most Comments(placeholder)</option>
-                <option value="likes">Most Likes(placeholder)</option> */}
+            <option value="oldest" disabled={hasActiveCategory}>
+              Oldest First
+            </option>
           </select>
           {/* Filter Button - otvara/zatvara filter panel */}
           <button
@@ -122,7 +138,8 @@ const SearchAndFilterBar = ({
             }`}
           >
             Filters{" "}
-            {selectedCategories.length > 0 && `(${selectedCategories.length})`} {/* Prikaz broja selektovanih filtera*/}
+            {selectedCategories.length > 0 && `(${selectedCategories.length})`}{" "}
+            {/* Prikaz broja selektovanih filtera*/}
           </button>
         </div>
         {/* Filter Panel sa animacijom */}
@@ -140,27 +157,43 @@ const SearchAndFilterBar = ({
               {/* ✅ Checkbox opcije za kategorije */}
               <h3 className="text-md font-semibold mt-4">Categories</h3>
               <div className="mt-2">
-                {validCategories.map((categoryItem) => (
-                  <label
-                    key={categoryItem}
-                    className="flex items-center space-x-2"
-                  >
-                    <input
-                      type="checkbox"
-                      value={categoryItem}
-                      checked={selectedCategories.includes(categoryItem)}
-                      onChange={handleCategoryChange}
-                    />
-                    <span>{categoryItem}</span>
-                  </label>
-                ))}
+                {validCategories.map((categoryItem) => {
+                  const isActive = selectedCategories.includes(categoryItem);
+                  const isDisabled = hasActiveCategory && !isActive;
+
+                  return (
+                    <label
+                      key={categoryItem}
+                      className={`flex items-center space-x-2 ${
+                        isDisabled ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        value={categoryItem}
+                        checked={isActive}
+                        onChange={handleCategoryChange}
+                        disabled={isDisabled}
+                      />
+                      <span>{categoryItem}</span>
+                    </label>
+                  );
+                })}
+
+                {hasActiveCategory && (
+                  <p className="mt-2 text-sm text-gray-500 italic text-center">
+                    Single category mode (v1): while a category is active, other
+                    categories and the &quot;Oldest&quot; sort option are
+                    disabled. Clear the filter to change selection.
+                  </p>
+                )}
               </div>
               {/* Reset Button - resetuje sve filtere */}
               <button
                 onClick={onResetFilters}
                 className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
               >
-                Reset
+                Clear
               </button>
               <div>
                 {/* Close Button - zatvara filter panel */}
