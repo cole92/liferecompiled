@@ -131,15 +131,12 @@ const Home = () => {
   const getClientFilteredPosts = () => {
     let result = posts;
 
-    if (searchTerm && searchTerm.trim() !== "") {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter((post) =>
-        post.title.toLowerCase().includes(lower)
-      );
+    const q = searchTerm?.trim().toLowerCase();
+    if (q) {
+      result = result.filter((post) => post.title?.toLowerCase().includes(q));
     }
 
-    // Sort po datumu je vec uradjen na serveru (newest/oldest),
-    // ovde za v1 ne diramo taj poredak.
+    // Sort je vec odradjen na serveru
     return result;
   };
 

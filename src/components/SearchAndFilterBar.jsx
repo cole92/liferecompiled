@@ -1,12 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
-import { validCategories } from "../constants/postCategories"; // Predefinisane kategorije za filtere
-
-/**
- * SearchAndFilterBar - komponenta koja omogucava pretragu, sortiranje i filtriranje postova.
- * Koristi propse za azuriranje globalnog stanja iz `SearchContext`.
- */
+import { validCategories } from "../constants/postCategories";
 
 const SearchAndFilterBar = ({
   onSearchChange,
@@ -16,14 +11,14 @@ const SearchAndFilterBar = ({
   selectedCategories,
   sortBy,
 }) => {
-  // Lokalna stanja unutar ove komponente (ne uticu na globalni context)
-  const [localSearchTerm, setLocalSearchTerm] = useState(""); // Lokalni unos pretrage
-  const [localSortBy, setLocalSortBy] = useState("newest"); // Lokalno sortiranje
-  const [isFilterOpen, setIsFilterOpen] = useState(false); // Kontrolise prikaz filter panela
+  const [localSearchTerm, setLocalSearchTerm] = useState("");
+  const [localSortBy, setLocalSortBy] = useState("newest");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const hasActiveCategory =
     Array.isArray(selectedCategories) && selectedCategories.length === 1;
 
+  // Lock sort na "newest" kada je aktivna kategorija
   useEffect(() => {
     if (hasActiveCategory && localSortBy === "oldest") {
       setLocalSortBy("newest");
@@ -31,8 +26,8 @@ const SearchAndFilterBar = ({
     }
   }, [hasActiveCategory, localSortBy, onSortChange]);
 
+  // Sync lokalnog sort dropdown-a sa globalnim sortBy
   useEffect(() => {
-    // Drzi lokalni dropdown uskladjen sa globalnim sortBy
     if (sortBy === "oldest" || sortBy === "newest") {
       setLocalSortBy(sortBy);
     } else {
@@ -40,57 +35,32 @@ const SearchAndFilterBar = ({
     }
   }, [sortBy]);
 
-  //  Funkcija koja otvara/zatvara panel sa filterima.
   const toggleFilterPanel = () => {
-    setIsFilterOpen(!isFilterOpen);
+    setIsFilterOpen((prev) => !prev);
   };
 
-  // Definisemo animaciju za SearchAndFilterBar
   const filterPanelVariants = {
-    hidden: {
-      opacity: 0,
-      x: 50, // Blago pomeren udesno na startu
-    },
+    hidden: { opacity: 0, x: 50 },
     visible: {
       opacity: 1,
       x: 0,
-      transition: {
-        duration: 0.5,
-        ease: "easeInOut", // Glatka i ravnomerna tranzicija
-      },
+      transition: { duration: 0.5, ease: "easeInOut" },
     },
     exit: {
       opacity: 0,
-      x: 50, // Odlazi blago udesno
-      transition: {
-        duration: 0.5, // 📌 Sporije zatvaranje
-        ease: "easeInOut",
-      },
+      x: 50,
+      transition: { duration: 0.5, ease: "easeInOut" },
     },
   };
 
-  /**
-   * - Funkcija koja azurira selektovane kategorije pri promeni checkbox-a.
-   * - Kada korisnik cekira opciju, dodaje se u listu `selectedCategories`.
-   * - Kada korisnik odcekira opciju, uklanja se iz liste.
-   * - Azurirani podaci se prosleđuju kroz `onFilterChange`, što menja stanje u `SearchContext`.
-   */
-
   const handleCategoryChange = (event) => {
-    const { value, checked } = event.target; // Dobijamo vrednost checkbox-a i njegov status
-    // Kreiramo novi niz selektovanih kategorija
+    const { value, checked } = event.target;
     const newCategories = checked
-      ? [...selectedCategories, value] // Dodajemo novu kategoriju ako je selektovana
-      : selectedCategories.filter((category) => category !== value); // Uklanjamo kategoriju ako nije selektovana
+      ? [...selectedCategories, value]
+      : selectedCategories.filter((category) => category !== value);
 
-    onFilterChange(newCategories); // Prosledjujemo azurirani niz nazad u `SearchContext`
+    onFilterChange(newCategories);
   };
-
-  /**
-   * - Funkcija koja azurira pretragu pri svakom unosu korisnika.
-   * - Azurira lokalno stanje `localSearchTerm`.
-   * - Prosledjuje unos u `onSearchChange`, cime se pretraga reflektuje u `SearchContext`.
-   */
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -98,16 +68,9 @@ const SearchAndFilterBar = ({
     onSearchChange(value);
   };
 
-  /**
-   * - Funkcija koja azurira sortiranje kada korisnik promeni opciju u dropdown meniju.
-   * - Azurira lokalno stanje `localSortBy`.
-   * - Prosleđuje novu vrednost u `onSortChange`, cime azurira stanje u `SearchContext`.
-   */
-
   const handleSortChange = (e) => {
     const value = e.target.value;
 
-    // Ako je aktivna kategorija, ne dozvoli "oldest" u v1
     if (hasActiveCategory && value === "oldest") {
       return;
     }
@@ -116,12 +79,17 @@ const SearchAndFilterBar = ({
     onSortChange(value);
   };
 
+  // Lokalni clear: i globalni reset i ciscenje lokalnih inputa
+  const handleLocalClear = () => {
+    onResetFilters();
+    setLocalSearchTerm("");
+    setLocalSortBy("newest");
+  };
+
   return (
     <div>
       <div className="p-4">
-        {/* Search, Sort i Filter sekcija */}
         <div className="flex items-center gap-4 bg-white p-4 z-10 rounded-lg shadow-md sticky top-0">
-          {/* Search Input - polje za unos pretrage */}
           <input
             type="text"
             placeholder="Search posts..."
@@ -129,7 +97,7 @@ const SearchAndFilterBar = ({
             onChange={handleSearchChange}
             className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {/* Sort Dropdown - biranje nacina sortiranja */}
+
           <select
             value={localSortBy}
             onChange={handleSortChange}
@@ -140,19 +108,21 @@ const SearchAndFilterBar = ({
               Oldest First
             </option>
           </select>
-          {/* Filter Button - otvara/zatvara filter panel */}
+
           <button
             onClick={toggleFilterPanel}
+            aria-expanded={isFilterOpen}
+            aria-controls="filters-panel"
             className={`p-2 rounded-lg text-white ${
               selectedCategories.length > 0 ? "bg-blue-600" : "bg-blue-500"
             }`}
           >
-            Filters{" "}
-            {selectedCategories.length > 0 && `(${selectedCategories.length})`}{" "}
-            {/* Prikaz broja selektovanih filtera*/}
+            Filters
+            {selectedCategories.length > 0 &&
+              ` (${selectedCategories.length})`}
           </button>
         </div>
-        {/* Filter Panel sa animacijom */}
+
         <AnimatePresence>
           {isFilterOpen && (
             <motion.div
@@ -162,9 +132,12 @@ const SearchAndFilterBar = ({
               variants={filterPanelVariants}
               transition={{ duration: 0.3, ease: "easeInOut" }}
               className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg p-4"
+              role="dialog"
+              id="filters-panel"
+              aria-modal="true"
             >
               <h2 className="text-lg font-bold">Filter Options</h2>
-              {/* ✅ Checkbox opcije za kategorije */}
+
               <h3 className="text-md font-semibold mt-4">Categories</h3>
               <div className="mt-2">
                 {validCategories.map((categoryItem) => {
@@ -193,20 +166,20 @@ const SearchAndFilterBar = ({
                 {hasActiveCategory && (
                   <p className="mt-2 text-sm text-gray-500 italic text-center">
                     Single category mode (v1): while a category is active, other
-                    categories and the &quot;Oldest&quot; sort option are
-                    disabled. Clear the filter to change selection.
+                    categories and the &quot;Oldest&quot; sort option are disabled. Clear
+                    the filter to change selection.
                   </p>
                 )}
               </div>
-              {/* Reset Button - resetuje sve filtere */}
+
               <button
-                onClick={onResetFilters}
+                onClick={handleLocalClear}
                 className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
               >
                 Clear
               </button>
+
               <div>
-                {/* Close Button - zatvara filter panel */}
                 <button
                   onClick={toggleFilterPanel}
                   className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
