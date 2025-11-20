@@ -10,14 +10,23 @@ const PAGE_SIZE_UI = 16;
 
 /**
  * @component Home
- * Prikazuje pocetnu stranicu aplikacije sa listom svih postova.
+ * Landing stranica sa paginiranim Home feed-om.
  *
- * - Dohvata postove iz Firestore baze prilikom montiranja
- * - Primenuje filtraciju po kategorijama i pretrazi iz SearchContext-a
- * - Sortira postove po odabranom kriterijumu (`sortBy`)
- * - Prikazuje `Spinner`, `NoResultsMessage` ili `PostsList` u zavisnosti od stanja
+ * Namena:
+ * - Fetch prve stranice postova preko `getPostsPage` (server filter/sort/paginacija)
+ * - Uklapa `sortBy` i `selectedCategories` iz SearchContext-a u `serverSort` (v1 pravila)
+ * - Primeni klijentski search (`searchTerm`) nad vec ucitanim stranicama
+ * - Prikazuje SkeletonCard, NoResultsMessage ili PostsList + "Load more" u zavisnosti od stanja
  *
- * @returns {JSX.Element} Lista postova sa primenjenim filterima i sortiranjem
+ * Paginacija:
+ * - PAGE_SIZE_UI = 16, cursor-based (lastDoc + hasMore)
+ * - Append koristi dedupe po `id` da izbegne duplikate pri "Load more"
+ *
+ * V1 ogranicenja:
+ * - Single category mode: ako je tacno jedna kategorija aktivna, sort se zakljucava na 'newest'
+ * - Ako je 0 ili vise od 1 kategorije izabrano → server ne filtrira po kategoriji (activeCategory = null)
+ *
+ * @returns {JSX.Element}
  */
 const Home = () => {
   const [posts, setPosts] = useState([]);
@@ -34,15 +43,14 @@ const Home = () => {
       ? selectedCategories[0]
       : null;
 
-  // 2) Sort za server – v1 podrzava samo newest/oldest
-
+  // 2) Sort za server – v1 podrzava samo newest/oldest; pri aktivnoj kategoriji zakljucavamo na "newest"
   const serverSort = activeCategory
     ? "newest"
     : sortBy === "oldest"
     ? "oldest"
     : "newest";
 
-  // Fetch PRVE strane na mount + na promenu category/sortBy
+  // Fetch prve strane na mount + na promenu activeCategory/serverSort
   useEffect(() => {
     let isCanceled = false;
 
@@ -103,8 +111,7 @@ const Home = () => {
         sortBy: serverSort,
       });
 
-      // Dedupe po id-u pri append-u
-
+      // Dedupe po id-u pri append-u (novi pregaze stare)
       setPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         for (const item of page.items) {

@@ -3,6 +3,31 @@ import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories";
 
+/**
+ * @component SearchAndFilterBar
+ *
+ * Kombinovani kontroler za:
+ * - search input (lokalna kontrola + emit globalne promene)
+ * - sort dropdown (sa ogranicenjima u single-category modu)
+ * - category filter panel (v1: samo 1 kategorija aktivna istovremeno)
+ *
+ * Kljucno ponasanje:
+ * - Kada je aktivna samo jedna kategorija → "oldest" sort je zakljucan
+ * - Lokalna stanja (searchTerm, sortBy) se sinkronizuju sa globalnim
+ * - Filter panel koristi framer-motion animacije i a11y atribute
+ *
+ * Lokalne granice:
+ * - selectedCategories.length === 1 → single-category v1 mode
+ *
+ * @param {Function} onSearchChange
+ * @param {Function} onSortChange
+ * @param {Function} onFilterChange
+ * @param {Function} onResetFilters
+ * @param {string[]} selectedCategories
+ * @param {"newest"|"oldest"} sortBy
+ * @returns {JSX.Element}
+ */
+
 const SearchAndFilterBar = ({
   onSearchChange,
   onSortChange,
@@ -15,10 +40,11 @@ const SearchAndFilterBar = ({
   const [localSortBy, setLocalSortBy] = useState("newest");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+  // Single-category v1 rule: tacno jedna kategorija aktivna
   const hasActiveCategory =
     Array.isArray(selectedCategories) && selectedCategories.length === 1;
 
-  // Lock sort na "newest" kada je aktivna kategorija
+  // Ako postoji aktivna kategorija → najstariji sort je zabranjen
   useEffect(() => {
     if (hasActiveCategory && localSortBy === "oldest") {
       setLocalSortBy("newest");
@@ -26,7 +52,7 @@ const SearchAndFilterBar = ({
     }
   }, [hasActiveCategory, localSortBy, onSortChange]);
 
-  // Sync lokalnog sort dropdown-a sa globalnim sortBy
+  // Sinkronizacija lokalnog dropdown-a sa globalnim sortBy
   useEffect(() => {
     if (sortBy === "oldest" || sortBy === "newest") {
       setLocalSortBy(sortBy);
@@ -39,6 +65,7 @@ const SearchAndFilterBar = ({
     setIsFilterOpen((prev) => !prev);
   };
 
+  // Framer-motion varijante za panel
   const filterPanelVariants = {
     hidden: { opacity: 0, x: 50 },
     visible: {
@@ -53,6 +80,7 @@ const SearchAndFilterBar = ({
     },
   };
 
+  // Menjanje kategorija uz v1 ogranicenje (ostale kategorije disabled)
   const handleCategoryChange = (event) => {
     const { value, checked } = event.target;
     const newCategories = checked
@@ -62,24 +90,23 @@ const SearchAndFilterBar = ({
     onFilterChange(newCategories);
   };
 
+  // Lokalni search → propagacija ka globalnom state-u
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setLocalSearchTerm(value);
     onSearchChange(value);
   };
 
+  // Lokalni sort → sa guard-om za single-category mod
   const handleSortChange = (e) => {
     const value = e.target.value;
-
-    if (hasActiveCategory && value === "oldest") {
-      return;
-    }
+    if (hasActiveCategory && value === "oldest") return; // onemoguci zabranjeni izbor
 
     setLocalSortBy(value);
     onSortChange(value);
   };
 
-  // Lokalni clear: i globalni reset i ciscenje lokalnih inputa
+  // Lokalni CLEAR resetuje globalne filtere + lokalni UI state
   const handleLocalClear = () => {
     onResetFilters();
     setLocalSearchTerm("");
@@ -89,6 +116,7 @@ const SearchAndFilterBar = ({
   return (
     <div>
       <div className="p-4">
+        {/* Sticky gornja traka: Search + Sort + Filter dugme */}
         <div className="flex items-center gap-4 bg-white p-4 z-10 rounded-lg shadow-md sticky top-0">
           <input
             type="text"
@@ -104,11 +132,13 @@ const SearchAndFilterBar = ({
             className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="newest">Newest First</option>
+            {/* Sort "oldest" se zakljucava u single-category modu */}
             <option value="oldest" disabled={hasActiveCategory}>
               Oldest First
             </option>
           </select>
 
+          {/* Dugme za otvaranje filter panela (+ badge kada je nesto aktivno) */}
           <button
             onClick={toggleFilterPanel}
             aria-expanded={isFilterOpen}
@@ -123,6 +153,7 @@ const SearchAndFilterBar = ({
           </button>
         </div>
 
+        {/* Slide-in filter panel (framer-motion) */}
         <AnimatePresence>
           {isFilterOpen && (
             <motion.div
@@ -163,6 +194,7 @@ const SearchAndFilterBar = ({
                   );
                 })}
 
+                {/* UI hint za single-category ogranicenje */}
                 {hasActiveCategory && (
                   <p className="mt-2 text-sm text-gray-500 italic text-center">
                     Single category mode (v1): while a category is active, other
@@ -172,6 +204,7 @@ const SearchAndFilterBar = ({
                 )}
               </div>
 
+              {/* CLEAR dugme */}
               <button
                 onClick={handleLocalClear}
                 className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
@@ -179,6 +212,7 @@ const SearchAndFilterBar = ({
                 Clear
               </button>
 
+              {/* CLOSE dugme */}
               <div>
                 <button
                   onClick={toggleFilterPanel}
@@ -196,11 +230,11 @@ const SearchAndFilterBar = ({
 };
 
 SearchAndFilterBar.propTypes = {
-  onSearchChange: PropTypes.func.isRequired, // Mora biti funkcija
-  onSortChange: PropTypes.func.isRequired, // Mora biti funkcija
-  onFilterChange: PropTypes.func.isRequired, // Mora biti funkcija
-  onResetFilters: PropTypes.func.isRequired, // Mora biti funkcija
-  selectedCategories: PropTypes.arrayOf(PropTypes.string).isRequired, // Mora biti niz stringova
+  onSearchChange: PropTypes.func.isRequired,
+  onSortChange: PropTypes.func.isRequired,
+  onFilterChange: PropTypes.func.isRequired,
+  onResetFilters: PropTypes.func.isRequired,
+  selectedCategories: PropTypes.arrayOf(PropTypes.string).isRequired,
   sortBy: PropTypes.oneOf(["newest", "oldest"]).isRequired,
 };
 
