@@ -35,7 +35,12 @@ const Home = () => {
       : null;
 
   // 2) Sort za server – v1 podrzava samo newest/oldest
-  const serverSort = sortBy === "oldest" ? "oldest" : "newest";
+
+  const serverSort = activeCategory
+    ? "newest"
+    : sortBy === "oldest"
+    ? "oldest"
+    : "newest";
 
   // Fetch PRVE strane na mount + na promenu category/sortBy
   useEffect(() => {
@@ -156,6 +161,13 @@ const Home = () => {
         <>
           <PostsList posts={finalPosts} />
 
+          {/* Mini skeleton pri Load more */}
+          {isLoadingMore && (
+            <div className="mt-4">
+              <SkeletonCard />
+            </div>
+          )}
+
           {/* Load more / end helper */}
           {hasMore ? (
             <div className="mt-6 flex justify-center">
@@ -163,6 +175,7 @@ const Home = () => {
                 type="button"
                 onClick={handleLoadMore}
                 disabled={isLoadingMore || isLoading || !hasMore}
+                aria-busy={isLoadingMore}
                 className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
               >
                 {isLoadingMore ? "Loading..." : "Load more"}

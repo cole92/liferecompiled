@@ -14,6 +14,7 @@ const SearchAndFilterBar = ({
   onFilterChange,
   onResetFilters,
   selectedCategories,
+  sortBy,
 }) => {
   // Lokalna stanja unutar ove komponente (ne uticu na globalni context)
   const [localSearchTerm, setLocalSearchTerm] = useState(""); // Lokalni unos pretrage
@@ -29,6 +30,15 @@ const SearchAndFilterBar = ({
       onSortChange("newest");
     }
   }, [hasActiveCategory, localSortBy, onSortChange]);
+
+  useEffect(() => {
+    // Drzi lokalni dropdown uskladjen sa globalnim sortBy
+    if (sortBy === "oldest" || sortBy === "newest") {
+      setLocalSortBy(sortBy);
+    } else {
+      setLocalSortBy("newest");
+    }
+  }, [sortBy]);
 
   //  Funkcija koja otvara/zatvara panel sa filterima.
   const toggleFilterPanel = () => {
@@ -218,6 +228,7 @@ SearchAndFilterBar.propTypes = {
   onFilterChange: PropTypes.func.isRequired, // Mora biti funkcija
   onResetFilters: PropTypes.func.isRequired, // Mora biti funkcija
   selectedCategories: PropTypes.arrayOf(PropTypes.string).isRequired, // Mora biti niz stringova
+  sortBy: PropTypes.oneOf(["newest", "oldest"]).isRequired,
 };
 
 export default SearchAndFilterBar;
