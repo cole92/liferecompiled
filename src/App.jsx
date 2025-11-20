@@ -22,9 +22,10 @@ import Settings from "./pages/dashboard/settings/Settings";
 // Stilovi
 import "./App.css";
 
+
 function App() {
   return (
-    <Layout>
+    <Layout>    
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />

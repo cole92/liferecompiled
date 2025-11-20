@@ -49,6 +49,7 @@ const Header = () => {
     setSelectedCategories,
     selectedCategories,
     handleResetFilters,
+    sortBy,
   } = useSearch();
 
   // Varijante animacije za Search/Filter bar (ulaz i izlaz)
@@ -124,6 +125,7 @@ const Header = () => {
             onFilterChange={setSelectedCategories}
             onResetFilters={handleResetFilters}
             selectedCategories={selectedCategories}
+            sortBy={sortBy}   
           />
         </motion.div>
       )}

@@ -1,5 +1,13 @@
 import { db } from "../firebase";
-import { collection, query, orderBy, getDocs, doc, getDoc, where } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  doc,
+  getDoc,
+  where,
+} from "firebase/firestore";
 
 /**
  * Dohvata sve aktivne postove iz Firestore baze, sortirane po datumu kreiranja (najnoviji prvi).
@@ -16,38 +24,39 @@ import { collection, query, orderBy, getDocs, doc, getDoc, where } from "firebas
  */
 
 export const getPosts = async () => {
-    try {
-        const postsRef = collection(db, "posts");
-        const q = query(
-            postsRef,
-            where("deleted", "==", false), // Dohvatamo samo postove koji nisu oznaceni kao obrisani
-            orderBy("createdAt", "desc")
-        );
+  try {
+    const postsRef = collection(db, "posts");
+    const q = query(
+      postsRef,
+      where("deleted", "==", false), // Dohvatamo samo postove koji nisu oznaceni kao obrisani
+      orderBy("createdAt", "desc")
+    );
 
-        const querySnapshot = await getDocs(q);
-        const posts = await Promise.all(querySnapshot.docs.map(async (docSnap) => {
-            const postData = docSnap.data();
-            // Dohvata autora posta na osnovu userId
+    const querySnapshot = await getDocs(q);
+    const posts = await Promise.all(
+      querySnapshot.docs.map(async (docSnap) => {
+        const postData = docSnap.data();
+        // Dohvata autora posta na osnovu userId
 
-            const userRef = doc(db, "users", postData.userId); // Referenca na korisnika
-            const userSnap = await getDoc(userRef); // Dohvati korisnika
+        const userRef = doc(db, "users", postData.userId); // Referenca na korisnika
+        const userSnap = await getDoc(userRef); // Dohvati korisnika
 
-            return {
-                id: docSnap.id,
-                ...postData,
-                author: userSnap.exists()
-                    ? { ...userSnap.data(), id: userSnap.id }
-                    : { name: "Unknown", id: null },
-                comments: postData.comments || [], // Ako nema komentara, stavljamo prazan niz
-            };
-        }));
+        return {
+          id: docSnap.id,
+          ...postData,
+          author: userSnap.exists()
+            ? { ...userSnap.data(), id: userSnap.id }
+            : { name: "Unknown", id: null },
+          comments: postData.comments || [], // Ako nema komentara, stavljamo prazan niz
+        };
+      })
+    );
 
-        return posts;
-
-    } catch (error) {
-        console.log("Error fetching posts:", error);
-        throw new Error("Failed to fetch posts.");
-    }
+    return posts;
+  } catch (error) {
+    console.log("Error fetching posts:", error);
+    throw new Error("Failed to fetch posts.");
+  }
 };
 
 /**
@@ -61,23 +70,17 @@ export const getPosts = async () => {
  */
 
 export const getPostById = async (postId) => {
-    try {
-        const ref = doc(db, "posts", postId);
-        const snap = await getDoc(ref);
+  try {
+    const ref = doc(db, "posts", postId);
+    const snap = await getDoc(ref);
 
-        if (!snap.exists()) return null;
+    if (!snap.exists()) return null;
 
-        const post = { id: snap.id, ...snap.data() };
+    const post = { id: snap.id, ...snap.data() };
 
-        // ⬇️ Hardkoduj post.badges
-        post.badges = {
-            mostInspiring: true,
-            trending: true,
-        };
-
-        return post;
-    } catch (error) {
-        console.log("Error fetching post:", error);
-        throw new Error("Failed to fetch post.");
-    }
+    return post;
+  } catch (error) {
+    console.log("Error fetching post:", error);
+    throw new Error("Failed to fetch post.");
+  }
 };

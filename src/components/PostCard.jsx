@@ -117,13 +117,6 @@ const PostCard = ({
     return timeLeft > 0 ? Math.ceil(timeLeft / (1000 * 60 * 60 * 24)) : 0;
   };
 
-  post.badges = {
-    mostInspiring: true,
-    trending: true,
-  };
-  author.badges = {
-    topContributor: true, // Trenutno hardkodovanje
-  };
 
   // Otvara modal sa PNG bedzevima za post (preventuje bubbling do PostCard)
   const handleBadgeClick = (e, badgeKey) => {
