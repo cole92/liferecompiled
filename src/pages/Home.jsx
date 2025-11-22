@@ -32,7 +32,7 @@ const Home = () => {
   const [posts, setPosts] = useState([]);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const { searchTerm, sortBy, selectedCategories } = useSearch();
+  const { sortBy, selectedCategories } = useSearch();
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -134,20 +134,7 @@ const Home = () => {
     }
   };
 
-  // Klijentski filter za searchTerm (v1 – samo nad vec ucitanim stranama)
-  const getClientFilteredPosts = () => {
-    let result = posts;
-
-    const q = searchTerm?.trim().toLowerCase();
-    if (q) {
-      result = result.filter((post) => post.title?.toLowerCase().includes(q));
-    }
-
-    // Sort je vec odradjen na serveru
-    return result;
-  };
-
-  const finalPosts = getClientFilteredPosts();
+  const finalPosts = posts;
 
   const showNoResults = !isLoading && finalPosts.length === 0;
 
@@ -158,7 +145,7 @@ const Home = () => {
       ) : showNoResults ? (
         <NoResultsMessage
           posts={finalPosts}
-          searchTerm={searchTerm}
+          searchTerm=""
           selectedCategories={selectedCategories}
         />
       ) : (

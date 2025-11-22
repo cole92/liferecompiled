@@ -14,7 +14,6 @@ import Spinner from "./Spinner";
  * - Koristi AuthContext za proveru statusa korisnika i logout funkcionalnost
  * - Ako korisnik nije ulogovan, prikazuje Login i Register dugmad (osim na odgovarajucim stranicama)
  * - Ako je korisnik ulogovan, prikazuje Avatar meni sa opcijama
- * - Na home stranici ("/") prikazuje SearchAndFilterBar sa animacijom (framer-motion)
  * - Koristi useSearch context za upravljanje filterima i pretragom
  * - Prikazuje dugme "Create New Post" samo kada je korisnik ulogovan i ruta NIJE u restricted listi
  *
@@ -125,7 +124,8 @@ const Header = () => {
             onFilterChange={setSelectedCategories}
             onResetFilters={handleResetFilters}
             selectedCategories={selectedCategories}
-            sortBy={sortBy}   
+            sortBy={sortBy}
+            showSearch={false}
           />
         </motion.div>
       )}

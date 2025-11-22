@@ -35,6 +35,7 @@ const SearchAndFilterBar = ({
   onResetFilters,
   selectedCategories,
   sortBy,
+  showSearch = true,
 }) => {
   const [localSearchTerm, setLocalSearchTerm] = useState("");
   const [localSortBy, setLocalSortBy] = useState("newest");
@@ -118,14 +119,15 @@ const SearchAndFilterBar = ({
       <div className="p-4">
         {/* Sticky gornja traka: Search + Sort + Filter dugme */}
         <div className="flex items-center gap-4 bg-white p-4 z-10 rounded-lg shadow-md sticky top-0">
-          <input
-            type="text"
-            placeholder="Search posts..."
-            value={localSearchTerm}
-            onChange={handleSearchChange}
-            className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-
+          {showSearch && (
+            <input
+              type="text"
+              placeholder="Search posts..."
+              value={localSearchTerm}
+              onChange={handleSearchChange}
+              className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          )}
           <select
             value={localSortBy}
             onChange={handleSortChange}
@@ -148,8 +150,7 @@ const SearchAndFilterBar = ({
             }`}
           >
             Filters
-            {selectedCategories.length > 0 &&
-              ` (${selectedCategories.length})`}
+            {selectedCategories.length > 0 && ` (${selectedCategories.length})`}
           </button>
         </div>
 
@@ -198,8 +199,8 @@ const SearchAndFilterBar = ({
                 {hasActiveCategory && (
                   <p className="mt-2 text-sm text-gray-500 italic text-center">
                     Single category mode (v1): while a category is active, other
-                    categories and the &quot;Oldest&quot; sort option are disabled. Clear
-                    the filter to change selection.
+                    categories and the &quot;Oldest&quot; sort option are
+                    disabled. Clear the filter to change selection.
                   </p>
                 )}
               </div>
@@ -235,7 +236,8 @@ SearchAndFilterBar.propTypes = {
   onFilterChange: PropTypes.func.isRequired,
   onResetFilters: PropTypes.func.isRequired,
   selectedCategories: PropTypes.arrayOf(PropTypes.string).isRequired,
-  sortBy: PropTypes.oneOf(["newest", "oldest"]).isRequired,
+  sortBy: PropTypes.string,
+  showSearch: PropTypes.bool,
 };
 
 export default SearchAndFilterBar;
