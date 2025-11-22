@@ -15,8 +15,8 @@ const PAGE_SIZE_UI = 16;
  * Namena:
  * - Fetch prve stranice postova preko `getPostsPage` (server filter/sort/paginacija)
  * - Uklapa `sortBy` i `selectedCategories` iz SearchContext-a u `serverSort` (v1 pravila)
- * - Primeni klijentski search (`searchTerm`) nad vec ucitanim stranicama
  * - Prikazuje SkeletonCard, NoResultsMessage ili PostsList + "Load more" u zavisnosti od stanja
+ * - U v1 verziji nema klijentskog tekstualnog search-a (search bar je iskljucen)
  *
  * Paginacija:
  * - PAGE_SIZE_UI = 16, cursor-based (lastDoc + hasMore)
@@ -134,6 +134,7 @@ const Home = () => {
     }
   };
 
+  // Home v1 ne koristi klijentski search; finalPosts je trenutno identican `posts`
   const finalPosts = posts;
 
   const showNoResults = !isLoading && finalPosts.length === 0;
@@ -143,14 +144,17 @@ const Home = () => {
       {isLoading ? (
         <SkeletonCard />
       ) : showNoResults ? (
-        <NoResultsMessage
-          posts={finalPosts}
-          searchTerm=""
-          selectedCategories={selectedCategories}
-        />
+        <>
+          {/* Home v1 prosledjuje prazan searchTerm jer nema tekstualni search na Home feed-u */}
+          <NoResultsMessage
+            posts={finalPosts}
+            searchTerm=""
+            selectedCategories={selectedCategories}
+          />
+        </>
       ) : (
         <>
-          <PostsList posts={finalPosts} />
+          <PostsList posts={finalPosts} showCommentsThread={false} />
 
           {/* Mini skeleton pri Load more */}
           {isLoadingMore && (
