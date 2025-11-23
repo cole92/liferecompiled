@@ -13,7 +13,12 @@ import PropTypes from "prop-types";
  * @param {Function} onFilterChange - Callback za promenu filtera
  */
 
-const PostFilterBar = ({ activeFilter, onFilterChange }) => {
+const PostFilterBar = ({
+  activeFilter,
+  onFilterChange,
+  searchTerm,
+  onSearchChange,
+}) => {
   const filters = [
     {
       label: "Active",
@@ -23,6 +28,8 @@ const PostFilterBar = ({ activeFilter, onFilterChange }) => {
     { label: "Locked", value: "locked", className: "bg-red-100 text-red-800" },
     { label: "All", value: "all", className: "bg-gray-200 text-gray-800" },
   ];
+
+  const hasSearch = searchTerm.trim().length > 0;
 
   return (
     <div className="flex gap-2 flex-wrap mb-4">
@@ -41,6 +48,26 @@ const PostFilterBar = ({ activeFilter, onFilterChange }) => {
           {f.label}
         </button>
       ))}
+
+      {/* Donji red: search polje */}
+      <div className="flex items-center gap-2 max-w-md">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search your posts by title..."
+          className="border border-gray-600 bg-gray-800 text-white px-3 py-2 rounded w-full"
+        />
+        {hasSearch && (
+          <button
+            type="button"
+            onClick={() => onSearchChange("")}
+            className="text-sm underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
     </div>
   );
 };
@@ -48,6 +75,7 @@ const PostFilterBar = ({ activeFilter, onFilterChange }) => {
 PostFilterBar.propTypes = {
   activeFilter: PropTypes.string.isRequired,
   onFilterChange: PropTypes.func.isRequired,
+  searchTerm: PropTypes.string.isRequired,
+  onSearchChange: PropTypes.func.isRequired,
 };
-
 export default PostFilterBar;

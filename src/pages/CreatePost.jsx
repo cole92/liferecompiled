@@ -1,10 +1,6 @@
 import { useState, useContext } from "react";
 
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
 import { AuthContext } from "../context/AuthContext";
@@ -50,16 +46,20 @@ const CreatePost = () => {
         return;
       }
 
+      // Normalizovan naslov za pretragu (lowercase + trim)
+      const normalizedTitle = postData.title.toLowerCase().trim();
+
       // Dodavanje posta u Firestore bazu
       const docRef = await addDoc(collection(db, "posts"), {
         ...postData, // Podaci iz forme
+        title_lc: normalizedTitle,
         userId: user.uid, // Povezujemo post sa korisnikom
         createdAt: serverTimestamp(), // Timestamp iz Firestore-a
         deleted: false,
         deletedAt: null,
         updatedAt: null,
         locked: false,
-      });      
+      });
 
       showSuccessToast("Post successfully created!");
       console.log("Post added with ID:", docRef.id);

@@ -185,8 +185,13 @@ const EditPost = () => {
 
     try {
       const postRef = doc(db, "posts", postToEdit.id);
+
+      const trimmedTitle = title.trim();
+      const normalizedTitle = trimmedTitle.toLowerCase();
+
       await updateDoc(postRef, {
-        title: title.trim(),
+        title: trimmedTitle,
+        title_lc: normalizedTitle,
         description: description.trim(),
         content: content.trim(),
         tags,

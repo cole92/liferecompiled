@@ -6,6 +6,8 @@ import {
   orderBy,
   startAfter,
   limit,
+  startAt,
+  endAt,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -34,7 +36,31 @@ const buildPostsQuery = ({
   filter,
   afterDoc = null,
   pageSize = 10,
+  q = "",
 }) => {
+  const collectionRef = collection(db, "posts");
+  const trimmedQ = q.trim();
+
+  if (trimmedQ.length > 0) {
+    const normalizedQ = trimmedQ.toLowerCase();
+
+    const constraints = [
+      where("userId", "==", userId),
+      where("deleted", "==", false),
+      orderBy("title_lc"),
+      startAt(normalizedQ),
+      endAt(normalizedQ + "\uf8ff"),
+    ];
+
+    if (afterDoc) {
+      constraints.push(startAfter(afterDoc));
+    }
+
+    constraints.push(limit(pageSize));
+
+    return query(collectionRef, ...constraints);
+  }
+
   // Osnovni uslovi: autor + neobrisani + sortiranje po datumu
   const constraints = [
     where("userId", "==", userId),
@@ -52,7 +78,7 @@ const buildPostsQuery = ({
   // Limitiraj broj rezultata
   constraints.push(limit(pageSize));
 
-  return query(collection(db, "posts"), ...constraints);
+  return query(collectionRef, ...constraints);
 };
 
 export default buildPostsQuery;

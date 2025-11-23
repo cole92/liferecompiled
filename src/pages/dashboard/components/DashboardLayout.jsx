@@ -32,6 +32,7 @@ const DashboardLayout = () => {
   const [trashCount, setTrashCount] = useState(0);
   const [filterRange, setFilterRange] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [myPostsSearch, setMyPostsSearch] = useState(""); // search za MyPosts
 
   // Efekat: slusaj promene obrisanih postova u Firestore-u za trenutno ulogovanog korisnika
   useEffect(() => {
@@ -70,7 +71,12 @@ const DashboardLayout = () => {
             )}
             {/* Prikaz filtera za postove samo na MyPosts stranici (ruta: /dashboard) */}
             {isMyPostsPage && (
-              <PostFilterBar activeFilter={filter} onFilterChange={setFilter} />
+              <PostFilterBar
+                activeFilter={filter}
+                onFilterChange={setFilter}
+                searchTerm={myPostsSearch}
+                onSearchChange={setMyPostsSearch}
+              />
             )}
           </div>
         </div>
@@ -81,7 +87,14 @@ const DashboardLayout = () => {
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Prosleđujemo filterRange i setter kao kontekst child komponentama (npr. Trash.jsx) */}
           <Outlet
-            context={{ filterRange, setFilterRange, filter, setFilter }}
+            context={{
+              filterRange,
+              setFilterRange,
+              filter,
+              setFilter,
+              myPostsSearch,
+              setMyPostsSearch,
+            }}
           />
         </main>
       </div>

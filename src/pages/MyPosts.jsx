@@ -43,7 +43,7 @@ import buildPostsQuery from "../services/postsService";
 // Dashboard komponenta za prikaz podataka korisnika
 const MyPosts = () => {
   const { user } = useContext(AuthContext);
-  const { filter } = useOutletContext();
+  const { filter, myPostsSearch } = useOutletContext();
   const navigate = useNavigate();
 
   const [posts, setPosts] = useState([]);
@@ -61,6 +61,8 @@ const MyPosts = () => {
   const [hasMore, setHasMore] = useState(true);
 
   const POST_PER_PAGE = 10;
+
+  const trimmedSearch = (myPostsSearch || "").trim();
 
   useEffect(() => {
     let canceled = false;
@@ -80,6 +82,7 @@ const MyPosts = () => {
           filter,
           afterDoc: null,
           pageSize: POST_PER_PAGE,
+          q: trimmedSearch,
         });
 
         const querySnapshot = await getDocs(q);
@@ -130,7 +133,7 @@ const MyPosts = () => {
       canceled = true; // Cleanup: sprecava setState posle unmount-a
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, filter]);
+  }, [user?.uid, filter, trimmedSearch]);
 
   // Dovlaci sledecu stranicu postova (paginacija)
   const handleLoadMore = async () => {
@@ -143,6 +146,7 @@ const MyPosts = () => {
         filter,
         afterDoc: lastDoc,
         pageSize: POST_PER_PAGE,
+        q: trimmedSearch,
       });
 
       const querySnapshot = await getDocs(q);
@@ -265,6 +269,9 @@ const MyPosts = () => {
     return true; // all
   });
 
+  const isSearchMode = trimmedSearch.length > 0;
+  const visiblePosts = isSearchMode ? posts : filteredPosts;
+
   // Prikaz korisnickog interfejsa
   return (
     <div className="mb-6">
@@ -280,14 +287,20 @@ const MyPosts = () => {
       </button>
 
       {/* Empty state */}
-      {!isLoading && posts.length === 0 && (
-        <EmptyState message="You haven't created any posts yet." />
+      {!isLoading && visiblePosts.length === 0 && (
+        <EmptyState
+          message={
+            isSearchMode
+              ? "No posts match your search."
+              : "You haven't created any posts yet."
+          }
+        />
       )}
 
       {/* Lista postova sa mogucnoscu brisanja i zakljucavanja (samo za vlasnika) */}
-      {!isLoading && posts.length > 0 && (
+      {!isLoading && visiblePosts.length > 0 && (
         <PostsList
-          posts={filteredPosts}
+          posts={visiblePosts}
           isMyPost={true}
           showDeleteButton={true}
           onDelete={(postId) => {
@@ -330,7 +343,7 @@ const MyPosts = () => {
       )}
 
       {/* Poruka "You reached the end" */}
-      {!hasMore && filteredPosts.length > 0 && (
+      {!hasMore && visiblePosts.length > 0 && (
         <p
           className="mt-4 text-sm text-gray-500 text-center"
           aria-live="polite"
