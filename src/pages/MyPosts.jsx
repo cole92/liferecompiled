@@ -62,7 +62,26 @@ const MyPosts = () => {
 
   const POST_PER_PAGE = 10;
 
-  const trimmedSearch = (myPostsSearch || "").trim();
+  // Debounce
+  const rawSearch = myPostsSearch || "";
+  const [debouncedSearch, setDebouncedSearch] = useState(rawSearch.trim());
+
+  useEffect(() => {
+    const trimmed = rawSearch.trim();
+
+    if (trimmed === "") {
+      setDebouncedSearch("");
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(trimmed);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [rawSearch]);
+
+  const trimmedSearch = debouncedSearch;
 
   useEffect(() => {
     let canceled = false;

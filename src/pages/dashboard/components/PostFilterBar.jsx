@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { motion } from "framer-motion";
 
 /**
  * PostFilterBar komponenta
@@ -32,25 +33,36 @@ const PostFilterBar = ({
   const hasSearch = searchTerm.trim().length > 0;
 
   return (
-    <div className="flex gap-2 flex-wrap mb-4">
-      {filters.map((f) => (
-        <button
-          key={f.value}
-          onClick={() => onFilterChange(f.value)}
-          className={`px-3 py-1 rounded-full text-sm transition hover:scale-105 ${
-            f.className
-          } ${
-            activeFilter === f.value
-              ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 ring-black"
-              : ""
-          }`}
-        >
-          {f.label}
-        </button>
-      ))}
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      {/* Levo: filter dugmici – uvek zauzimaju prostor, samo fade on/off */}
+      <motion.div
+        initial={false}
+        animate={{ opacity: hasSearch ? 0 : 1, y: hasSearch ? -4 : 0 }}
+        transition={{ duration: 0.2 }}
+        className={`flex gap-2 flex-wrap ${
+          hasSearch ? "pointer-events-none" : ""
+        }`}
+        aria-hidden={hasSearch}
+      >
+        {filters.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => onFilterChange(f.value)}
+            className={`px-3 py-1 rounded-full text-sm transition hover:scale-105 ${
+              f.className
+            } ${
+              activeFilter === f.value
+                ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 ring-black"
+                : ""
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </motion.div>
 
-      {/* Donji red: search polje */}
-      <div className="flex items-center gap-2 max-w-md">
+      {/* Desno: search polje (uvek tu, ne skace) */}
+      <div className="flex items-center gap-2 max-w-md flex-1 md:flex-none md:ml-auto">
         <input
           type="text"
           value={searchTerm}
