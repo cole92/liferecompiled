@@ -12,19 +12,25 @@ import TrashFilterBar from "./TrashFilterBar";
 import PostFilterBar from "./PostFilterBar";
 
 /**
- * Layout komponenta za Dashboard sekciju.
+ * @component DashboardLayout
  *
- * - Prikazuje breadcrumb, opcioni banner, i tabove (uklj. Trash broj)
- * - Omogucava prikaz child ruta pomocu <Outlet />
- * - Povezana na Firestore kako bi pratila broj obrisanih postova u realnom vremenu
+ * Glavni layout za Dashboard sekciju (privatne rute).
  *
- * @component
+ * Namena:
+ * - Prikazuje breadcrumb, opcioni welcome banner i tabs (ukljucujuci Trash badge sa brojem obrisanih postova)
+ * - Obezbedjuje sticky header (breadcrumb + tabs + filteri) i skrolabilan sadrzaj ispod
+ * - Slusa Firestore u realnom vremenu da bi pratila broj obrisanih postova za aktivnog korisnika
+ * - Na osnovu rute prikazuje dodatne kontrole:
+ *   - `/dashboard/trash` → `TrashFilterBar` (filtriranje po vremenskom opsegu za Trash)
+ *   - `/dashboard` (MyPosts) → `PostFilterBar` (Active/Locked/All + search po naslovu)
+ * - Prosledjuje filter stanje kroz `Outlet` context tako da child rute (MyPosts, Trash) dele isti izvor istine
+ *
  * @returns {JSX.Element}
  */
 
 const DashboardLayout = () => {
   const location = useLocation();
-  const isTrashPage = location.pathname.includes("/trash"); // Proveravamo da li je aktivna Trash stranica kako bismo prikazali filter
+  const isTrashPage = location.pathname.includes("/trash");  // Trash ruta prikazuje dodatni filter bar za TTL (0–10 / 11–20 / 21–30)
   const isMyPostsPage = location.pathname === "/dashboard";
   const showBanner = true; // (kasnije povezati sa localStorage za dismiss logiku)
 
@@ -32,7 +38,7 @@ const DashboardLayout = () => {
   const [trashCount, setTrashCount] = useState(0);
   const [filterRange, setFilterRange] = useState(null);
   const [filter, setFilter] = useState("all");
-  const [myPostsSearch, setMyPostsSearch] = useState(""); // search za MyPosts
+  const [myPostsSearch, setMyPostsSearch] = useState(""); // Search string za MyPosts (server-side prefix search po title_lc)
 
   // Efekat: slusaj promene obrisanih postova u Firestore-u za trenutno ulogovanog korisnika
   useEffect(() => {
@@ -85,7 +91,7 @@ const DashboardLayout = () => {
       {/* Skrolabilni sadrzaj */}
       <div className="flex-grow overflow-y-auto">
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Prosleđujemo filterRange i setter kao kontekst child komponentama (npr. Trash.jsx) */}
+          {/* Prosledjujemo filter stanje kroz Outlet context (Trash i MyPosts dele iste kontrolere) */}
           <Outlet
             context={{
               filterRange,

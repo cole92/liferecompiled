@@ -14,12 +14,21 @@ import TagsInput from "../components/TagsInput";
 import { validCategories } from "../constants/postCategories";
 
 /**
- * @component EditPost
- * Komponenta za uredjivanje postojeceg posta.
- * - Dohvata podatke posta iz Firestore pomocu postId iz URL-a.
- * - Proverava vlasnistvo i status (da li je post u Trash-u).
- * - Prikazuje formu sa validacijom i omogucava izmenu naslova, opisa, sadrzaja, tagova i kategorije.
- * - Nakon uspesnog azuriranja prikazuje toast poruku.
+ * @function handleSubmit
+ *
+ * Validira formu, proverava auto-lock i razlike u odnosu na original,
+ * pa po potrebi azurira post u Firestore-u.
+ *
+ * Ponašanje:
+ * - Ako je proslo vise od 7 dana (auto-lock) → blokira edit i prikazuje error
+ * - Ako nema promena u odnosu na original → prekida sa "No changes made."
+ * - Na uspeh azurira:
+ *   - `title` i `title_lc` (normalizovan naslov za search)
+ *   - `description`, `content`, `tags`, `category`
+ *   - `updatedAt: serverTimestamp()`
+ * - Koristi `isSubmitting` da spreci vise paralelnih submit-ova
+ *
+ * @param {Event} e - Submit dogadjaj forme
  */
 
 const EditPost = () => {
@@ -37,9 +46,10 @@ const EditPost = () => {
   const [isSubmitting, setIsSubmitting] = useState(false); // State koji prati da li je forma u procesu slanja (blokira dugmad i sprecava vise klikova)
 
   const [errors, setErrors] = useState({});
-  const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u; // Dozvoljeni karakteri za naslov (slova, brojevi, razmaci i osnovni interpunkcijski znaci)
+  // Dozvoljeni: slova, brojevi, razmaci i osnovna interpunkcija
+  const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u;
 
-  // Provera da li je proslo vise od 7 dana od kreiranja posta (auto-lock)
+  // Auto-lock: nakon 7 dana editovanje ovog posta vise nije dozvoljeno
   const createdDate = postToEdit?.createdAt?.toDate?.();
   const isAutoLocked =
     createdDate && Date.now() > createdDate.getTime() + 7 * 24 * 60 * 60 * 1000;

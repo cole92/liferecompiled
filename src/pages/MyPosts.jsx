@@ -29,13 +29,23 @@ import buildPostsQuery from "../services/postsService";
 /**
  * @component MyPosts
  *
- * Dashboard lista postova trenutnog korisnika sa filterima, paginacijom i akcijama.
+ * Dashboard lista postova trenutnog korisnika sa filterima, paginacijom,
+ * server-side prefix search-om i akcijama (soft delete, lock).
  *
- * - Ucitava postove preko buildPostsQuery (filter: all/active/locked)
- * - Paginacija pomocu startAfter kursora i "Load more"
- * - Soft delete: postavlja deleted:true i deletedAt (serverTimestamp)
- * - Lock: postavlja locked:true i lockedAt (serverTimestamp)
- * - Lokalni state odmah reflektuje promene (bez refetch-a)
+ * Namena:
+ * - Dohvata postove preko `buildPostsQuery` u dva moda:
+ *   • Normal mod → filteri (active/locked/all) + sort po datumu (desc)
+ *   • Search mod → server-side prefix search po `title_lc` (case-insensitive), filteri se ignorisu
+ * - Debounce search (300ms) da se spreci visak Firestore upita
+ * - Paginacija pomocu startAfter kursora i “Load more” dugmeta
+ * - Soft delete (deleted:true + deletedAt) uz lokalno uklanjanje bez refetch-a
+ * - Manual lock (locked:true + lockedAt) sa instant lokalnim azuriranjem
+ * - `Outlet` kontekst obezbedjuje centralizovano stanje filtera i search-a
+ *
+ * UI logika:
+ * - `visiblePosts` = posts u search modu, filteredPosts u normal modu
+ * - EmptyState poruke zavise od moda
+ * - SkeletonCard se prikazuje tokom inicijalnog i “load more” ucitavanja
  *
  * @returns {JSX.Element}
  */
@@ -62,7 +72,7 @@ const MyPosts = () => {
 
   const POST_PER_PAGE = 10;
 
-  // Debounce
+  // Debounce search (300ms) pre slanja server-side prefix upita (manje Firestore poziva)
   const rawSearch = myPostsSearch || "";
   const [debouncedSearch, setDebouncedSearch] = useState(rawSearch.trim());
 
@@ -86,7 +96,7 @@ const MyPosts = () => {
   useEffect(() => {
     let canceled = false;
 
-    // Dohvata postove za trenutnog user-a po izabranom filteru (resetuje paginaciju)
+    // Initial fetch pri promeni filtera / search-a — resetuje paginaciju i pokrece normal ili search mod
     const fetchPosts = async () => {
       // Reset stanja kada se promeni filter ili user
       setPosts([]);
@@ -113,14 +123,14 @@ const MyPosts = () => {
           return;
         }
 
-        // Uzimamo najnovije podatke o autoru iz AuthContext (bez dodatnih upita)
+        // Autor se dobija iz AuthContext-a (UI-safe, bez dodatnih Firestore poziva)
         const author = {
           id: user.uid,
           name: user.name || "Unknown author",
           profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
         };
 
-        // Mapiranje dokumenata + fallback za comments
+        // Normalizacija strane: enriched author + fallback za comments (MyPosts ne koristi reactions/commentsCount)
         const userPosts = querySnapshot.docs.map((docSnap) => {
           const data = docSnap.data();
           return {
@@ -188,7 +198,7 @@ const MyPosts = () => {
         comments: docSnap.data().comments || [],
       }));
 
-      // Merge bez duplikata: novi pregaze stare sa istim id-om
+      // Duplicate-safe append: Map merge (novi pregaze stare) da se zadrzi stabilan UI state
       setPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         newPosts.forEach((p) => map.set(p.id, p));
@@ -209,10 +219,10 @@ const MyPosts = () => {
     }
   };
 
-  // Soft-delete:
-  // - Transakcija radi integriteta (sprecava dvoklik i race)
-  // - Podesi deleted:true i deletedAt
-  // - Lokalno ukloni post iz liste bez refetch-a
+  // Soft delete (Trash workflow):
+  // - Transaction garantuje integritet (sprecava race conditions)
+  // - Setuje deleted:true + deletedAt
+  // - Lokalno uklanja post odmah za instant feedback (bez refetch-a)
   const handleDelete = async (postId) => {
     try {
       await runTransaction(db, async (tx) => {
@@ -281,7 +291,7 @@ const MyPosts = () => {
     }
   };
 
-  // Klijentska filtracija prema aktivnom filteru iz outlet context-a
+  // Klijentska filtracija (vazi samo u normal modu; u search modu se prikazuje ceo rezultat search-a)
   const filteredPosts = posts.filter((post) => {
     if (filter === "active") return !post.locked;
     if (filter === "locked") return post.locked;
@@ -289,6 +299,7 @@ const MyPosts = () => {
   });
 
   const isSearchMode = trimmedSearch.length > 0;
+  // visiblePosts: search mod koristi raw posts, normal mod primenjuje active/locked filte
   const visiblePosts = isSearchMode ? posts : filteredPosts;
 
   // Prikaz korisnickog interfejsa
@@ -305,7 +316,7 @@ const MyPosts = () => {
         Create New Post
       </button>
 
-      {/* Empty state */}
+      {/* Empty state — razlicite poruke za search mod i normal mod */}
       {!isLoading && visiblePosts.length === 0 && (
         <EmptyState
           message={
@@ -361,7 +372,7 @@ const MyPosts = () => {
         </button>
       )}
 
-      {/* Poruka "You reached the end" */}
+      {/* End helper — koristi visiblePosts.length tako da radi u oba moda */}
       {!hasMore && visiblePosts.length > 0 && (
         <p
           className="mt-4 text-sm text-gray-500 text-center"

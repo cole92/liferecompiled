@@ -2,16 +2,33 @@ import PropTypes from "prop-types";
 import { motion } from "framer-motion";
 
 /**
- * PostFilterBar komponenta
+ * @component PostFilterBar
  *
- * Prikazuje dugmice za filtriranje postova u Dashboard-u:
- * - Active (otkljucani)
- * - Locked (zakljucani)
- * - All (svi postovi)
+ * UI traka za filtriranje i pretragu u MyPosts stranici.
  *
- * @component
- * @param {string} activeFilter - Trenutno aktivni filter
+ * Namena:
+ * - Prikazuje filter dugmice (Active / Locked / All) za normalni mod
+ * - Prikazuje search input za server-side prefix pretragu (title_lc)
+ * - Implementira “search mode” gde filter dugmici vizuelno blede i postaju neaktivni
+ * - Obezbedjuje da se layout ne pomera: search polje je uvek prisutno desno
+ *
+ * UX ponasanje:
+ * - Kada `searchTerm.trim().length > 0`:
+ *   - filter dugmici imaju fade-out (`opacity:0`, `y:-4`)
+ *   - `pointer-events-none` i `aria-hidden=true`
+ *   - prikazani su samo rezultati search moda (filteri se ignorisu)
+ *
+ * - Kada je `searchTerm` prazan:
+ *   - filter dugmici su ponovo aktivni
+ *   - prikaz vraca u normalni mod (Active / Locked / All)
+ *
+ * Props:
+ * @param {string} activeFilter - Trenutno aktivni filter u normal mod-u
  * @param {Function} onFilterChange - Callback za promenu filtera
+ * @param {string} searchTerm - Tekst pretrage (kontrolisano stanje)
+ * @param {Function} onSearchChange - Callback prilikom promene search input-a
+ *
+ * @returns {JSX.Element}
  */
 
 const PostFilterBar = ({
@@ -34,7 +51,7 @@ const PostFilterBar = ({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-      {/* Levo: filter dugmici – uvek zauzimaju prostor, samo fade on/off */}
+      {/* Filter dugmici: fade-out i disable u search modu da bi se vizuelno prikazao prelaz u search mod */}
       <motion.div
         initial={false}
         animate={{ opacity: hasSearch ? 0 : 1, y: hasSearch ? -4 : 0 }}
@@ -61,19 +78,21 @@ const PostFilterBar = ({
         ))}
       </motion.div>
 
-      {/* Desno: search polje (uvek tu, ne skace) */}
+      {/* Search polje: uvek prisutno desno da bi se izbegao layout jump pri ulasku/izlasku iz search moda */}
       <div className="flex items-center gap-2 max-w-md flex-1 md:flex-none md:ml-auto">
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search your posts by title..."
+          aria-label="Search your posts by title"
           className="border border-gray-600 bg-gray-800 text-white px-3 py-2 rounded w-full"
         />
         {hasSearch && (
           <button
             type="button"
             onClick={() => onSearchChange("")}
+            aria-label="Clear search"
             className="text-sm underline"
           >
             Clear

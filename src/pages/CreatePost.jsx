@@ -14,12 +14,23 @@ import { validCategories } from "../constants/postCategories";
 
 /**
  * @component CreatePost
- * Komponenta za kreiranje novog blog posta.
  *
- * - Validira podatke iz forme (naslov, opis, sadrzaj, kategorija)
- * - Cuva podatke u Firestore-u (kolekcija "posts")
- * - Azurira korisnicku statistiku kroz `updateUserStats`
- * - Koristi `TagsInput`, `ToastUtils` i `Spinner` za UX poboljsanja
+ * Forma za kreiranje novog posta.
+ *
+ * Namena:
+ * - Validira polja forme (title, description, content, category)
+ * - Cuva post u Firestore kolekciji `posts`
+ * - Automatski upisuje metadata polja:
+ *   - `userId` (autor)
+ *   - `createdAt` (serverTimestamp)
+ *   - `deleted:false`, `deletedAt:null`
+ *   - `updatedAt:null`, `locked:false`
+ *   - `title_lc` (normalizovan naslov za server-side prefix search)
+ * - Koristi `TagsInput`, `ToastUtils` i `Spinner` za UX
+ *
+ * Napomene:
+ * - Statistika korisnika (userStats) se vise ne azurira sa klijenta;
+ *   backend (Cloud Functions v2) je izvor istine za stats.
  *
  * @returns {JSX.Element}
  */
@@ -34,10 +45,10 @@ const CreatePost = () => {
   const [errors, setErrors] = useState({}); // State za greske u validaciji
   const { user } = useContext(AuthContext); // Dohvatamo trenutno prijavljenog korisnika
 
-  // Regex za validaciju naslova
+  // Regex za validaciju naslova (dozvoljava slova, brojeve, razmake i osnovnu interpunkciju)
   const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u;
 
-  // Funkcija za dodavanje posta u Firestore
+  // Funkcija za dodavanje posta u Firestore (dopunjuje postData sa metadata poljima i title_lc)
   const createPost = async (postData) => {
     try {
       // Provera da li je korisnik autentifikovan
@@ -69,7 +80,7 @@ const CreatePost = () => {
     }
   };
 
-  // Funkcija za slanje forme
+  // Submit handler: validira formu, poziva createPost i po uspehu resetuje formu
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {}; // Objekat za cuvanje gresaka
