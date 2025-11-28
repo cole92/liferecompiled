@@ -73,10 +73,28 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
 
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
+
+    const snapshot = {
+      postUpdatedAtAtSave: post.updatedAt || post.createdAt,
+      postTitleAtSave: post.title,
+    };
     // Lokalni fallback (bez Undo): preklopi saved stanje preko util funkcije
-    const newState = await toggleSavePost(user, post.id, isSaved);
+    const newState = await toggleSavePost(user, post.id, isSaved, snapshot);
     setIsSaved(newState);
   };
+
+  const cutoff = post.postUpdatedAtAtSave;
+
+  let isUpdatedSinceSaved = false;
+
+  if (cutoff && (updatedAt || createdAt)) {
+    const current = (updatedAt || createdAt).toMillis
+      ? (updatedAt || createdAt).toMillis()
+      : updatedAt || createdAt;
+
+    const cutoffMs = cutoff.toMillis ? cutoff.toMillis() : cutoff;
+    isUpdatedSinceSaved = current > cutoffMs;
+  }
 
   return (
     <div
@@ -186,6 +204,12 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
             </div>
           </div>
 
+          {isUpdatedSinceSaved && (
+            <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-800">
+              Updated since saved
+            </span>
+          )}
+
           {/* Locked: vizuelna oznaka + tooltip; ispod komentari su read-only */}
           {locked && (
             <span
@@ -257,7 +281,9 @@ SavedPostCard.propTypes = {
     createdAt: PropTypes.object, // Firestore Timestamp
     updatedAt: PropTypes.object,
     locked: PropTypes.bool,
-    lockedAt: PropTypes.object, // Firestore Timestamp (pretpostavka kada je locked === true)
+    lockedAt: PropTypes.object,
+    postUpdatedAtAtSave: PropTypes.any,
+    postTitleAtSave: PropTypes.string,
     tags: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string,

@@ -103,7 +103,15 @@ const PostDetails = () => {
   // Menja status sacuvanosti posta (toggle)
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
-    const newState = await toggleSavePost(user, post.id, isSaved);
+
+    const currentUpdated = post.updatedAt || post.createdAt;
+
+    const snapshot = {
+      postUpdatedAtAtSave: currentUpdated,
+      postTitleAtSave: post.title,
+    };
+
+    const newState = await toggleSavePost(user, post.id, isSaved, snapshot);
     setIsSaved(newState);
   };
 

@@ -101,6 +101,8 @@ const SavedPosts = () => {
         // Resilient join: preskoci losu stavku umesto da padne ceo batch
         const results = await Promise.allSettled(
           savedSnap.docs.map(async (docItem) => {
+            const savedMeta = docItem.data();
+
             // doc id iz savedPosts jednak je postId
             const postRef = doc(db, "posts", docItem.id);
             const postSnap = await getDoc(postRef);
@@ -111,7 +113,15 @@ const SavedPosts = () => {
             }
 
             const postData = { id: postSnap.id, ...postSnap.data() };
-            return await enrichPostWithAuthor(postData);
+            const enrichedPost = await enrichPostWithAuthor(postData);
+
+            // vracamo post + saved meta u jednom objektu
+            return {
+              ...enrichedPost,
+              savedAt: savedMeta.savedAt,
+              postUpdatedAtAtSave: savedMeta.postUpdatedAtAtSave,
+              postTitleAtSave: savedMeta.postTitleAtSave,
+            };
           })
         );
 
@@ -165,11 +175,21 @@ const SavedPosts = () => {
 
       const results = await Promise.allSettled(
         snap.docs.map(async (docItem) => {
+          const savedMeta = docItem.data();
+
           const postRef = doc(db, "posts", docItem.id);
           const postSnap = await getDoc(postRef);
           if (!postSnap.exists()) throw new Error("missing-post");
           const postData = { id: postSnap.id, ...postSnap.data() };
-          return await enrichPostWithAuthor(postData);
+          const enrichedPost = await enrichPostWithAuthor(postData);
+
+          // VRACAMO spojeni objekat: post + saved meta
+          return {
+            ...enrichedPost,
+            savedAt: savedMeta.savedAt,
+            postUpdatedAtAtSave: savedMeta.postUpdatedAtAtSave,
+            postTitleAtSave: savedMeta.postTitleAtSave,
+          };
         })
       );
 

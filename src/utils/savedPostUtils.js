@@ -14,27 +14,25 @@ import { showErrorToast, showInfoToast, showSuccessToast } from "./toastUtils";
  * U slucaju greske, status ostaje nepromenjen i prikazuje se greska.
  */
 
+export const toggleSavePost = async (user, postId, isSaved, snapshot) => {
+      console.log("toggleSavePost:", { postId, isSaved, snapshot });
+  if (!user) {
+    return showInfoToast("Please login to save posts.");
+  }
 
-export const toggleSavePost = async (user, postId, isSaved) => {
-
-    if (!user) {
-        return showInfoToast("Please login to save posts.");
+  try {
+    if (isSaved) {
+      await unsavePost(user.uid, postId);
+      showSuccessToast("Removed from saved!");
+      return false;
+    } else {
+      await savePost(user.uid, postId, snapshot);
+      showSuccessToast("Post saved!");
+      return true;
     }
-
-    try {
-        if (isSaved) {
-            await unsavePost(user.uid, postId);
-            showSuccessToast("Removed from saved!");
-            return false;
-        } else {
-            await savePost(user.uid, postId);
-            showSuccessToast("Post saved!");
-            return true;
-        }
-
-    } catch (error) {
-        console.error(error);
-        showErrorToast("Something went wrong.");
-        return isSaved;
-    }
+  } catch (error) {
+    console.error(error);
+    showErrorToast("Something went wrong.");
+    return isSaved;
+  }
 };
