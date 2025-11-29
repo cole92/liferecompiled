@@ -44,7 +44,59 @@ const CONTENT_PREVIEW_MAX = 300; // limit pregleda (broj karaktera)
 
 const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
 
+  // Hook: proverava da li je post sacuvan od strane trenutnog korisnika
+  const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
+
+  // 🔵 1) GHOST SCENARIO – post je obrisan iz /posts, ali ostao u savedPosts
+  if (post.isRemoved) {
+    const handleRemoveClick = (e) => {
+      e.stopPropagation();
+
+      if (isPendingUndo) return;
+
+      if (onUnsave) {
+        // koristimo isti Undo flow kao i za "normalni" unsave
+        onUnsave(post);
+      } else {
+        // fallback: lokalni toggle bez Undo
+        toggleSavePost(user, post.id, true);
+      }
+    };
+
+    return (
+      <div className="rounded cursor-pointer ring ring-gray-200">
+        <div className="border rounded shadow bg-white text-black p-4">
+          <h2 className="text-lg font-bold mb-1">
+            {post.postTitleAtSave ||
+              post.title ||
+              "Post is no longer available"}
+          </h2>
+
+          <p className="text-xs text-gray-500 mt-1">
+            Saved on:{" "}
+            {post.savedAt?.toDate().toLocaleDateString?.() || "unknown"}
+          </p>
+
+          <p className="text-sm text-gray-600">
+            This post was removed by its author and is no longer available.
+          </p>
+
+          <button
+            type="button"
+            onClick={handleRemoveClick}
+            disabled={isPendingUndo}
+            className="mt-3 text-sm underline text-red-600 disabled:opacity-60"
+          >
+            Remove from saved
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 🟢 2) NORMAL SCENARIO – post i dalje postoji u /posts
   const {
     author,
     title,
@@ -61,15 +113,11 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
 
   const { name, profilePicture } = author || {};
   const formattedDate = lockedAt?.toDate().toLocaleDateString(); // moze biti undefined ako lockedAt ne postoji
-  const navigate = useNavigate();
 
   const handleClick = () => {
     // Klik na karticu vodi na detalje posta
     return navigate(`/post/${post.id}`);
   };
-
-  // Hook: proverava da li je post sacuvan od strane trenutnog korisnika
-  const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
@@ -284,6 +332,8 @@ SavedPostCard.propTypes = {
     lockedAt: PropTypes.object,
     postUpdatedAtAtSave: PropTypes.any,
     postTitleAtSave: PropTypes.string,
+    isRemoved: PropTypes.bool,
+    savedAt: PropTypes.object, // Firestore Timestamp
     tags: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string,

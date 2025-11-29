@@ -56,6 +56,27 @@ const SavedPosts = () => {
     return copy;
   };
 
+  // Helper: pravi "ghost" post kada original vise ne postoji / nemamo pristup
+  const buildGhostFromSaved = (savedMeta, id) => ({
+    id,
+    title: savedMeta.postTitleAtSave || "Post is no longer available",
+    content: null,
+    description: null,
+    category: null,
+    createdAt: null,
+    updatedAt: null,
+    locked: false,
+    lockedAt: null,
+    deleted: true,
+    isRemoved: true,
+    tags: [],
+    author: null,
+    badges: {},
+    savedAt: savedMeta.savedAt,
+    postUpdatedAtAtSave: savedMeta.postUpdatedAtAtSave,
+    postTitleAtSave: savedMeta.postTitleAtSave,
+  });
+
   // Cleanup svih pending tajmera na unmount
   useEffect(() => {
     const ref = pendingUndoRef.current;
@@ -98,30 +119,39 @@ const SavedPosts = () => {
         setLastDoc(savedSnap.docs[savedSnap.docs.length - 1]);
         setHasMore(savedSnap.size === POST_PER_PAGE);
 
-        // Resilient join: preskoci losu stavku umesto da padne ceo batch
         const results = await Promise.allSettled(
           savedSnap.docs.map(async (docItem) => {
             const savedMeta = docItem.data();
-
-            // doc id iz savedPosts jednak je postId
             const postRef = doc(db, "posts", docItem.id);
-            const postSnap = await getDoc(postRef);
 
-            if (!postSnap.exists()) {
-              // nevalidna referenca (npr. obrisano ili privatno)
-              throw new Error("missing-post");
+            try {
+              const postSnap = await getDoc(postRef);
+
+              // Ako doc ne postoji → ghost
+              if (!postSnap.exists()) {
+                return buildGhostFromSaved(savedMeta, docItem.id);
+              }
+
+              const postData = { id: postSnap.id, ...postSnap.data() };
+              const enrichedPost = await enrichPostWithAuthor(postData);
+
+              return {
+                ...enrichedPost,
+                savedAt: savedMeta.savedAt,
+                postUpdatedAtAtSave: savedMeta.postUpdatedAtAtSave,
+                postTitleAtSave: savedMeta.postTitleAtSave,
+                isRemoved: false,
+              };
+            } catch (error) {
+              console.warn(
+                "[SavedPosts] Failed to fetch post, using ghost fallback:",
+                docItem.id,
+                error
+              );
+
+              // Bilo kakav error (permission-denied, itd.) → tretiramo kao “vise nije dostupan”
+              return buildGhostFromSaved(savedMeta, docItem.id);
             }
-
-            const postData = { id: postSnap.id, ...postSnap.data() };
-            const enrichedPost = await enrichPostWithAuthor(postData);
-
-            // vracamo post + saved meta u jednom objektu
-            return {
-              ...enrichedPost,
-              savedAt: savedMeta.savedAt,
-              postUpdatedAtAtSave: savedMeta.postUpdatedAtAtSave,
-              postTitleAtSave: savedMeta.postTitleAtSave,
-            };
           })
         );
 
@@ -176,30 +206,43 @@ const SavedPosts = () => {
       const results = await Promise.allSettled(
         snap.docs.map(async (docItem) => {
           const savedMeta = docItem.data();
-
           const postRef = doc(db, "posts", docItem.id);
-          const postSnap = await getDoc(postRef);
-          if (!postSnap.exists()) throw new Error("missing-post");
-          const postData = { id: postSnap.id, ...postSnap.data() };
-          const enrichedPost = await enrichPostWithAuthor(postData);
 
-          // VRACAMO spojeni objekat: post + saved meta
-          return {
-            ...enrichedPost,
-            savedAt: savedMeta.savedAt,
-            postUpdatedAtAtSave: savedMeta.postUpdatedAtAtSave,
-            postTitleAtSave: savedMeta.postTitleAtSave,
-          };
+          try {
+            const postSnap = await getDoc(postRef);
+
+            if (!postSnap.exists()) {
+              return buildGhostFromSaved(savedMeta, docItem.id);
+            }
+
+            const postData = { id: postSnap.id, ...postSnap.data() };
+            const enrichedPost = await enrichPostWithAuthor(postData);
+
+            return {
+              ...enrichedPost,
+              savedAt: savedMeta.savedAt,
+              postUpdatedAtAtSave: savedMeta.postUpdatedAtAtSave,
+              postTitleAtSave: savedMeta.postTitleAtSave,
+              isRemoved: false,
+            };
+          } catch (error) {
+            console.warn(
+              "[SavedPosts] Failed to fetch post in LoadMore, using ghost fallback:",
+              docItem.id,
+              error
+            );
+            return buildGhostFromSaved(savedMeta, docItem.id);
+          }
         })
       );
 
-      const posts = results
+      const newPosts = results
         .filter((r) => r.status === "fulfilled")
         .map((r) => r.value);
 
       // Merge bez duplikata (novi pregaze stare po id-u)
       setSavedPosts((prev) => {
-        const merged = [...prev, ...posts];
+        const merged = [...prev, ...newPosts];
         const byId = new Map(merged.map((p) => [p.id, p]));
         return Array.from(byId.values());
       });
