@@ -15,7 +15,6 @@ import { showErrorToast, showInfoToast, showSuccessToast } from "./toastUtils";
  */
 
 export const toggleSavePost = async (user, postId, isSaved, snapshot) => {
-      console.log("toggleSavePost:", { postId, isSaved, snapshot });
   if (!user) {
     return showInfoToast("Please login to save posts.");
   }

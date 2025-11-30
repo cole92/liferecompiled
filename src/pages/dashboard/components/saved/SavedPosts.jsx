@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { useContext, useEffect, useState, useRef } from "react";
+import { useOutletContext } from "react-router-dom";
 import { doc, getDoc, getDocs } from "firebase/firestore";
 
 import { AuthContext } from "../../../../context/AuthContext";
@@ -34,8 +35,10 @@ import SkeletonCard from "../../../../components/ui/skeletonLoader/SkeletonCard"
  */
 const SavedPosts = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
+  const { savedSortDirection } = useOutletContext();
+
   const [savedPosts, setSavedPosts] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Paginacija
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -104,7 +107,11 @@ const SavedPosts = () => {
     const fetchSavedPosts = async () => {
       setIsLoading(true);
       try {
-        const q = buildSavedQuery({ uid: user.uid, pageSize: POST_PER_PAGE });
+        const q = buildSavedQuery({
+          uid: user.uid,
+          pageSize: POST_PER_PAGE,
+          sortDirection: savedSortDirection,
+        });
         const savedSnap = await getDocs(q);
         if (canceled) return;
 
@@ -178,7 +185,7 @@ const SavedPosts = () => {
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, isCheckingAuth]);
+  }, [user?.uid, isCheckingAuth, savedSortDirection,]);
 
   // Dovlaci sledecu stranicu i enrich-uje validne postove
   const handleLoadMore = async () => {
@@ -190,6 +197,7 @@ const SavedPosts = () => {
         uid: user.uid,
         afterDoc: lastDoc,
         pageSize: POST_PER_PAGE,
+     sortDirection: savedSortDirection,
       });
 
       const snap = await getDocs(q);
@@ -340,7 +348,6 @@ const SavedPosts = () => {
   return (
     <div>
       <h1>Saved Posts</h1>
-
       {savedPosts.map((post) => {
         const isPending = pendingUndoRef.current.has(post.id);
         return (

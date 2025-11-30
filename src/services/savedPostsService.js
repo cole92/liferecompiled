@@ -23,15 +23,15 @@ import { db } from "../firebase";
  *
  * @returns {query} Firestore query objekat spreman za getDocs ili onSnapshot
  */
-export function buildSavedQuery({ uid, afterDoc = null, pageSize = 10 }) {
+export function buildSavedQuery({ uid, afterDoc = null, pageSize = 10, sortDirection = "desc", }) {
   const baseRef = collection(db, "users", uid, "savedPosts");
-  const parts = [orderBy("savedAt", "desc"), limit(pageSize)];
+  const parts = [orderBy("savedAt", sortDirection), limit(pageSize)];
 
   if (afterDoc) {
     // Ako je prosledjen kursor → dodaj startAfter
     return query(
       baseRef,
-      orderBy("savedAt", "desc"),
+      orderBy("savedAt", sortDirection),
       startAfter(afterDoc),
       limit(pageSize)
     );
