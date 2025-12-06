@@ -20,7 +20,6 @@ import { useNavigate } from "react-router-dom";
  * @returns {JSX.Element} Kontekst sa korisnickim podacima i statusima
  */
 
-
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(null);
@@ -35,10 +34,16 @@ const AuthProvider = ({ children }) => {
           const userDocRef = doc(db, "users", currentUser.uid);
           const userSnap = await getDoc(userDocRef);
 
+          const userData = userSnap.exists() ? userSnap.data() : {};
+          const role = userData.role || "user";
+          const isAdmin = role === "admin";
+
           setUser({
             uid: currentUser.uid,
             email: currentUser.email,
-            ...(userSnap.exists() ? userSnap.data() : {}),
+            ...userData,
+            role,
+            isAdmin,
           });
 
           setIsAuthenticated(true);
