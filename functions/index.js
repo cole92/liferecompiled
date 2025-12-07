@@ -107,15 +107,29 @@ async function deletePostCascadeInternal({ postId, uid }) {
   const postSnap = await postRef.get();
 
   if (!postSnap.exists) {
-    throw new Error(`Post ${postId} does not exist.`);
+    // bolje HttpsError nego cist Error
+    throw new HttpsError("not-found", `Post ${postId} does not exist.`);
   }
 
   const postData = postSnap.data();
-  if (postData.userId !== uid) {
-    throw new Error("Permission denied: user is not the owner of the post.");
+
+  // 1) Ucitamo user dokument da proverimo rolu
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+
+  const role = userSnap.exists ? userSnap.data().role : "user";
+  const isAuthor = postData.userId === uid;
+  const isAdmin = role === "admin";
+
+  // 2) Author ili admin mogu da prodju, ostali dobijaju permission-denied
+  if (!isAuthor && !isAdmin) {
+    throw new HttpsError(
+      "permission-denied",
+      "You are not allowed to delete this post."
+    );
   }
 
-  // Fallback: FieldPath.documentId() može biti undefined u nekim setup-ima
+  // Fallback: FieldPath.documentId() moze biti undefined u nekim setup-ima
   const docIdField = admin.firestore.FieldPath?.documentId
     ? admin.firestore.FieldPath.documentId()
     : "__name__";

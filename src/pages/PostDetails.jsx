@@ -5,6 +5,10 @@ import { FiLock } from "react-icons/fi";
 
 import { AuthContext } from "../context/AuthContext";
 
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../firebase";
+import { useNavigate } from "react-router-dom";
+
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
 import { submitReport } from "../services/reportService";
@@ -45,11 +49,13 @@ import {
 
 const PostDetails = () => {
   const { postId } = useParams(); // ID posta iz URL parametara
+  const navigate = useNavigate();
 
   // State za glavni prikaz posta i ucitavanje
   const [post, setPost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   // State za podatke o autoru
   const [author, setAuthor] = useState(null);
@@ -57,6 +63,10 @@ const PostDetails = () => {
   const { user } = useContext(AuthContext);
   const currentUserId = user?.uid ?? null;
   const postAuthorId = post?.userId ?? null;
+  const isAdmin = user?.isAdmin === true;
+  const isAuthor =
+    currentUserId && postAuthorId && currentUserId === postAuthorId;
+  const canManagePost = isAuthor || isAdmin;
 
   const lockedDate = post?.lockedAt?.toDate().toLocaleDateString();
 
@@ -157,6 +167,23 @@ const PostDetails = () => {
   };
 
   const onCancelReport = () => setShowReportModal(false);
+
+  const handleAdminHardDelete = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    try {
+      const deletePost = httpsCallable(functions, "deletePostCascade");
+      await deletePost({ postId });
+      showSuccessToast("Post permanently deleted.");
+      setDeleteModalOpen(false);
+      navigate("/dashboard/moderation");
+    } catch (error) {
+      console.error("Delete error:", error);
+      showErrorToast("Failed to delete post.");
+    }
+  };
 
   return (
     <div
@@ -279,6 +306,23 @@ const PostDetails = () => {
           >
             Report
           </button>
+
+          {/* Admin / author controls (WIP) */}
+          {canManagePost && (
+            <div className="mt-4 flex gap-2 border-b pb-4">
+              {/* Ovde ce kasnije ici i owner kontrole, ako ih budemo dodavali */}
+
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalOpen(true)}
+                  className="px-3 py-1 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 transition"
+                >
+                  Delete permanently (admin)
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sekcija komentara */}
@@ -314,6 +358,18 @@ const PostDetails = () => {
         confirmText={"Yes"}
         onCancel={onCancelReport}
         onConfirm={onConfirmReport}
+      />
+
+      {/* Modal za admin hard delete posta */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Post Permanently"
+        message="Are you sure you want to permanently delete this post? This action cannot be undone."
+        confirmText="Delete"
+        confirmButtonClass="bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200"
+        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
+        onCancel={() => setDeleteModalOpen(false)}
+        onConfirm={handleAdminHardDelete}
       />
     </div>
   );
