@@ -91,6 +91,11 @@ const CommentItem = ({
   const { user: currentUserCtx } = useContext(AuthContext);
   const currentUser = currentUserCtx || auth.currentUser;
 
+  const currentUserId = currentUser?.uid ?? null;
+  const isAuthor = !!currentUserId && currentUserId === userId;
+  const isAdmin = currentUserCtx?.isAdmin === true;
+  const canManageComment = isAuthor || isAdmin;
+
   const isRoot = depth === 0;
   const hintShownRef = useRef(false);
 
@@ -393,10 +398,11 @@ const CommentItem = ({
                   locked={locked}
                 />
 
-                {/* Akcije autora */}
-                {auth.currentUser?.uid === userId && !locked && (
+                {/* Akcije autora / admina */}
+                {!locked && (
                   <>
-                    {!isEditing && canEdit && (
+                    {/* Edit samo za autora */}
+                    {isAuthor && !isEditing && canEdit && (
                       <button
                         type="button"
                         onClick={() => {
@@ -414,17 +420,23 @@ const CommentItem = ({
                         Edit
                       </button>
                     )}
-                    {!isDeleting ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmModal(true)}
-                        className="hover:underline"
-                        aria-label="Delete comment"
-                      >
-                        Delete
-                      </button>
-                    ) : (
-                      <span aria-live="polite">Deleting…</span>
+
+                    {/* Delete za autora ILI admina */}
+                    {canManageComment && (
+                      <>
+                        {!isDeleting ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmModal(true)}
+                            className="hover:underline"
+                            aria-label="Delete comment"
+                          >
+                            Delete
+                          </button>
+                        ) : (
+                          <span aria-live="polite">Deleting…</span>
+                        )}
+                      </>
                     )}
                   </>
                 )}

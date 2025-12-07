@@ -246,6 +246,7 @@ exports.softDeleteComment = onCall(async (req) => {
       "unauthenticated",
       "You must be logged in to delete a comment."
     );
+
   const { commentId } = req.data || {};
   if (!commentId)
     throw new HttpsError("invalid-argument", "Missing commentId.");
@@ -256,7 +257,18 @@ exports.softDeleteComment = onCall(async (req) => {
     throw new HttpsError("not-found", `Comment ${commentId} does not exist.`);
 
   const commentData = docSnap.data();
-  if (commentData.userID !== req.auth.uid) {
+  const uid = req.auth.uid;
+
+  // Author check
+  const isAuthor = commentData.userID === uid;
+
+  // Admin check
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  const role = userSnap.exists ? userSnap.data().role : "user";
+  const isAdmin = role === "admin";
+
+  if (!isAuthor && !isAdmin) {
     throw new HttpsError(
       "permission-denied",
       "You are not authorized to delete this comment."
