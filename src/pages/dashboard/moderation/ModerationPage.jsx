@@ -2,18 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../../context/AuthContext";
 import AccessDenied from "./AccessDenied";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-} from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { showErrorToast } from "../../../utils/toastUtils";
 import SkeletonCard from "../../../components/ui/skeletonLoader/SkeletonCard";
+import { openReportTarget } from "../../../utils/moderationUtils";
 
 const ModerationPage = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
@@ -57,42 +50,8 @@ const ModerationPage = () => {
     fetchReports();
   }, [user, isCheckingAuth]);
 
-  const handleOpenTarget = async (report) => {
-    // 1) Post prijava -> direkt na /post/:postId
-    if (report.type === "post") {
-      navigate(`/post/${report.targetId}`);
-      return;
-    }
-
-    // 2) Comment prijava -> nadji parent post
-    if (report.type === "comment") {
-      try {
-        const commentRef = doc(db, "comments", report.targetId);
-        const commentSnap = await getDoc(commentRef);
-
-        if (!commentSnap.exists()) {
-          showErrorToast("Comment no longer exists.");
-          return;
-        }
-
-        const commentData = commentSnap.data();
-        const postId = commentData.postID;
-
-        if (!postId) {
-          console.error(
-            "Comment document has no postID field:",
-            report.targetId
-          );
-          showErrorToast("Could not find parent post for this comment.");
-          return;
-        }
-
-        navigate(`/post/${postId}`);
-      } catch (error) {
-        console.error("Failed to open target for comment:", error);
-        showErrorToast("Failed to open comment target. Please try again.");
-      }
-    }
+  const handleOpenTarget = (report) => {
+    openReportTarget({ report, navigate });
   };
 
   if (isCheckingAuth) {
