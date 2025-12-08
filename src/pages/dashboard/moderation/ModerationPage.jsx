@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { showErrorToast } from "../../../utils/toastUtils";
+import SkeletonCard from "../../../components/ui/skeletonLoader/SkeletonCard";
 
 const ModerationPage = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
@@ -39,14 +40,15 @@ const ModerationPage = () => {
 
         const snap = await getDocs(q);
 
-        const data = snap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
+        const data = snap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
         }));
         setReports(data);
       } catch (err) {
         console.error("Failed to load reports:", err);
         setError("Failed to load reports. Please try again.");
+        showErrorToast("Failed to load reports. Please try again.");
       } finally {
         setIsLoadingReports(false);
       }
@@ -56,39 +58,42 @@ const ModerationPage = () => {
   }, [user, isCheckingAuth]);
 
   const handleOpenTarget = async (report) => {
-  // 1) Post prijava -> direkt na /post/:postId
-  if (report.type === "post") {
-    navigate(`/post/${report.targetId}`);
-    return;
-  }
-
-  // 2) Comment prijava -> nadji parent post
-  if (report.type === "comment") {
-    try {
-      const commentRef = doc(db, "comments", report.targetId);
-      const commentSnap = await getDoc(commentRef);
-
-      if (!commentSnap.exists()) {
-        showErrorToast("Comment no longer exists.");
-        return;
-      }
-
-      const commentData = commentSnap.data();
-      const postId = commentData.postID; // polje iz Firestore-a (postID)
-
-      if (!postId) {
-        console.error("Comment document has no postID field:", report.targetId);
-        showErrorToast("Could not find parent post for this comment.");
-        return;
-      }
-
-      navigate(`/post/${postId}`);
-    } catch (error) {
-      console.error("Failed to open target for comment:", error);
-      showErrorToast("Failed to open comment target. Please try again.");
+    // 1) Post prijava -> direkt na /post/:postId
+    if (report.type === "post") {
+      navigate(`/post/${report.targetId}`);
+      return;
     }
-  }
-};
+
+    // 2) Comment prijava -> nadji parent post
+    if (report.type === "comment") {
+      try {
+        const commentRef = doc(db, "comments", report.targetId);
+        const commentSnap = await getDoc(commentRef);
+
+        if (!commentSnap.exists()) {
+          showErrorToast("Comment no longer exists.");
+          return;
+        }
+
+        const commentData = commentSnap.data();
+        const postId = commentData.postID;
+
+        if (!postId) {
+          console.error(
+            "Comment document has no postID field:",
+            report.targetId
+          );
+          showErrorToast("Could not find parent post for this comment.");
+          return;
+        }
+
+        navigate(`/post/${postId}`);
+      } catch (error) {
+        console.error("Failed to open target for comment:", error);
+        showErrorToast("Failed to open comment target. Please try again.");
+      }
+    }
+  };
 
   if (isCheckingAuth) {
     return <div>Checking permissions...</div>;
@@ -99,15 +104,34 @@ const ModerationPage = () => {
   }
 
   if (isLoadingReports) {
-    return <div>Loading reports...</div>;
+    return (
+      <div>
+        <h1 className="text-2xl font-semibold mb-4">Moderation</h1>
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500">{error}</div>;
+    return (
+      <div>
+        <h1 className="text-2xl font-semibold mb-4">Moderation</h1>
+        <div className="text-red-500 text-sm">{error}</div>
+      </div>
+    );
   }
 
   if (reports.length === 0) {
-    return <div>No reports yet. 🎉</div>;
+    return (
+      <div>
+        <h1 className="text-2xl font-semibold mb-4">Moderation</h1>
+        <div>No reports yet. 🎉</div>
+      </div>
+    );
   }
 
   return (
@@ -137,6 +161,7 @@ const ModerationPage = () => {
               <td className="py-2 px-2">{report.reportedBy}</td>
               <td className="py-2 px-2">
                 <button
+                  type="button"
                   onClick={() => handleOpenTarget(report)}
                   className="text-blue-600 underline"
                 >
