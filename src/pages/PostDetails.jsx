@@ -68,7 +68,7 @@ const PostDetails = () => {
     currentUserId && postAuthorId && currentUserId === postAuthorId;
   const canManagePost = isAuthor || isAdmin;
 
-  const lockedDate = post?.lockedAt?.toDate().toLocaleDateString();
+  const lockedDate = post?.lockedAt?.toDate?.()?.toLocaleDateString?.() ?? null;
 
   // State za modale vezane za bedzeve
   const [showBadgeModal, setShowBadgeModal] = useState(false);
