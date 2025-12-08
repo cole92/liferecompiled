@@ -399,44 +399,40 @@ const CommentItem = ({
                 />
 
                 {/* Akcije autora / admina */}
-                {!locked && (
+                {/* Edit: samo autor i samo dok post nije zakljucan */}
+                {isAuthor && !locked && !isEditing && canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!canEdit) {
+                        showInfoToast(
+                          "You can edit only within 10 minutes after posting"
+                        );
+                        return;
+                      }
+                      setIsEditing(true);
+                    }}
+                    className="hover:underline"
+                    aria-label="Edit comment"
+                  >
+                    Edit
+                  </button>
+                )}
+
+                {/* Delete: autor ili admin; admin moze cak i kada je post locked */}
+                {canManageComment && (
                   <>
-                    {/* Edit samo za autora */}
-                    {isAuthor && !isEditing && canEdit && (
+                    {!isDeleting ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!canEdit) {
-                            showInfoToast(
-                              "You can edit only within 10 minutes after posting"
-                            );
-                            return;
-                          }
-                          setIsEditing(true);
-                        }}
+                        onClick={() => setShowConfirmModal(true)}
                         className="hover:underline"
-                        aria-label="Edit comment"
+                        aria-label="Delete comment"
                       >
-                        Edit
+                        Delete
                       </button>
-                    )}
-
-                    {/* Delete za autora ILI admina */}
-                    {canManageComment && (
-                      <>
-                        {!isDeleting ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmModal(true)}
-                            className="hover:underline"
-                            aria-label="Delete comment"
-                          >
-                            Delete
-                          </button>
-                        ) : (
-                          <span aria-live="polite">Deleting…</span>
-                        )}
-                      </>
+                    ) : (
+                      <span aria-live="polite">Deleting…</span>
                     )}
                   </>
                 )}

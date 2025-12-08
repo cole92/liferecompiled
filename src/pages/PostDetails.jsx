@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
 
@@ -7,7 +7,6 @@ import { AuthContext } from "../context/AuthContext";
 
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../firebase";
-import { useNavigate } from "react-router-dom";
 
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
@@ -56,6 +55,7 @@ const PostDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
 
   // State za podatke o autoru
   const [author, setAuthor] = useState(null);
@@ -87,7 +87,6 @@ const PostDetails = () => {
       } catch (error) {
         console.error("Error fetching post:", error);
       } finally {
-        // Zatvaramo loading state bez obzira na uspeh/gresku
         setIsLoading(false);
       }
     };
@@ -125,7 +124,7 @@ const PostDetails = () => {
     setIsSaved(newState);
   };
 
-  // Otvara modal sa PNG bedzevima za post (sprečava bubbling ka parent elementima)
+  // Otvara modal sa PNG bedzevima za post (sprecava bubbling ka parent elementima)
   const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
     setSelectedBadge(badgeKey);
@@ -169,11 +168,12 @@ const PostDetails = () => {
   const onCancelReport = () => setShowReportModal(false);
 
   const handleAdminHardDelete = async () => {
-    if (!isAdmin) {
+    if (!isAdmin || isDeletingPost) {
       return;
     }
 
     try {
+      setIsDeletingPost(true);
       const deletePost = httpsCallable(functions, "deletePostCascade");
       await deletePost({ postId });
       showSuccessToast("Post permanently deleted.");
@@ -182,6 +182,8 @@ const PostDetails = () => {
     } catch (error) {
       console.error("Delete error:", error);
       showErrorToast("Failed to delete post.");
+    } finally {
+      setIsDeletingPost(false);
     }
   };
 
@@ -311,14 +313,20 @@ const PostDetails = () => {
           {canManagePost && (
             <div className="mt-4 flex gap-2 border-b pb-4">
               {/* Ovde ce kasnije ici i owner kontrole, ako ih budemo dodavali */}
-
               {isAdmin && (
                 <button
                   type="button"
                   onClick={() => setDeleteModalOpen(true)}
-                  className="px-3 py-1 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 transition"
+                  disabled={isDeletingPost}
+                  className={`px-3 py-1 text-sm rounded-md bg-red-600 text-white transition ${
+                    isDeletingPost
+                      ? "opacity-60 cursor-not-allowed"
+                      : "hover:bg-red-700"
+                  }`}
                 >
-                  Delete permanently (admin)
+                  {isDeletingPost
+                    ? "Deleting..."
+                    : "Delete permanently (admin)"}
                 </button>
               )}
             </div>
@@ -350,12 +358,13 @@ const PostDetails = () => {
         onClose={() => setShowTopContributorModal(false)}
         authorBadge="topContributor"
       />
+
       {/* Modal za potvrdu prijave */}
       <ConfirmModal
         isOpen={showReportModal}
         title="Are you sure you want to report this post?"
         message="This will notify moderators about this post."
-        confirmText={"Yes"}
+        confirmText="Yes"
         onCancel={onCancelReport}
         onConfirm={onConfirmReport}
       />
@@ -365,10 +374,16 @@ const PostDetails = () => {
         isOpen={deleteModalOpen}
         title="Delete Post Permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
-        confirmText="Delete"
-        confirmButtonClass="bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200"
+        confirmText={isDeletingPost ? "Deleting..." : "Delete"}
+        confirmButtonClass={`bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200 ${
+          isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
+        }`}
         cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
-        onCancel={() => setDeleteModalOpen(false)}
+        onCancel={() => {
+          if (!isDeletingPost) {
+            setDeleteModalOpen(false);
+          }
+        }}
         onConfirm={handleAdminHardDelete}
       />
     </div>
