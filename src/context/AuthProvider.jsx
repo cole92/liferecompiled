@@ -2,13 +2,17 @@ import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db, signOut } from "../firebase";
-import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
+import {
+  showErrorToast,
+  showSuccessToast,
+  showInfoToast,
+} from "../utils/toastUtils";
 import { AuthContext } from "./AuthContext";
 import { useNavigate } from "react-router-dom";
 
 /**
  * @component AuthProvider
- * Omotava aplikaciju i obezbeđuje globalni kontekst za autentifikaciju.
+ * Omotava aplikaciju i obezbedjuje globalni kontekst za autentifikaciju.
  *
  * - Prati trenutno ulogovanog korisnika i njegovo stanje
  * - Omogucava logout sa proverom mreze i vizuelnim indikatorima
@@ -25,39 +29,65 @@ const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [userProfileError, setUserProfileError] = useState(null); // optional flag for profile load issues
+
   const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
-      if (currentUser) {
-        try {
-          const userDocRef = doc(db, "users", currentUser.uid);
-          const userSnap = await getDoc(userDocRef);
-
-          const userData = userSnap.exists() ? userSnap.data() : {};
-          const role = userData.role || "user";
-          const isAdmin = role === "admin";
-
-          setUser({
-            uid: currentUser.uid,
-            email: currentUser.email,
-            ...userData,
-            role,
-            isAdmin,
-          });
-
-          setIsAuthenticated(true);
-        } catch (error) {
-          console.error("Greska pri dohvatanju korisnika:", error);
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } else {
+      // Nema auth user-a → klasicno odjavljeno stanje
+      if (!currentUser) {
         setUser(null);
         setIsAuthenticated(false);
+        setUserProfileError(null);
+        setIsCheckingAuth(false);
+        return;
       }
 
-      setIsCheckingAuth(false);
+      // Postoji auth session → pokusavamo da ucitamo user doc
+      try {
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userSnap = await getDoc(userDocRef);
+
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const role = userData.role || "user";
+        const isAdmin = role === "admin";
+
+        setUser({
+          ...userData,
+          uid: currentUser.uid,
+          email: currentUser.email,
+          role,
+          isAdmin,
+        });
+
+        setIsAuthenticated(true);
+        setUserProfileError(null);
+      } catch (error) {
+        console.error("Greska pri dohvatanju korisnika:", error);
+
+        // Meksi fallback:
+        // - auth session postoji → i dalje smo ulogovani
+        // - tretiramo user-a kao obicnog user-a bez admin prava
+        const fallbackUser = {
+          uid: currentUser.uid,
+          email: currentUser.email ?? null,
+          displayName: currentUser.displayName ?? null,
+          role: "user",
+          isAdmin: false,
+        };
+
+        setUser(fallbackUser);
+        setIsAuthenticated(true);
+        setUserProfileError(error);
+
+        // Diskretan UI hint da profil nije ucitan do kraja
+        showInfoToast(
+          "We could not fully load your profile. Some features may be limited."
+        );
+      } finally {
+        setIsCheckingAuth(false);
+      }
     });
 
     return () => unsubscribe();
@@ -98,6 +128,7 @@ const AuthProvider = ({ children }) => {
         isAuthenticated,
         isCheckingAuth,
         isLoggingOut,
+        userProfileError, // mozes da koristis ako negde treba da znas da profil nije full ucitan
         logout,
       }}
     >
