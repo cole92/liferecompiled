@@ -197,6 +197,38 @@ async function deletePostCascadeInternal({ postId, uid }) {
   }
 }
 
+// -------------------- ReactionThresholds helper and fallback --------------------
+async function getReactionThresholds() {
+  const FALLBACK = {
+    idea: 5,
+    hot: 10,
+    powerup: 30,
+  };
+
+  try {
+    const ref = db.collection("appSettings").doc("reactionThresholds");
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      console.warn("[warn] reactionThresholds missing, using fallback");
+      return FALLBACK;
+    }
+
+    const data = snap.data() || {};
+
+    return {
+      idea: Number.isFinite(data.idea) ? data.idea : FALLBACK.idea,
+      hot: Number.isFinite(data.hot) ? data.hot : FALLBACK.hot,
+      powerup: Number.isFinite(data.powerup) ? data.powerup : FALLBACK.powerup,
+    };
+  } catch (err) {
+    console.error("[err] getReactionThresholds failed, using fallback", {
+      message: err?.message,
+    });
+    return FALLBACK;
+  }
+}
+
 // -------------------- HTTPS onCall (v2) --------------------
 
 // deletePostCascade (v2)
@@ -503,6 +535,104 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
     }
   }
 );
+
+// -------------------- FIRESTORE TRIGGER: reactions.idea.onCreate (v2) --------------------
+exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
+  "reactions/{reactionId}",
+  async (event) => {
+    try {
+      const data = event.data?.data();
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
+
+      // Guard: ako fali postId ili nije IDEA, preskoci
+      // (missing reactionType je vec pokriven jer undefined !== "idea")
+      if (!postId || reactionType !== "idea") return null;
+
+      // refs
+      const postRef = db.collection("posts").doc(postId);
+      const markerRef = db.collection("processedEvents").doc(event.id);
+
+      // Thresholds (helper)
+      const { idea: ideaThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // Idempotency marker: ako postoji, prekidamo
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        const postSnap = await tx.get(postRef);
+
+        // Edge: post ne postoji (obrisan / invalid reference)
+        if (!postSnap.exists) {
+          console.warn("[warn] reactions.idea.onCreate: post missing", {
+            eventId: event.id,
+            reactionId: event.params.reactionId,
+            postId,
+          });
+
+          // Zatvori event markerom da retry ne spamma logove
+          tx.set(markerRef, {
+            type: "reactions.idea.onCreate",
+            postId,
+            reactionId: event.params.reactionId,
+            reactionType,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt: admin.firestore.Timestamp.fromDate(
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            ),
+          });
+
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData.reactionCounts?.idea ?? 0;
+        const next = current + 1;
+
+        // Upisi agregat + badge (merge da ne pregazi ceo post)
+        tx.set(
+          postRef,
+          {
+            reactionCounts: { idea: next },
+            badges: { mostInspiring: next >= ideaThreshold },
+          },
+          { merge: true }
+        );
+
+        // Zatvori event markerom (idempotency)
+        tx.set(markerRef, {
+          type: "reactions.idea.onCreate",
+          postId,
+          reactionId: event.params.reactionId,
+          reactionType,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
+      });
+
+      console.log("[ok] reactions.idea.onCreate", {
+        eventId: event.id,
+        reactionId: event.params.reactionId,
+        postId,
+      });
+
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsIdeaOnCreateV2", {
+        eventId: event?.id,
+        reactionId: event?.params?.reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      return null;
+    }
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2) --------------------
 
 // -------------------- SCHEDULER (v2) --------------------
 exports.cleanupExpiredPostsV2 = onSchedule(
