@@ -591,14 +591,10 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
         const next = current + 1;
 
         // Upisi agregat + badge (merge da ne pregazi ceo post)
-        tx.set(
-          postRef,
-          {
-            reactionCounts: { idea: next },
-            badges: { mostInspiring: next >= ideaThreshold },
-          },
-          { merge: true }
-        );
+        tx.update(postRef, {
+          "reactionCounts.idea": next,
+          "badges.mostInspiring": next >= ideaThreshold,
+        });
 
         // Zatvori event markerom (idempotency)
         tx.set(markerRef, {
