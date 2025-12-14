@@ -198,34 +198,84 @@ async function deletePostCascadeInternal({ postId, uid }) {
 }
 
 // -------------------- ReactionThresholds helper and fallback --------------------
+// -------------------- HELPERS --------------------
+
+const REACTION_THRESHOLDS_FALLBACK = Object.freeze({
+  idea: 5,
+  hot: 10,
+  powerup: 30,
+});
+
 async function getReactionThresholds() {
-  const FALLBACK = {
-    idea: 5,
-    hot: 10,
-    powerup: 30,
+  const ref = db.collection("appSettings").doc("reactionThresholds");
+
+  // Validates one threshold value and falls back if invalid
+  const normalize = (value, key) => {
+    const fallback = REACTION_THRESHOLDS_FALLBACK[key];
+
+    // Must be a finite number
+    if (!Number.isFinite(value)) {
+      console.warn(
+        "[warn] reactionThreshold invalid (not finite), using fallback",
+        {
+          key,
+          value,
+          fallback,
+        }
+      );
+      return fallback;
+    }
+
+    // Must be > 0 to avoid always-true badge logic
+    if (value <= 0) {
+      console.warn("[warn] reactionThreshold invalid (<= 0), using fallback", {
+        key,
+        value,
+        fallback,
+      });
+      return fallback;
+    }
+
+    // Optional strictness: thresholds should be integers
+    if (!Number.isInteger(value)) {
+      console.warn(
+        "[warn] reactionThreshold invalid (not integer), using fallback",
+        {
+          key,
+          value,
+          fallback,
+        }
+      );
+      return fallback;
+    }
+
+    return value;
   };
 
   try {
-    const ref = db.collection("appSettings").doc("reactionThresholds");
     const snap = await ref.get();
 
     if (!snap.exists) {
-      console.warn("[warn] reactionThresholds missing, using fallback");
-      return FALLBACK;
+      console.warn("[warn] reactionThresholds doc missing, using fallback", {
+        fallback: REACTION_THRESHOLDS_FALLBACK,
+      });
+      return { ...REACTION_THRESHOLDS_FALLBACK };
     }
 
     const data = snap.data() || {};
 
     return {
-      idea: Number.isFinite(data.idea) ? data.idea : FALLBACK.idea,
-      hot: Number.isFinite(data.hot) ? data.hot : FALLBACK.hot,
-      powerup: Number.isFinite(data.powerup) ? data.powerup : FALLBACK.powerup,
+      idea: normalize(data.idea, "idea"),
+      hot: normalize(data.hot, "hot"),
+      powerup: normalize(data.powerup, "powerup"),
     };
   } catch (err) {
     console.error("[err] getReactionThresholds failed, using fallback", {
       message: err?.message,
+      stack: err?.stack,
+      fallback: REACTION_THRESHOLDS_FALLBACK,
     });
-    return FALLBACK;
+    return { ...REACTION_THRESHOLDS_FALLBACK };
   }
 }
 
@@ -542,22 +592,26 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
   async (event) => {
     try {
       const data = event.data?.data();
+
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      // Guard: ako fali postId ili nije IDEA, preskoci
-      // (missing reactionType je vec pokriven jer undefined !== "idea")
-      if (!postId || reactionType !== "idea") return null;
+      // Guard: nije nas tip ili fali postId
+      if (!postId || reactionType !== "idea") return;
 
       // refs
       const postRef = db.collection("posts").doc(postId);
-      const markerRef = db.collection("processedEvents").doc(event.id);
+
+      // Idempotency marker treba da bude vezan za REACTION DOC ID (ne za event.id)
+      const reactionId = event.params.reactionId; // dolazi iz "reactions/{reactionId}"
+      const markerId = `reactions.idea.onCreate__${reactionId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
 
       // Thresholds (helper)
       const { idea: ideaThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency marker: ako postoji, prekidamo
+        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
@@ -567,16 +621,17 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
         if (!postSnap.exists) {
           console.warn("[warn] reactions.idea.onCreate: post missing", {
             eventId: event.id,
-            reactionId: event.params.reactionId,
+            reactionId,
             postId,
           });
 
-          // Zatvori event markerom da retry ne spamma logove
+          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
           tx.set(markerRef, {
             type: "reactions.idea.onCreate",
             postId,
-            reactionId: event.params.reactionId,
+            reactionId,
             reactionType,
+            eventId: event.id, // debug
             processedAt: admin.firestore.FieldValue.serverTimestamp(),
             expiresAt: admin.firestore.Timestamp.fromDate(
               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -590,18 +645,19 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
         const current = postData.reactionCounts?.idea ?? 0;
         const next = current + 1;
 
-        // Upisi agregat + badge (merge da ne pregazi ceo post)
+        // Dot-notation update: cuva ostale kljuceve u reactionCounts/badges mapama
         tx.update(postRef, {
           "reactionCounts.idea": next,
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
-        // Zatvori event markerom (idempotency)
+        // Marker se upisuje tek POSLE update-a, u istoj transakciji
         tx.set(markerRef, {
           type: "reactions.idea.onCreate",
           postId,
-          reactionId: event.params.reactionId,
+          reactionId,
           reactionType,
+          eventId: event.id, // debug
           processedAt: admin.firestore.FieldValue.serverTimestamp(),
           expiresAt: admin.firestore.Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -611,11 +667,11 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
 
       console.log("[ok] reactions.idea.onCreate", {
         eventId: event.id,
-        reactionId: event.params.reactionId,
+        reactionId,
         postId,
       });
 
-      return null;
+      return;
     } catch (err) {
       console.error("[err] reactionsIdeaOnCreateV2", {
         eventId: event?.id,
@@ -623,11 +679,12 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
         message: err?.message,
         stack: err?.stack,
       });
-      return null;
+
+      // Vazno: bacamo error da platforma moze da retry-uje transient failure
+      throw err;
     }
   }
 );
-
 // -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2) --------------------
 
 // -------------------- SCHEDULER (v2) --------------------
