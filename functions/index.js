@@ -777,6 +777,205 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
     }
   }
 );
+
+// -------------------- FIRESTORE TRIGGER: reactions.hot.onCreate (v2) --------------------
+
+exports.reactionsHotOnCreateV2 = onDocumentCreated(
+  "reactions/{reactionId}",
+  async (event) => {
+    try {
+      const data = event.data?.data();
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
+
+      if (!postId || reactionType !== "hot") return;
+
+      const postRef = db.collection("posts").doc(postId);
+
+      // Idempotency marker
+      const reactionId = event.params.reactionId;
+      const markerId = `reactions.hot.onCreate__${reactionId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      // Thresholds (helper)
+      const { hot: hotThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        const postSnap = await tx.get(postRef);
+
+        // Edge: post ne postoji (obrisan / invalid reference)
+        if (!postSnap.exists) {
+          console.warn("[warn] reactions.hot.onCreate: post missing", {
+            eventId: event.id,
+            reactionId,
+            postId,
+          });
+
+          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
+          tx.set(markerRef, {
+            type: "reactions.hot.onCreate",
+            postId,
+            reactionId,
+            reactionType,
+            eventId: event.id, // debug
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt: admin.firestore.Timestamp.fromDate(
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            ),
+          });
+
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData.reactionCounts?.hot ?? 0;
+        const next = current + 1;
+
+        // Dot-notation update: cuva ostale kljuceve u reactionCounts/badges mapama
+        tx.update(postRef, {
+          "reactionCounts.hot": next,
+          lastHotAt: admin.firestore.FieldValue.serverTimestamp(),
+          "badges.trending": next >= hotThreshold,
+        });
+        // Marker se upisuje tek POSLE update-a, u istoj transakciji
+        tx.set(markerRef, {
+          type: "reactions.hot.onCreate",
+          postId,
+          reactionId,
+          reactionType,
+          eventId: event.id, // debug
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
+      });
+
+      console.log("[ok] reactions.hot.onCreate", {
+        eventId: event.id,
+        reactionId,
+        postId,
+      });
+      return;
+    } catch (err) {
+      console.error("[err] reactionsHotOnCreateV2", {
+        eventId: event?.id,
+        reactionId: event?.params?.reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+
+      // Vazno: bacamo error da platforma moze da retry-uje transient failure
+      throw err;
+    }
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.hot.onDelete (v2) --------------------
+
+exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
+  "reactions/{reactionId}",
+  async (event) => {
+    try {
+      const data = event.data?.data();
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
+
+      if (!postId || reactionType !== "hot") return;
+
+      const postRef = db.collection("posts").doc(postId);
+
+      // Idempotency marker
+      const reactionId = event.params.reactionId;
+      const markerId = `reactions.hot.onDelete__${reactionId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      // Thresholds (helper)
+      const { hot: hotThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        const postSnap = await tx.get(postRef);
+
+        // Edge: post ne postoji (obrisan / invalid reference)
+        if (!postSnap.exists) {
+          console.warn("[warn] reactions.hot.onDelete: post missing", {
+            eventId: event.id,
+            reactionId,
+            postId,
+          });
+
+          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
+          tx.set(markerRef, {
+            type: "reactions.hot.onDelete",
+            postId,
+            reactionId,
+            reactionType,
+            eventId: event.id, // debug
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt: admin.firestore.Timestamp.fromDate(
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            ),
+          });
+
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData.reactionCounts?.hot ?? 0;
+        const next = Math.max(current - 1, 0);
+
+        const update = {
+          "reactionCounts.hot": next,
+        };
+
+        // COUNT pravilo: cim padne ispod praga, trending se gasi odmah
+        if (next < hotThreshold) {
+          update["badges.trending"] = false;
+        }
+
+        tx.update(postRef, update);
+
+        tx.set(markerRef, {
+          type: "reactions.hot.onDelete",
+          postId,
+          reactionId,
+          reactionType,
+          eventId: event.id, // debug
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
+      });
+
+      console.log("[ok] reactions.hot.onDelete", {
+        eventId: event.id,
+        reactionId,
+        postId,
+      });
+
+      return;
+    } catch (err) {
+      console.error("[err] reactionsHotOnDeleteV2", {
+        eventId: event?.id,
+        reactionId: event?.params?.reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+
+      throw err;
+    }
+  }
+);
+
 // -------------------- SCHEDULER (v2) --------------------
 exports.cleanupExpiredPostsV2 = onSchedule(
   {
