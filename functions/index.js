@@ -14,6 +14,7 @@ const {
 const {
   onDocumentCreated,
   onDocumentUpdated,
+  onDocumentDeleted,
 } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
@@ -198,8 +199,6 @@ async function deletePostCascadeInternal({ postId, uid }) {
 }
 
 // -------------------- ReactionThresholds helper and fallback --------------------
-// -------------------- HELPERS --------------------
-
 const REACTION_THRESHOLDS_FALLBACK = Object.freeze({
   idea: 5,
   hot: 10,
@@ -686,7 +685,98 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
   }
 );
 // -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2) --------------------
+exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
+  "reactions/{reactionId}",
+  async (event) => {
+    try {
+      const data = event.data?.data();
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
 
+      if (!postId || reactionType !== "idea") return;
+
+      const postRef = db.collection("posts").doc(postId);
+
+      // Idempotency marker
+      const reactionId = event.params.reactionId;
+      const markerId = `reactions.idea.onDelete__${reactionId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      // Thresholds (helper)
+      const { idea: ideaThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        const postSnap = await tx.get(postRef);
+
+        // Edge: post ne postoji (obrisan / invalid reference)
+        if (!postSnap.exists) {
+          console.warn("[warn] reactions.idea.onDelete: post missing", {
+            eventId: event.id,
+            reactionId,
+            postId,
+          });
+
+          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
+          tx.set(markerRef, {
+            type: "reactions.idea.onDelete",
+            postId,
+            reactionId,
+            reactionType,
+            eventId: event.id, // debug
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt: admin.firestore.Timestamp.fromDate(
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            ),
+          });
+
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData.reactionCounts?.idea ?? 0;
+        const next = Math.max(current - 1, 0);
+
+        tx.update(postRef, {
+          "reactionCounts.idea": next,
+          "badges.mostInspiring": next >= ideaThreshold,
+        });
+
+        tx.set(markerRef, {
+          type: "reactions.idea.onDelete",
+          postId,
+          reactionId,
+          reactionType,
+          eventId: event.id, // debug
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          ),
+        });
+      });
+
+      console.log("[ok] reactions.idea.onDelete", {
+        eventId: event.id,
+        reactionId,
+        postId,
+      });
+
+      return;
+    } catch (err) {
+      console.error("[err] reactionsIdeaOnDeleteV2", {
+        eventId: event?.id,
+        reactionId: event?.params?.reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+
+      throw err;
+    }
+  }
+);
 // -------------------- SCHEDULER (v2) --------------------
 exports.cleanupExpiredPostsV2 = onSchedule(
   {
