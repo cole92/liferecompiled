@@ -976,7 +976,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
   }
 );
 
-// -------------------- SCHEDULER (v2) --------------------
+// -------------------- SCHEDULER cleanupExpiredPosts (v2) --------------------
 exports.cleanupExpiredPostsV2 = onSchedule(
   {
     schedule: "every 24 hours",
@@ -1013,6 +1013,78 @@ exports.cleanupExpiredPostsV2 = onSchedule(
         console.error(`Failed to delete post ${postId}:`, err);
       }
     }
+
+    return null;
+  }
+);
+
+// -------------------- SCHEDULER expireTrendingPosts (v2) --------------------
+exports.expireTrendingPostsV2 = onSchedule(
+  {
+    schedule: "every 24 hours",
+    timeZone: "Europe/Belgrade",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+  },
+  async () => {
+    const DAYS = 7;
+    const cutoffDate = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
+    const cutoffTs = admin.firestore.Timestamp.fromDate(cutoffDate);
+
+    let totalUpdated = 0;
+    let totalBatches = 0;
+
+    async function processQuery(baseQuery, reason) {
+      let query = baseQuery;
+
+      while (true) {
+        const snap = await query.get();
+        if (snap.empty) break;
+
+        const batch = db.batch();
+
+        snap.docs.forEach((doc) => {
+          batch.update(doc.ref, { "badges.trending": false });
+        });
+
+        await batch.commit();
+
+        totalUpdated += snap.size;
+        totalBatches += 1;
+
+        const lastDoc = snap.docs[snap.docs.length - 1];
+        query = baseQuery.startAfter(lastDoc);
+      }
+
+      console.log("[ok] expireTrendingPostsV2 batch run", {
+        reason,
+        updatedSoFar: totalUpdated,
+        batchesSoFar: totalBatches,
+      });
+    }
+
+    const expiredQuery = db
+      .collection("posts")
+      .where("badges.trending", "==", true)
+      .where("lastHotAt", "<", cutoffTs)
+      .orderBy("lastHotAt", "asc")
+      .limit(400);
+
+    const missingLastHotAtQuery = db
+      .collection("posts")
+      .where("badges.trending", "==", true)
+      .where("lastHotAt", "==", null)
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(400);
+
+    await processQuery(expiredQuery, "expired");
+    await processQuery(missingLastHotAtQuery, "missing_lastHotAt");
+
+    console.log("[ok] expireTrendingPostsV2 done", {
+      cutoff: cutoffDate.toISOString(),
+      totalUpdated,
+      totalBatches,
+    });
 
     return null;
   }
