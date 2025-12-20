@@ -1089,3 +1089,350 @@ exports.expireTrendingPostsV2 = onSchedule(
     return null;
   }
 );
+
+// -------------------- FIRESTORE TRIGGER: reactions.powerup.onCreate (v2) --------------------
+exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
+  "reactions/{reactionId}",
+  async (event) => {
+    const reactionId = event?.params?.reactionId;
+
+    try {
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactorId = data?.userId;
+      const reactionType = data?.reactionType;
+
+      // Guard: only powerup
+      if (reactionType !== "powerup") return null;
+
+      // Idempotency marker (bound to reactionId)
+      const markerId = `reactions.powerup.onCreate__${reactionId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const expiresAt = admin.firestore.Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // Missing fields: valid skip (no retry loop)
+      if (!postId || !reactorId) {
+        await markerRef.set(
+          {
+            type: "reactions.powerup.onCreate",
+            status: "skipped",
+            reason: "missing_fields",
+            postId: postId ?? null,
+            reactorId: reactorId ?? null,
+            authorId: null,
+            eventId: event?.id ?? null,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+
+      // Thresholds (helper)
+      const { powerup: powerupThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // 1) Idempotency check
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        // 2) Load post (authorId is source of truth)
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactorId,
+              authorId: null,
+              eventId: event?.id ?? null,
+              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const authorId = postData?.userId;
+
+        if (!authorId) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "author_missing",
+              postId,
+              reactorId,
+              authorId: null,
+              eventId: event?.id ?? null,
+              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 3) Self-powerup reject (MVP policy)
+        if (reactorId === authorId) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "rejected",
+              reason: "self_powerup_rejected",
+              postId,
+              reactorId,
+              authorId,
+              eventId: event?.id ?? null,
+              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 4) Update post aggregate
+        tx.update(postRef, {
+          "reactionCounts.powerup": admin.firestore.FieldValue.increment(1),
+        });
+
+        // 5) Update author aggregate (init if missing)
+        const userStatsRef = db.collection("userStats").doc(authorId);
+        const userStatsSnap = await tx.get(userStatsRef);
+
+        const userStatsData = userStatsSnap.exists
+          ? userStatsSnap.data() || {}
+          : {};
+        const currentTotal = userStatsData?.powerupsTotal ?? 0;
+        const nextTotal = currentTotal + 1;
+
+        const alreadyTop = userStatsData?.badges?.topContributor === true;
+        const shouldSetTop =
+          !alreadyTop &&
+          currentTotal < powerupThreshold &&
+          nextTotal >= powerupThreshold;
+
+        const patch = { powerupsTotal: nextTotal };
+
+        if (shouldSetTop) {
+          patch.badges = {
+            ...(userStatsData?.badges || {}),
+            topContributor: true,
+          };
+        }
+
+        tx.set(userStatsRef, patch, { merge: true });
+
+        // 6) Marker write (applied) after updates
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.powerup.onCreate",
+            status: "applied",
+            reason: null,
+            postId,
+            reactorId,
+            authorId,
+            eventId: event?.id ?? null,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.powerup.onCreate", { reactionId, postId });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsPowerupOnCreateV2", {
+        reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err; // transient failure -> retry
+    }
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.powerup.onDelete (v2) --------------------
+exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
+  "reactions/{reactionId}",
+  async (event) => {
+    const reactionId = event?.params?.reactionId;
+
+    try {
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactorId = data?.userId;
+      const reactionType = data?.reactionType;
+
+      // Guard: only powerup
+      if (reactionType !== "powerup") return null;
+
+      // Idempotency marker (bound to reactionId)
+      const markerId = `reactions.powerup.onDelete__${reactionId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const expiresAt = admin.firestore.Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // Missing fields: valid skip (no retry loop)
+      if (!postId || !reactorId) {
+        await markerRef.set(
+          {
+            type: "reactions.powerup.onDelete",
+            status: "skipped",
+            reason: "missing_fields",
+            postId: postId ?? null,
+            reactorId: reactorId ?? null,
+            authorId: null,
+            eventId: event?.id ?? null,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+
+      await db.runTransaction(async (tx) => {
+        // 1) Idempotency check
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        // 2) Load post (authorId is source of truth)
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactorId,
+              authorId: null,
+              eventId: event?.id ?? null,
+              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const authorId = postData?.userId;
+
+        if (!authorId) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: "author_missing",
+              postId,
+              reactorId,
+              authorId: null,
+              eventId: event?.id ?? null,
+              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 3) Self-powerup delete guard (MVP policy)
+        // Ako je self-powerup bio odbijen na create, ne smemo da decrementujemo.
+        if (reactorId === authorId) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "rejected",
+              reason: "self_powerup_rejected",
+              postId,
+              reactorId,
+              authorId,
+              eventId: event?.id ?? null,
+              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 4) Decrement post aggregate (clamp 0)
+        const currentPostPowerups = postData?.reactionCounts?.powerup ?? 0;
+        const nextPostPowerups = Math.max(currentPostPowerups - 1, 0);
+
+        tx.update(postRef, {
+          "reactionCounts.powerup": nextPostPowerups,
+        });
+
+        // 5) Decrement author aggregate (clamp 0) - userStats doc may be missing
+        const userStatsRef = db.collection("userStats").doc(authorId);
+        const userStatsSnap = await tx.get(userStatsRef);
+
+        const currentTotal = userStatsSnap.exists
+          ? userStatsSnap.data()?.powerupsTotal ?? 0
+          : 0;
+
+        const nextTotal = Math.max(currentTotal - 1, 0);
+
+        // Latch: ne diramo badges.topContributor
+        tx.set(userStatsRef, { powerupsTotal: nextTotal }, { merge: true });
+
+        // 6) Marker write (applied) after updates
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.powerup.onDelete",
+            status: "applied",
+            reason: null,
+            postId,
+            reactorId,
+            authorId,
+            eventId: event?.id ?? null,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.powerup.onDelete", { reactionId, postId });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsPowerupOnDeleteV2", {
+        reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err; // transient failure -> retry
+    }
+  }
+);
