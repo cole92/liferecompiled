@@ -108,21 +108,28 @@ async function deletePostCascadeInternal({ postId, uid }) {
   const postSnap = await postRef.get();
 
   if (!postSnap.exists) {
-    // bolje HttpsError nego cist Error
     throw new HttpsError("not-found", `Post ${postId} does not exist.`);
   }
 
-  const postData = postSnap.data();
+  const postData = postSnap.data() || {};
+  const authorId = postData.userId;
+
+  if (!authorId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Post is missing author userId."
+    );
+  }
 
   // 1) Ucitamo user dokument da proverimo rolu
   const userRef = db.collection("users").doc(uid);
   const userSnap = await userRef.get();
 
   const role = userSnap.exists ? userSnap.data().role : "user";
-  const isAuthor = postData.userId === uid;
+  const isAuthor = authorId === uid;
   const isAdmin = role === "admin";
 
-  // 2) Author ili admin mogu da prodju, ostali dobijaju permission-denied
+  // 2) Author ili admin mogu da prodju
   if (!isAuthor && !isAdmin) {
     throw new HttpsError(
       "permission-denied",
@@ -135,7 +142,28 @@ async function deletePostCascadeInternal({ postId, uid }) {
     ? admin.firestore.FieldPath.documentId()
     : "__name__";
 
-  // komentari
+  // 3) Reakcije PRVO (da onDelete CF ima vece sanse da ucita post dok jos postoji)
+  let lastReaction = null;
+  do {
+    let q = db
+      .collection("reactions")
+      .where("postId", "==", postId)
+      .orderBy(docIdField)
+      .limit(500);
+
+    if (lastReaction) q = q.startAfter(lastReaction);
+
+    const snap = await q.get();
+    if (snap.empty) break;
+
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+
+    lastReaction = snap.docs[snap.docs.length - 1];
+  } while (true);
+
+  // 4) Komentari
   let lastComment = null;
   do {
     let q = db
@@ -156,43 +184,26 @@ async function deletePostCascadeInternal({ postId, uid }) {
     lastComment = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // reakcije
-  let last = null;
-  do {
-    let q = db
-      .collection("reactions")
-      .where("postId", "==", postId)
-      .orderBy(docIdField)
-      .limit(500);
-    if (last) q = q.startAfter(last);
-
-    const snap = await q.get();
-    if (snap.empty) break;
-
-    const batch = db.batch();
-    snap.docs.forEach((doc) => batch.delete(doc.ref));
-    await batch.commit();
-
-    last = snap.docs[snap.docs.length - 1];
-  } while (true);
-
-  // cloudinary slika (best-effort)
+  // 5) Cloudinary slika (best-effort)
   if (postData.imagePublicId) {
     try {
       await cloudinary.uploader.destroy(postData.imagePublicId);
     } catch (err) {
-      console.warn("[Cloudinary] delete error:", err);
+      console.warn("[Cloudinary] delete error:", err?.message);
     }
   }
 
-  // na kraju obrisi sam post
+  // 6) Na kraju obrisi sam post
   await postRef.delete();
+
+  // 7) Stat bump treba da ide AUTORU posta (ne adminu koji je kliknuo delete)
   try {
-    await bumpPermanentDeletesForUser(uid);
+    await bumpPermanentDeletesForUser(authorId);
   } catch (err) {
     console.error("[warn] post deleted, but stat bump failed", {
       postId,
-      userId: uid,
+      authorId,
+      requestorId: uid,
       message: err?.message,
     });
   }
@@ -1107,7 +1118,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       // Guard: only powerup
       if (reactionType !== "powerup") return null;
 
-      // Idempotency marker (bound to reactionId)
+      // Marker (bound to reactionId)
       const markerId = `reactions.powerup.onCreate__${reactionId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
@@ -1135,16 +1146,16 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       }
 
       const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
 
       // Thresholds (helper)
       const { powerup: powerupThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // 1) Idempotency check
+        // ---------------- READS (must be first) ----------------
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
-        // 2) Load post (authorId is source of truth)
         const postSnap = await tx.get(postRef);
         if (!postSnap.exists) {
           tx.set(
@@ -1187,8 +1198,27 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           return;
         }
 
-        // 3) Self-powerup reject (MVP policy)
-        if (reactorId === authorId) {
+        // define ref early so it can never be null
+        const userStatsRef = db.collection("userStats").doc(authorId);
+        const isSelf = reactorId === authorId;
+
+        // Read userStats ONLY if not self-powerup
+        let userStatsData = {};
+
+        if (!isSelf) {
+          const userStatsSnap = await tx.get(userStatsRef);
+          userStatsData = userStatsSnap.exists
+            ? userStatsSnap.data() || {}
+            : {};
+        }
+
+        // ---------------- WRITES (after reads) ----------------
+
+        // Stamp authorId into reaction doc (server-trusted)
+        tx.set(reactionRef, { authorId }, { merge: true });
+
+        // Self-powerup reject (MVP policy) - no aggregate changes
+        if (isSelf) {
           tx.set(
             markerRef,
             {
@@ -1207,18 +1237,12 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           return;
         }
 
-        // 4) Update post aggregate
+        // Update post aggregate
         tx.update(postRef, {
           "reactionCounts.powerup": admin.firestore.FieldValue.increment(1),
         });
 
-        // 5) Update author aggregate (init if missing)
-        const userStatsRef = db.collection("userStats").doc(authorId);
-        const userStatsSnap = await tx.get(userStatsRef);
-
-        const userStatsData = userStatsSnap.exists
-          ? userStatsSnap.data() || {}
-          : {};
+        // Update author aggregate (init if missing via set+merge)
         const currentTotal = userStatsData?.powerupsTotal ?? 0;
         const nextTotal = currentTotal + 1;
 
@@ -1239,7 +1263,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
 
         tx.set(userStatsRef, patch, { merge: true });
 
-        // 6) Marker write (applied) after updates
+        // Marker applied
         tx.set(
           markerRef,
           {
@@ -1265,7 +1289,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         message: err?.message,
         stack: err?.stack,
       });
-      throw err; // transient failure -> retry
+      throw err;
     }
   }
 );
@@ -1284,10 +1308,13 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       const reactorId = data?.userId;
       const reactionType = data?.reactionType;
 
+      // Prefer stamped authorId (server-trusted) for resilience
+      const stampedAuthorId = data?.authorId ?? null;
+
       // Guard: only powerup
       if (reactionType !== "powerup") return null;
 
-      // Idempotency marker (bound to reactionId)
+      // Marker (bound to reactionId)
       const markerId = `reactions.powerup.onDelete__${reactionId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
@@ -1304,7 +1331,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             reason: "missing_fields",
             postId: postId ?? null,
             reactorId: reactorId ?? null,
-            authorId: null,
+            authorId: stampedAuthorId,
             eventId: event?.id ?? null,
             processedAt: admin.firestore.FieldValue.serverTimestamp(),
             expiresAt,
@@ -1317,33 +1344,24 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       const postRef = db.collection("posts").doc(postId);
 
       await db.runTransaction(async (tx) => {
-        // 1) Idempotency check
+        // ---------------- READS (must be first) ----------------
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
-        // 2) Load post (authorId is source of truth)
-        const postSnap = await tx.get(postRef);
-        if (!postSnap.exists) {
-          tx.set(
-            markerRef,
-            {
-              type: "reactions.powerup.onDelete",
-              status: "skipped",
-              reason: "post_missing",
-              postId,
-              reactorId,
-              authorId: null,
-              eventId: event?.id ?? null,
-              processedAt: admin.firestore.FieldValue.serverTimestamp(),
-              expiresAt,
-            },
-            { merge: true }
-          );
-          return;
-        }
+        // Determine authorId:
+        // 1) use stamped authorId from reaction doc if present
+        // 2) fallback to reading post.userId
+        let authorId = stampedAuthorId;
 
-        const postData = postSnap.data() || {};
-        const authorId = postData?.userId;
+        let postSnap = null;
+        let postData = null;
+
+        // We still TRY to read post (to decrement post aggregate), but it may not exist.
+        postSnap = await tx.get(postRef);
+        if (postSnap.exists) {
+          postData = postSnap.data() || {};
+          if (!authorId) authorId = postData?.userId ?? null;
+        }
 
         if (!authorId) {
           tx.set(
@@ -1351,7 +1369,10 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             {
               type: "reactions.powerup.onDelete",
               status: "skipped",
-              reason: "author_missing",
+              reason:
+                postSnap && !postSnap.exists
+                  ? "post_missing"
+                  : "author_missing",
               postId,
               reactorId,
               authorId: null,
@@ -1364,8 +1385,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
           return;
         }
 
-        // 3) Self-powerup delete guard (MVP policy)
-        // Ako je self-powerup bio odbijen na create, ne smemo da decrementujemo.
+        // Self-powerup guard (must match onCreate policy)
         if (reactorId === authorId) {
           tx.set(
             markerRef,
@@ -1385,28 +1405,32 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
           return;
         }
 
-        // 4) Decrement post aggregate (clamp 0)
-        const currentPostPowerups = postData?.reactionCounts?.powerup ?? 0;
-        const nextPostPowerups = Math.max(currentPostPowerups - 1, 0);
-
-        tx.update(postRef, {
-          "reactionCounts.powerup": nextPostPowerups,
-        });
-
-        // 5) Decrement author aggregate (clamp 0) - userStats doc may be missing
         const userStatsRef = db.collection("userStats").doc(authorId);
         const userStatsSnap = await tx.get(userStatsRef);
+        const userStatsData = userStatsSnap.exists
+          ? userStatsSnap.data() || {}
+          : {};
 
-        const currentTotal = userStatsSnap.exists
-          ? userStatsSnap.data()?.powerupsTotal ?? 0
-          : 0;
+        // ---------------- WRITES (after reads) ----------------
 
+        // Decrement post aggregate ONLY if post exists
+        if (postSnap && postSnap.exists) {
+          const currentPostPowerups = postData?.reactionCounts?.powerup ?? 0;
+          const nextPostPowerups = Math.max(currentPostPowerups - 1, 0);
+
+          tx.update(postRef, {
+            "reactionCounts.powerup": nextPostPowerups,
+          });
+        }
+
+        // Decrement author aggregate (clamp 0) - userStats doc may be missing
+        const currentTotal = userStatsData?.powerupsTotal ?? 0;
         const nextTotal = Math.max(currentTotal - 1, 0);
 
-        // Latch: ne diramo badges.topContributor
+        // Latch: do not touch badges.topContributor
         tx.set(userStatsRef, { powerupsTotal: nextTotal }, { merge: true });
 
-        // 6) Marker write (applied) after updates
+        // Marker applied
         tx.set(
           markerRef,
           {
@@ -1416,6 +1440,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             postId,
             reactorId,
             authorId,
+            postMissing: !(postSnap && postSnap.exists),
             eventId: event?.id ?? null,
             processedAt: admin.firestore.FieldValue.serverTimestamp(),
             expiresAt,
@@ -1432,7 +1457,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
         message: err?.message,
         stack: err?.stack,
       });
-      throw err; // transient failure -> retry
+      throw err;
     }
   }
 );
