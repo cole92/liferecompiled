@@ -1,3 +1,6 @@
+import { connectFirestoreEmulator } from "firebase/firestore";
+import { connectFunctionsEmulator } from "firebase/functions";
+
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth, signOut } from "firebase/auth";
@@ -25,3 +28,8 @@ export const functions = getFunctions(app, "europe-central2");
 
 // Export funkcije za odjavu korisnika radi centralizacije logike autentifikacije
 export { signOut }; 
+// Emulator connections (LOCAL DEV ONLY)
+if (window.location.hostname === "localhost") {
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+}

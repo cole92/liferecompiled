@@ -600,156 +600,180 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
   "reactions/{reactionId}",
   async (event) => {
     try {
-      const data = event.data?.data();
+      const data = event.data?.data() || {};
 
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      // Guard: nije nas tip ili fali postId
-      if (!postId || reactionType !== "idea") return;
+      // Guard: only idea + must have postId
+      if (!postId || reactionType !== "idea") return null;
 
-      // refs
+      const reactionId = event.params.reactionId;
+      const eventId = event?.id;
+
+      // If eventId is missing, we cannot guarantee idempotency safely
+      if (!eventId) {
+        console.warn("[warn] reactions.idea.onCreate: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
       const postRef = db.collection("posts").doc(postId);
 
-      // Idempotency marker treba da bude vezan za REACTION DOC ID (ne za event.id)
-      const reactionId = event.params.reactionId; // dolazi iz "reactions/{reactionId}"
-      const markerId = `reactions.idea.onCreate__${reactionId}`;
+      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
+      const markerId = `reactions.idea.onCreate__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
 
       // Thresholds (helper)
       const { idea: ideaThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
+        // Idempotency: same event retries are ignored
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
         const postSnap = await tx.get(postRef);
 
-        // Edge: post ne postoji (obrisan / invalid reference)
+        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
           console.warn("[warn] reactions.idea.onCreate: post missing", {
-            eventId: event.id,
+            eventId,
             reactionId,
             postId,
           });
 
-          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
           tx.set(markerRef, {
             type: "reactions.idea.onCreate",
+            status: "skipped",
+            reason: "post_missing",
             postId,
             reactionId,
             reactionType,
-            eventId: event.id, // debug
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
-            expiresAt: Timestamp.fromDate(
-              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-            ),
+            expiresAt,
           });
 
           return;
         }
 
         const postData = postSnap.data() || {};
-        const current = postData.reactionCounts?.idea ?? 0;
+        const current = postData?.reactionCounts?.idea ?? 0;
         const next = current + 1;
 
-        // Dot-notation update: cuva ostale kljuceve u reactionCounts/badges mapama
+        // Keep other keys in nested maps via dot-notation
         tx.update(postRef, {
           "reactionCounts.idea": next,
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
-        // Marker se upisuje tek POSLE update-a, u istoj transakciji
+        // Marker written after updates (same transaction)
         tx.set(markerRef, {
           type: "reactions.idea.onCreate",
+          status: "applied",
+          reason: null,
           postId,
           reactionId,
           reactionType,
-          eventId: event.id, // debug
+          eventId,
           processedAt: FieldValue.serverTimestamp(),
-          processedAt: FieldValue.serverTimestamp(),
-          expiresAt: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-          ),
+          expiresAt,
         });
       });
 
       console.log("[ok] reactions.idea.onCreate", {
-        eventId: event.id,
+        eventId,
         reactionId,
         postId,
       });
-
-      return;
+      return null;
     } catch (err) {
       console.error("[err] reactionsIdeaOnCreateV2", {
-        eventId: event?.id,
-        reactionId: event?.params?.reactionId,
+        eventId: event?.id ?? null,
+        reactionId: event?.params?.reactionId ?? null,
         message: err?.message,
         stack: err?.stack,
       });
-
-      // Vazno: bacamo error da platforma moze da retry-uje transient failure
       throw err;
     }
   }
 );
+
 // -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2) --------------------
 exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
   "reactions/{reactionId}",
   async (event) => {
     try {
-      const data = event.data?.data();
+      const data = event.data?.data() || {};
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      if (!postId || reactionType !== "idea") return;
+      // Guard: only idea + must have postId
+      if (!postId || reactionType !== "idea") return null;
+
+      const reactionId = event.params.reactionId;
+      const eventId = event?.id;
+
+      // If eventId is missing, we cannot guarantee idempotency safely
+      if (!eventId) {
+        console.warn("[warn] reactions.idea.onDelete: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
 
       const postRef = db.collection("posts").doc(postId);
 
-      // Idempotency marker
-      const reactionId = event.params.reactionId;
-      const markerId = `reactions.idea.onDelete__${reactionId}`;
+      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
+      const markerId = `reactions.idea.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
 
       // Thresholds (helper)
       const { idea: ideaThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
+        // Idempotency: same event retries are ignored
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
         const postSnap = await tx.get(postRef);
 
-        // Edge: post ne postoji (obrisan / invalid reference)
+        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
           console.warn("[warn] reactions.idea.onDelete: post missing", {
-            eventId: event.id,
+            eventId,
             reactionId,
             postId,
           });
 
-          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
           tx.set(markerRef, {
             type: "reactions.idea.onDelete",
+            status: "skipped",
+            reason: "post_missing",
             postId,
             reactionId,
             reactionType,
-            eventId: event.id, // debug
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
-            processedAt: FieldValue.serverTimestamp(),
-            expiresAt: Timestamp.fromDate(
-              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-            ),
+            expiresAt,
           });
 
           return;
         }
 
         const postData = postSnap.data() || {};
-        const current = postData.reactionCounts?.idea ?? 0;
+        const current = postData?.reactionCounts?.idea ?? 0;
         const next = Math.max(current - 1, 0);
 
         tx.update(postRef, {
@@ -757,31 +781,30 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
+        // Marker written after updates (same transaction)
         tx.set(markerRef, {
           type: "reactions.idea.onDelete",
+          status: "applied",
+          reason: null,
           postId,
           reactionId,
           reactionType,
-          eventId: event.id, // debug
+          eventId,
           processedAt: FieldValue.serverTimestamp(),
-          processedAt: FieldValue.serverTimestamp(),
-          expiresAt: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-          ),
+          expiresAt,
         });
       });
 
       console.log("[ok] reactions.idea.onDelete", {
-        eventId: event.id,
+        eventId,
         reactionId,
         postId,
       });
-
-      return;
+      return null;
     } catch (err) {
       console.error("[err] reactionsIdeaOnDeleteV2", {
-        eventId: event?.id,
-        reactionId: event?.params?.reactionId,
+        eventId: event?.id ?? null,
+        reactionId: event?.params?.reactionId ?? null,
         message: err?.message,
         stack: err?.stack,
       });
@@ -792,200 +815,227 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
 );
 
 // -------------------- FIRESTORE TRIGGER: reactions.hot.onCreate (v2) --------------------
-
 exports.reactionsHotOnCreateV2 = onDocumentCreated(
   "reactions/{reactionId}",
   async (event) => {
     try {
-      const data = event.data?.data();
+      const data = event.data?.data() || {};
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      if (!postId || reactionType !== "hot") return;
+      // Guard: only hot + must have postId
+      if (!postId || reactionType !== "hot") return null;
+
+      const reactionId = event.params.reactionId;
+      const eventId = event?.id;
+
+      // If eventId is missing, we cannot guarantee idempotency safely
+      if (!eventId) {
+        console.warn("[warn] reactions.hot.onCreate: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
 
       const postRef = db.collection("posts").doc(postId);
 
-      // Idempotency marker
-      const reactionId = event.params.reactionId;
-      const markerId = `reactions.hot.onCreate__${reactionId}`;
+      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
+      const markerId = `reactions.hot.onCreate__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
 
       // Thresholds (helper)
       const { hot: hotThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
+        // Idempotency: same event retries are ignored
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
         const postSnap = await tx.get(postRef);
 
-        // Edge: post ne postoji (obrisan / invalid reference)
+        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
           console.warn("[warn] reactions.hot.onCreate: post missing", {
-            eventId: event.id,
+            eventId,
             reactionId,
             postId,
           });
 
-          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
           tx.set(markerRef, {
             type: "reactions.hot.onCreate",
+            status: "skipped",
+            reason: "post_missing",
             postId,
             reactionId,
             reactionType,
-            eventId: event.id, // debug
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
-            processedAt: FieldValue.serverTimestamp(),
-            expiresAt: Timestamp.fromDate(
-              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-            ),
+            expiresAt,
           });
 
           return;
         }
 
         const postData = postSnap.data() || {};
-        const current = postData.reactionCounts?.hot ?? 0;
+        const current = postData?.reactionCounts?.hot ?? 0;
         const next = current + 1;
 
-        // Dot-notation update: cuva ostale kljuceve u reactionCounts/badges mapama
+        // Update aggregates
         tx.update(postRef, {
           "reactionCounts.hot": next,
           lastHotAt: FieldValue.serverTimestamp(),
           "badges.trending": next >= hotThreshold,
         });
-        // Marker se upisuje tek POSLE update-a, u istoj transakciji
+
+        // Marker written after updates (same transaction)
         tx.set(markerRef, {
           type: "reactions.hot.onCreate",
+          status: "applied",
+          reason: null,
           postId,
           reactionId,
           reactionType,
-          eventId: event.id, // debug
+          eventId,
           processedAt: FieldValue.serverTimestamp(),
-          expiresAt: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-          ),
+          expiresAt,
         });
       });
 
       console.log("[ok] reactions.hot.onCreate", {
-        eventId: event.id,
+        eventId,
         reactionId,
         postId,
       });
-      return;
+      return null;
     } catch (err) {
       console.error("[err] reactionsHotOnCreateV2", {
-        eventId: event?.id,
-        reactionId: event?.params?.reactionId,
+        eventId: event?.id ?? null,
+        reactionId: event?.params?.reactionId ?? null,
         message: err?.message,
         stack: err?.stack,
       });
 
-      // Vazno: bacamo error da platforma moze da retry-uje transient failure
-      throw err;
+      throw err; // transient failure -> retry
     }
   }
 );
 
 // -------------------- FIRESTORE TRIGGER: reactions.hot.onDelete (v2) --------------------
-
 exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
   "reactions/{reactionId}",
   async (event) => {
     try {
-      const data = event.data?.data();
+      const data = event.data?.data() || {};
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      if (!postId || reactionType !== "hot") return;
+      // Guard: only hot + must have postId
+      if (!postId || reactionType !== "hot") return null;
+
+      const reactionId = event.params.reactionId;
+      const eventId = event?.id;
+
+      // If eventId is missing, we cannot guarantee idempotency safely
+      if (!eventId) {
+        console.warn("[warn] reactions.hot.onDelete: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
 
       const postRef = db.collection("posts").doc(postId);
 
-      // Idempotency marker
-      const reactionId = event.params.reactionId;
-      const markerId = `reactions.hot.onDelete__${reactionId}`;
+      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
+      const markerId = `reactions.hot.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
 
       // Thresholds (helper)
       const { hot: hotThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: ako marker postoji, vec smo obradili ovu reakciju
+        // Idempotency: same event retries are ignored
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
         const postSnap = await tx.get(postRef);
 
-        // Edge: post ne postoji (obrisan / invalid reference)
+        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
           console.warn("[warn] reactions.hot.onDelete: post missing", {
-            eventId: event.id,
+            eventId,
             reactionId,
             postId,
           });
 
-          // Zatvaramo marker da retry/dupli delivery ne spamuje i ne pokusava opet
           tx.set(markerRef, {
             type: "reactions.hot.onDelete",
+            status: "skipped",
+            reason: "post_missing",
             postId,
             reactionId,
             reactionType,
-            eventId: event.id, // debug
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
-            expiresAt: Timestamp.fromDate(
-              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-            ),
+            expiresAt,
           });
 
           return;
         }
 
         const postData = postSnap.data() || {};
-        const current = postData.reactionCounts?.hot ?? 0;
+        const current = postData?.reactionCounts?.hot ?? 0;
         const next = Math.max(current - 1, 0);
 
         const update = {
           "reactionCounts.hot": next,
         };
 
-        // COUNT pravilo: cim padne ispod praga, trending se gasi odmah
+        // COUNT rule: if it drops below threshold -> trending off immediately
         if (next < hotThreshold) {
           update["badges.trending"] = false;
         }
 
         tx.update(postRef, update);
 
+        // Marker written after updates (same transaction)
         tx.set(markerRef, {
           type: "reactions.hot.onDelete",
+          status: "applied",
+          reason: null,
           postId,
           reactionId,
           reactionType,
-          eventId: event.id, // debug
+          eventId,
           processedAt: FieldValue.serverTimestamp(),
-          expiresAt: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-          ),
+          expiresAt,
         });
       });
 
       console.log("[ok] reactions.hot.onDelete", {
-        eventId: event.id,
+        eventId,
         reactionId,
         postId,
       });
-
-      return;
+      return null;
     } catch (err) {
       console.error("[err] reactionsHotOnDeleteV2", {
-        eventId: event?.id,
-        reactionId: event?.params?.reactionId,
+        eventId: event?.id ?? null,
+        reactionId: event?.params?.reactionId ?? null,
         message: err?.message,
         stack: err?.stack,
       });
 
-      throw err;
+      throw err; // transient failure -> retry
     }
   }
 );
@@ -1121,8 +1171,17 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       // Guard: only powerup
       if (reactionType !== "powerup") return null;
 
-      // Marker (bound to reactionId)
-      const markerId = `reactions.powerup.onCreate__${reactionId}`;
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.powerup.onCreate: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      // Marker MUST be bound to eventId (so toggle with deterministic reactionId works)
+      const markerId = `reactions.powerup.onCreate__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
       const expiresAt = Timestamp.fromDate(
@@ -1139,7 +1198,9 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             postId: postId ?? null,
             reactorId: reactorId ?? null,
             authorId: null,
-            eventId: event?.id ?? null,
+            reactionId,
+            reactionType,
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
@@ -1170,7 +1231,9 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               postId,
               reactorId,
               authorId: null,
-              eventId: event?.id ?? null,
+              reactionId,
+              reactionType,
+              eventId,
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
@@ -1192,7 +1255,9 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               postId,
               reactorId,
               authorId: null,
-              eventId: event?.id ?? null,
+              reactionId,
+              reactionType,
+              eventId,
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
@@ -1231,7 +1296,9 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               postId,
               reactorId,
               authorId,
-              eventId: event?.id ?? null,
+              reactionId,
+              reactionType,
+              eventId,
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
@@ -1276,7 +1343,9 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             postId,
             reactorId,
             authorId,
-            eventId: event?.id ?? null,
+            reactionId,
+            reactionType,
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
@@ -1284,10 +1353,15 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         );
       });
 
-      console.log("[ok] reactions.powerup.onCreate", { reactionId, postId });
+      console.log("[ok] reactions.powerup.onCreate", {
+        eventId,
+        reactionId,
+        postId,
+      });
       return null;
     } catch (err) {
       console.error("[err] reactionsPowerupOnCreateV2", {
+        eventId: event?.id ?? null,
         reactionId,
         message: err?.message,
         stack: err?.stack,
@@ -1317,8 +1391,17 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       // Guard: only powerup
       if (reactionType !== "powerup") return null;
 
-      // Marker (bound to reactionId)
-      const markerId = `reactions.powerup.onDelete__${reactionId}`;
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.powerup.onDelete: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      // Marker MUST be bound to eventId (so toggle with deterministic reactionId works)
+      const markerId = `reactions.powerup.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
       const expiresAt = Timestamp.fromDate(
@@ -1335,7 +1418,9 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             postId: postId ?? null,
             reactorId: reactorId ?? null,
             authorId: stampedAuthorId,
-            eventId: event?.id ?? null,
+            reactionId,
+            reactionType,
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
@@ -1379,7 +1464,9 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               postId,
               reactorId,
               authorId: null,
-              eventId: event?.id ?? null,
+              reactionId,
+              reactionType,
+              eventId,
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
@@ -1399,7 +1486,9 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               postId,
               reactorId,
               authorId,
-              eventId: event?.id ?? null,
+              reactionId,
+              reactionType,
+              eventId,
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
@@ -1443,8 +1532,10 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             postId,
             reactorId,
             authorId,
+            reactionId,
+            reactionType,
             postMissing: !(postSnap && postSnap.exists),
-            eventId: event?.id ?? null,
+            eventId,
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
@@ -1452,10 +1543,15 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
         );
       });
 
-      console.log("[ok] reactions.powerup.onDelete", { reactionId, postId });
+      console.log("[ok] reactions.powerup.onDelete", {
+        eventId,
+        reactionId,
+        postId,
+      });
       return null;
     } catch (err) {
       console.error("[err] reactionsPowerupOnDeleteV2", {
+        eventId: event?.id ?? null,
         reactionId,
         message: err?.message,
         stack: err?.stack,
