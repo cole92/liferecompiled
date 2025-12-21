@@ -31,6 +31,7 @@ try {
 
 // -------------------- INIT --------------------
 admin.initializeApp();
+const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 setGlobalOptions({ region: "europe-central2" });
 
 const db = admin.firestore();
@@ -55,14 +56,14 @@ async function bumpPermanentDeletesForUser(userId) {
         postsPerMonth: {},
         restoredPosts: 0,
         permanentlyDeletedPosts: 1,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     } else {
       await ref.set(
         {
-          permanentlyDeletedPosts: admin.firestore.FieldValue.increment(1),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          permanentlyDeletedPosts: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
@@ -369,7 +370,7 @@ exports.softDeleteComment = onCall(async (req) => {
 
   await docRef.update({
     deleted: true,
-    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    deletedAt: FieldValue.serverTimestamp(),
   });
 
   return { success: true };
@@ -401,10 +402,8 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
   }
 
   // Rate limit: max 3 komentara u 30 sekundi
-  const now = admin.firestore.Timestamp.now();
-  const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(
-    now.toMillis() - 30_000
-  );
+  const now = Timestamp.now();
+  const thirtySecondsAgo = Timestamp.fromMillis(now.toMillis() - 30_000);
 
   const recent = await db
     .collection("comments")
@@ -425,7 +424,7 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
     userID: req.auth.uid,
     content: trimmedContent,
     parentID: parentId ?? null,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
     likes: [],
   };
 
@@ -475,21 +474,21 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
             postsPerMonth: { [monthKey]: 1 },
             restoredPosts: 0,
             permanentlyDeletedPosts: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
         } else {
           // 1) Globalni inkrementi
           tx.update(statsRef, {
-            totalPosts: admin.firestore.FieldValue.increment(1),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            totalPosts: FieldValue.increment(1),
+            updatedAt: FieldValue.serverTimestamp(),
           });
           // 2) Siguran inkrement u mapi preko merge objekta
           tx.set(
             statsRef,
             {
               postsPerMonth: {
-                [monthKey]: admin.firestore.FieldValue.increment(1),
+                [monthKey]: FieldValue.increment(1),
               },
             },
             { merge: true }
@@ -500,8 +499,8 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
           type: "posts.onCreate",
           postId: event.params.postId,
           userId,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -555,15 +554,15 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
             postsPerMonth: {},
             restoredPosts: 1,
             permanentlyDeletedPosts: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
         } else {
           tx.set(
             statsRef,
             {
-              restoredPosts: admin.firestore.FieldValue.increment(1),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              restoredPosts: FieldValue.increment(1),
+              updatedAt: FieldValue.serverTimestamp(),
             },
             { merge: true }
           );
@@ -573,8 +572,8 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
           type: "posts.onUpdate.restore",
           postId: event.params.postId,
           userId,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -642,8 +641,8 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
             reactionId,
             reactionType,
             eventId: event.id, // debug
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-            expiresAt: admin.firestore.Timestamp.fromDate(
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt: Timestamp.fromDate(
               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             ),
           });
@@ -668,8 +667,9 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
           reactionId,
           reactionType,
           eventId: event.id, // debug
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -738,8 +738,9 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
             reactionId,
             reactionType,
             eventId: event.id, // debug
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-            expiresAt: admin.firestore.Timestamp.fromDate(
+            processedAt: FieldValue.serverTimestamp(),
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt: Timestamp.fromDate(
               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             ),
           });
@@ -762,8 +763,9 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
           reactionId,
           reactionType,
           eventId: event.id, // debug
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -833,8 +835,9 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
             reactionId,
             reactionType,
             eventId: event.id, // debug
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-            expiresAt: admin.firestore.Timestamp.fromDate(
+            processedAt: FieldValue.serverTimestamp(),
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt: Timestamp.fromDate(
               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             ),
           });
@@ -849,7 +852,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
         // Dot-notation update: cuva ostale kljuceve u reactionCounts/badges mapama
         tx.update(postRef, {
           "reactionCounts.hot": next,
-          lastHotAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastHotAt: FieldValue.serverTimestamp(),
           "badges.trending": next >= hotThreshold,
         });
         // Marker se upisuje tek POSLE update-a, u istoj transakciji
@@ -859,8 +862,8 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
           reactionId,
           reactionType,
           eventId: event.id, // debug
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -930,8 +933,8 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
             reactionId,
             reactionType,
             eventId: event.id, // debug
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-            expiresAt: admin.firestore.Timestamp.fromDate(
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt: Timestamp.fromDate(
               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             ),
           });
@@ -960,8 +963,8 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
           reactionId,
           reactionType,
           eventId: event.id, // debug
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -996,8 +999,8 @@ exports.cleanupExpiredPostsV2 = onSchedule(
     timeoutSeconds: 120,
   },
   async () => {
-    const now = admin.firestore.Timestamp.now();
-    const cutoff = admin.firestore.Timestamp.fromMillis(
+    const now = Timestamp.now();
+    const cutoff = Timestamp.fromMillis(
       now.toMillis() - 30 * 24 * 60 * 60 * 1000
     );
 
@@ -1040,7 +1043,7 @@ exports.expireTrendingPostsV2 = onSchedule(
   async () => {
     const DAYS = 7;
     const cutoffDate = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
-    const cutoffTs = admin.firestore.Timestamp.fromDate(cutoffDate);
+    const cutoffTs = Timestamp.fromDate(cutoffDate);
 
     let totalUpdated = 0;
     let totalBatches = 0;
@@ -1122,7 +1125,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       const markerId = `reactions.powerup.onCreate__${reactionId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
-      const expiresAt = admin.firestore.Timestamp.fromDate(
+      const expiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -1137,7 +1140,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             reactorId: reactorId ?? null,
             authorId: null,
             eventId: event?.id ?? null,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
           { merge: true }
@@ -1168,7 +1171,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               reactorId,
               authorId: null,
               eventId: event?.id ?? null,
-              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
             { merge: true }
@@ -1190,7 +1193,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               reactorId,
               authorId: null,
               eventId: event?.id ?? null,
-              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
             { merge: true }
@@ -1229,7 +1232,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               reactorId,
               authorId,
               eventId: event?.id ?? null,
-              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
             { merge: true }
@@ -1239,7 +1242,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
 
         // Update post aggregate
         tx.update(postRef, {
-          "reactionCounts.powerup": admin.firestore.FieldValue.increment(1),
+          "reactionCounts.powerup": FieldValue.increment(1),
         });
 
         // Update author aggregate (init if missing via set+merge)
@@ -1274,7 +1277,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             reactorId,
             authorId,
             eventId: event?.id ?? null,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
           { merge: true }
@@ -1318,7 +1321,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       const markerId = `reactions.powerup.onDelete__${reactionId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
-      const expiresAt = admin.firestore.Timestamp.fromDate(
+      const expiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -1333,7 +1336,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             reactorId: reactorId ?? null,
             authorId: stampedAuthorId,
             eventId: event?.id ?? null,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
           { merge: true }
@@ -1377,7 +1380,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               reactorId,
               authorId: null,
               eventId: event?.id ?? null,
-              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
             { merge: true }
@@ -1397,7 +1400,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               reactorId,
               authorId,
               eventId: event?.id ?? null,
-              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
             { merge: true }
@@ -1442,7 +1445,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             authorId,
             postMissing: !(postSnap && postSnap.exists),
             eventId: event?.id ?? null,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
           { merge: true }
