@@ -1266,13 +1266,14 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           return;
         }
 
-        // define ref early so it can never be null
+        // define refs early so they can never be null
         const userStatsRef = db.collection("userStats").doc(authorId);
+        const userPublicRef = db.collection("users").doc(authorId);
+
         const isSelf = reactorId === authorId;
 
         // Read userStats ONLY if not self-powerup
         let userStatsData = {};
-
         if (!isSelf) {
           const userStatsSnap = await tx.get(userStatsRef);
           userStatsData = userStatsSnap.exists
@@ -1332,6 +1333,15 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         }
 
         tx.set(userStatsRef, patch, { merge: true });
+
+        // Mirror public badge to users/{uid} so others can see it (MVP)
+        if (shouldSetTop) {
+          tx.set(
+            userPublicRef,
+            { "badges.topContributor": true },
+            { merge: true }
+          );
+        }
 
         // Marker applied
         tx.set(

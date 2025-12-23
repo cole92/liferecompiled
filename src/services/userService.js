@@ -44,6 +44,7 @@ const normalizeAuthor = (uid, data) => ({
   id: uid,
   name: data?.name || "Unknown author",
   profilePicture: data?.profilePicture || DEFAULT_PROFILE_PICTURE,
+  badges: typeof data?.badges === "object" && data?.badges ? data.badges : {},
   deleted: false,
 });
 
