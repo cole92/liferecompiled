@@ -1,17 +1,16 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
 import { FaRegLightbulb, FaFire, FaBolt } from "react-icons/fa";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 
 import {
   doc,
-  setDoc,
   getDoc,
   getDocs,
   query,
   collection,
   where,
-  deleteDoc,
+  runTransaction,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -48,16 +47,21 @@ const reactionRemovalMessages = {
   powerup: "⚡ Took back your Powerup — oh wow, thanks a lot. 🙃",
 };
 
+const COOLDOWN_MS = 600;
+
 const ReactionIcon = ({ type, postId, locked }) => {
   const Icon = iconMap[type];
+
+  const [uid, setUid] = useState(auth.currentUser?.uid ?? null);
 
   const [count, setCount] = useState(0);
   const [isActive, setIsActive] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isCountLoading, setIsCountLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
 
-  const [uid, setUid] = useState(auth.currentUser?.uid ?? null);
+  const cooldownTimerRef = useRef(null);
 
   // Keep uid reactive (login/logout should update active state)
   useEffect(() => {
@@ -67,24 +71,42 @@ const ReactionIcon = ({ type, postId, locked }) => {
     return () => unsub();
   }, []);
 
+  const startCooldown = useCallback(() => {
+    setIsCoolingDown(true);
+
+    if (cooldownTimerRef.current) {
+      clearTimeout(cooldownTimerRef.current);
+    }
+
+    cooldownTimerRef.current = setTimeout(() => {
+      setIsCoolingDown(false);
+      cooldownTimerRef.current = null;
+    }, COOLDOWN_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, []);
+
   // Count (temporary: still reading from reactions event-log)
   const fetchCount = useCallback(async () => {
     if (!postId || !type) return;
 
-    setIsLoading(true);
+    setIsCountLoading(true);
     try {
       const q = query(
         collection(db, "reactions"),
         where("postId", "==", postId),
         where("reactionType", "==", type)
       );
-
       const snapshot = await getDocs(q);
       setCount(snapshot.size);
     } catch (err) {
       console.error("[ReactionIcon] fetchCount failed:", err?.message);
     } finally {
-      setIsLoading(false);
+      setIsCountLoading(false);
     }
   }, [postId, type]);
 
@@ -101,7 +123,6 @@ const ReactionIcon = ({ type, postId, locked }) => {
       const reactionId = buildReactionId(postId, uid, type);
       const reactionRef = doc(db, "reactions", reactionId);
       const mySnap = await getDoc(reactionRef);
-
       setIsActive(mySnap.exists());
     } catch (err) {
       console.error("[ReactionIcon] fetchIsActive failed:", err?.message);
@@ -109,13 +130,25 @@ const ReactionIcon = ({ type, postId, locked }) => {
     }
   }, [postId, type, uid]);
 
+  // Initial/refresh fetch: run both without flicker loops
   useEffect(() => {
-    fetchCount();
-  }, [fetchCount]);
+    let alive = true;
 
-  useEffect(() => {
-    fetchIsActive();
-  }, [fetchIsActive]);
+    (async () => {
+      if (!postId || !type) return;
+
+      try {
+        await Promise.all([fetchCount(), fetchIsActive()]);
+      } finally {
+        // no-op, each function handles its own state
+      }
+    })();
+
+    return () => {
+      alive = false;
+      void alive;
+    };
+  }, [postId, type, fetchCount, fetchIsActive]);
 
   const handleClick = async (e) => {
     e.stopPropagation();
@@ -125,7 +158,8 @@ const ReactionIcon = ({ type, postId, locked }) => {
       return;
     }
 
-    if (locked || isToggling) return;
+    if (!postId || !type) return;
+    if (locked || isToggling || isCoolingDown) return;
 
     const reactionId = buildReactionId(postId, uid, type);
     const reactionRef = doc(db, "reactions", reactionId);
@@ -136,43 +170,59 @@ const ReactionIcon = ({ type, postId, locked }) => {
     const prevCount = count;
 
     try {
-      const snap = await getDoc(reactionRef);
+      const result = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(reactionRef);
 
-      if (snap.exists()) {
-        // Toggle off
-        await deleteDoc(reactionRef);
+        if (snap.exists()) {
+          // Toggle off
+          tx.delete(reactionRef);
+          return { nextActive: false, delta: -1 };
+        }
 
-        setIsActive(false);
-        setCount((c) => Math.max(0, c - 1));
-        showInfoToast(reactionRemovalMessages[type]);
-      } else {
         // Toggle on
-        await setDoc(reactionRef, {
+        tx.set(reactionRef, {
           postId,
           userId: uid,
           reactionType: type,
           createdAt: serverTimestamp(),
         });
 
-        setIsActive(true);
-        setCount((c) => c + 1);
-        showInfoToast(reactionMessages[type]);
-      }
+        return { nextActive: true, delta: +1 };
+      });
+
+      setIsActive(result.nextActive);
+      setCount((c) => Math.max(0, c + result.delta));
+
+      showInfoToast(
+        result.nextActive
+          ? reactionMessages[type]
+          : reactionRemovalMessages[type]
+      );
     } catch (err) {
       console.error("[ReactionIcon] toggle failed:", err?.message);
 
-      // Roll back local optimistic state
+      // Roll back local state
       setIsActive(prevActive);
       setCount(prevCount);
 
       showInfoToast("Something went wrong. Please try again.");
     } finally {
       setIsToggling(false);
+      startCooldown();
+
+      // Optional: soft resync (helps if another tab/user changed stuff)
+      // Not required for MVP; you can keep it or remove it later.
+      setTimeout(() => {
+        fetchIsActive();
+        fetchCount();
+      }, 250);
     }
   };
 
   const tooltipId = `tooltip-${type}-${postId}`;
-  const disabled = locked || isToggling;
+
+  // Keep button clickable when logged out (so it can show the login toast)
+  const disabled = locked || isToggling || isCoolingDown;
 
   return (
     <>
@@ -189,7 +239,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
       >
         <Icon />
         <span style={{ marginLeft: "4px" }}>
-          {isLoading ? (
+          {isCountLoading ? (
             <span
               className="inline-block h-3.5 w-3.5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin align-[-2px]"
               aria-label="Loading"
@@ -201,7 +251,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
         </span>
       </button>
 
-      <ReactTooltip id={tooltipId} position="" />
+      <ReactTooltip id={tooltipId} />
     </>
   );
 };
