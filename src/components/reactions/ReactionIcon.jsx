@@ -6,14 +6,9 @@ import { Tooltip as ReactTooltip } from "react-tooltip";
 import {
   doc,
   getDoc,
-  getDocs,
-  query,
-  collection,
-  where,
   runTransaction,
   serverTimestamp,
 } from "firebase/firestore";
-
 import { onAuthStateChanged } from "firebase/auth";
 
 import { auth, db } from "../../firebase";
@@ -49,21 +44,17 @@ const reactionRemovalMessages = {
 
 const COOLDOWN_MS = 600;
 
-const ReactionIcon = ({ type, postId, locked }) => {
+const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
   const Icon = iconMap[type];
 
   const [uid, setUid] = useState(auth.currentUser?.uid ?? null);
-
-  const [count, setCount] = useState(0);
   const [isActive, setIsActive] = useState(false);
-
-  const [isCountLoading, setIsCountLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
 
   const cooldownTimerRef = useRef(null);
 
-  // Keep uid reactive (login/logout should update active state)
+  // Keep uid reactive (login/logout)
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       setUid(user?.uid ?? null);
@@ -90,27 +81,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
     };
   }, []);
 
-  // Count (temporary: still reading from reactions event-log)
-  const fetchCount = useCallback(async () => {
-    if (!postId || !type) return;
-
-    setIsCountLoading(true);
-    try {
-      const q = query(
-        collection(db, "reactions"),
-        where("postId", "==", postId),
-        where("reactionType", "==", type)
-      );
-      const snapshot = await getDocs(q);
-      setCount(snapshot.size);
-    } catch (err) {
-      console.error("[ReactionIcon] fetchCount failed:", err?.message);
-    } finally {
-      setIsCountLoading(false);
-    }
-  }, [postId, type]);
-
-  // Active state via deterministic doc id
+  // isActive state via deterministic reaction doc
   const fetchIsActive = useCallback(async () => {
     if (!postId || !type) return;
 
@@ -122,33 +93,17 @@ const ReactionIcon = ({ type, postId, locked }) => {
     try {
       const reactionId = buildReactionId(postId, uid, type);
       const reactionRef = doc(db, "reactions", reactionId);
-      const mySnap = await getDoc(reactionRef);
-      setIsActive(mySnap.exists());
+      const snap = await getDoc(reactionRef);
+      setIsActive(snap.exists());
     } catch (err) {
       console.error("[ReactionIcon] fetchIsActive failed:", err?.message);
       setIsActive(false);
     }
   }, [postId, type, uid]);
 
-  // Initial/refresh fetch: run both without flicker loops
   useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      if (!postId || !type) return;
-
-      try {
-        await Promise.all([fetchCount(), fetchIsActive()]);
-      } finally {
-        // no-op, each function handles its own state
-      }
-    })();
-
-    return () => {
-      alive = false;
-      void alive;
-    };
-  }, [postId, type, fetchCount, fetchIsActive]);
+    fetchIsActive();
+  }, [fetchIsActive]);
 
   const handleClick = async (e) => {
     e.stopPropagation();
@@ -166,20 +121,17 @@ const ReactionIcon = ({ type, postId, locked }) => {
 
     setIsToggling(true);
 
-    const prevActive = isActive;
-    const prevCount = count;
+    let didToggleSucceed = false;
 
     try {
       const result = await runTransaction(db, async (tx) => {
         const snap = await tx.get(reactionRef);
 
         if (snap.exists()) {
-          // Toggle off
           tx.delete(reactionRef);
-          return { nextActive: false, delta: -1 };
+          return false;
         }
 
-        // Toggle on
         tx.set(reactionRef, {
           postId,
           userId: uid,
@@ -187,41 +139,37 @@ const ReactionIcon = ({ type, postId, locked }) => {
           createdAt: serverTimestamp(),
         });
 
-        return { nextActive: true, delta: +1 };
+        return true;
       });
 
-      setIsActive(result.nextActive);
-      setCount((c) => Math.max(0, c + result.delta));
+      didToggleSucceed = true;
+      setIsActive(result);
 
       showInfoToast(
-        result.nextActive
-          ? reactionMessages[type]
-          : reactionRemovalMessages[type]
+        result ? reactionMessages[type] : reactionRemovalMessages[type]
       );
+
+      // MVP: refetch only when toggle succeeded
+      if (typeof onAfterToggle === "function") {
+        onAfterToggle();
+      } else {
+        fetchIsActive();
+      }
     } catch (err) {
       console.error("[ReactionIcon] toggle failed:", err?.message);
-
-      // Roll back local state
-      setIsActive(prevActive);
-      setCount(prevCount);
-
       showInfoToast("Something went wrong. Please try again.");
+
+      // Optional: keep isActive in sync after failure
+      if (!didToggleSucceed) {
+        fetchIsActive();
+      }
     } finally {
       setIsToggling(false);
       startCooldown();
-
-      // Optional: soft resync (helps if another tab/user changed stuff)
-      // Not required for MVP; you can keep it or remove it later.
-      setTimeout(() => {
-        fetchIsActive();
-        fetchCount();
-      }, 250);
     }
   };
 
   const tooltipId = `tooltip-${type}-${postId}`;
-
-  // Keep button clickable when logged out (so it can show the login toast)
   const disabled = locked || isToggling || isCoolingDown;
 
   return (
@@ -238,17 +186,7 @@ const ReactionIcon = ({ type, postId, locked }) => {
         data-tooltip-content={reactionLabels[type]}
       >
         <Icon />
-        <span style={{ marginLeft: "4px" }}>
-          {isCountLoading ? (
-            <span
-              className="inline-block h-3.5 w-3.5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin align-[-2px]"
-              aria-label="Loading"
-              title="Loading"
-            />
-          ) : (
-            count
-          )}
-        </span>
+        <span style={{ marginLeft: "4px" }}>{count}</span>
       </button>
 
       <ReactTooltip id={tooltipId} />
@@ -260,6 +198,12 @@ ReactionIcon.propTypes = {
   type: PropTypes.oneOf(["idea", "hot", "powerup"]).isRequired,
   postId: PropTypes.string.isRequired,
   locked: PropTypes.bool,
+
+  // MVP: count dolazi iz post.reactionCounts
+  count: PropTypes.number.isRequired,
+
+  // PostDetails moze proslediti refetch
+  onAfterToggle: PropTypes.func,
 };
 
 export default ReactionIcon;

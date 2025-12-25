@@ -5,19 +5,38 @@ import ReactionIcon from "./ReactionIcon";
  * @component ReactionSummary
  * Prikazuje sve podrzane reakcije (💡 idea, 🔥 hot, ⚡ powerup) za dati post.
  *
- * @param {string} postId - ID posta za koji se prikazuju reakcije.
- * @param {boolean} [locked] - Ako je post zakljucan, reakcije su onemogucene.
- *
- * @returns {JSX.Element} Grupa dugmica za reakcije.
+ * MVP uloga:
+ * - Ne racuna nista
+ * - Ne cita Firestore
+ * - Samo prosledjuje podatke ka ReactionIcon
  */
 
-
-const ReactionSummary = ({ postId, locked }) => {
+const ReactionSummary = ({ postId, locked, reactionCounts, onAfterToggle }) => {
   return (
     <div className="flex gap-4 mt-2 ml-1 items-center">
-      <ReactionIcon type="idea" postId={postId} locked={locked} />
-      <ReactionIcon type="hot" postId={postId} locked={locked} />
-      <ReactionIcon type="powerup" postId={postId} locked={locked} />
+      <ReactionIcon
+        type="idea"
+        postId={postId}
+        locked={locked}
+        count={reactionCounts.idea}
+        onAfterToggle={onAfterToggle}
+      />
+
+      <ReactionIcon
+        type="hot"
+        postId={postId}
+        locked={locked}
+        count={reactionCounts.hot}
+        onAfterToggle={onAfterToggle}
+      />
+
+      <ReactionIcon
+        type="powerup"
+        postId={postId}
+        locked={locked}
+        count={reactionCounts.powerup}
+        onAfterToggle={onAfterToggle}
+      />
     </div>
   );
 };
@@ -25,6 +44,16 @@ const ReactionSummary = ({ postId, locked }) => {
 ReactionSummary.propTypes = {
   postId: PropTypes.string.isRequired,
   locked: PropTypes.bool,
+
+  // MVP: dolazi iz post.reactionCounts (normalizePostDoc)
+  reactionCounts: PropTypes.shape({
+    idea: PropTypes.number.isRequired,
+    hot: PropTypes.number.isRequired,
+    powerup: PropTypes.number.isRequired,
+  }).isRequired,
+
+  // PostDetails moze proslediti refetch handler
+  onAfterToggle: PropTypes.func,
 };
 
 export default ReactionSummary;

@@ -79,7 +79,6 @@ const PostCard = ({
     createdAt,
     deletedAt,
     updatedAt,
-    tags,
     author,
     category,
   } = post;
@@ -333,17 +332,24 @@ const PostCard = ({
             </span>
           )}
           {/* Tagovi */}
-          <div className="post-tags">
-            {tags.map((tag, index) => (
-              <span key={index} className="post-tag">
-                #{tag.text}
-              </span>
-            ))}
-          </div>
+          {post.tags.map((tag, index) => (
+            <span
+              key={`${tag.text}-${index}`}
+              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
+            >
+              #{tag.text}
+            </span>
+          ))}
 
           {/* Reakcije (sakriva se u Trash modu) */}
           {!isTrashMode && (
-            <ReactionSummary postId={post.id} locked={post.locked} />
+            <ReactionSummary
+              postId={post.id}
+              locked={post.locked}
+              reactionCounts={
+                post.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
+              }
+            />
           )}
 
           {/* Kategorija */}
@@ -471,7 +477,12 @@ PostCard.propTypes = {
       })
     ).isRequired,
     // Reakcije
-    reactions: PropTypes.object,
+    // Reakcije (backend agregati)
+    reactionCounts: PropTypes.shape({
+      idea: PropTypes.number.isRequired,
+      hot: PropTypes.number.isRequired,
+      powerup: PropTypes.number.isRequired,
+    }).isRequired,
     // Bedzevi posta
     badges: PropTypes.shape({
       mostInspiring: PropTypes.bool,

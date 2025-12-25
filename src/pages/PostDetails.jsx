@@ -187,6 +187,15 @@ const PostDetails = () => {
     }
   };
 
+  const refetchPost = async () => {
+    try {
+      const freshPost = await getPostById(postId);
+      setPost(freshPost);
+    } catch (error) {
+      console.error("Error refetching post:", error);
+    }
+  };
+
   return (
     <div
       className={`${
@@ -270,22 +279,24 @@ const PostDetails = () => {
           </div>
 
           {/* Tagovi */}
-          {post?.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-6">
-              {post.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
-                >
-                  #{tag.text}
-                </span>
-              ))}
-            </div>
-          )}
+          {post.tags.map((tag, index) => (
+            <span
+              key={`${tag.text}-${index}`}
+              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
+            >
+              #{tag.text}
+            </span>
+          ))}
 
           {/* Reakcije i dugme za snimanje */}
           <div className="mt-6 flex items-center justify-between border-t pt-4">
-            <ReactionSummary postId={post.id} locked={post.locked} />
+            <ReactionSummary
+              postId={post.id}
+              locked={post.locked}
+              reactionCounts={post.reactionCounts}
+              onAfterToggle={refetchPost}
+            />
+
             <button
               onClick={handleSaveToggle}
               title={isSaved ? "Remove from saved" : "Save this post"}
