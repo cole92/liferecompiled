@@ -473,16 +473,17 @@ PostCard.propTypes = {
     // Komentari
     comments: PropTypes.arrayOf(
       PropTypes.shape({
-        text: PropTypes.string.isRequired,
+        text: PropTypes.string,
       })
-    ).isRequired,
-    // Reakcije
+    ),
+
     // Reakcije (backend agregati)
     reactionCounts: PropTypes.shape({
-      idea: PropTypes.number.isRequired,
-      hot: PropTypes.number.isRequired,
-      powerup: PropTypes.number.isRequired,
-    }).isRequired,
+      idea: PropTypes.number,
+      hot: PropTypes.number,
+      powerup: PropTypes.number,
+    }),
+
     // Bedzevi posta
     badges: PropTypes.shape({
       mostInspiring: PropTypes.bool,

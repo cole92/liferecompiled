@@ -6,7 +6,8 @@ import { FiLock } from "react-icons/fi";
 import { AuthContext } from "../context/AuthContext";
 
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { functions, db } from "../firebase";
 
 import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
@@ -32,32 +33,16 @@ import {
   showSuccessToast,
 } from "../utils/toastUtils";
 
-/**
- * @component PostDetails
- * Prikazuje detalje blog posta na osnovu ID-ja iz URL-a.
- *
- * - Ucitava podatke o postu (getPostById) i autoru (getUserById) asinhrono
- * - Prikazuje naslov, sadrzaj, informacije o autoru, tagove, reakcije i komentare
- * - Koristi BadgeModal za prikaz PNG bedzeva i ShieldIcon za oznaku Top Contributor-a
- * - Omogucava snimanje/uklanjanje posta iz sacuvanih (saved posts)
- * - Reakcije i komentari su onemoguceni ako je post zakljucan
- * - Prikazuje bedzeve (Most Inspiring, Trending) i datum zakljucavanja ako je primenljivo
- *
- * @returns {JSX.Element} Komponenta sa detaljima posta ili fallback prikazom
- */
-
 const PostDetails = () => {
-  const { postId } = useParams(); // ID posta iz URL parametara
+  const { postId } = useParams();
   const navigate = useNavigate();
 
-  // State za glavni prikaz posta i ucitavanje
   const [post, setPost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
 
-  // State za podatke o autoru
   const [author, setAuthor] = useState(null);
 
   const { user } = useContext(AuthContext);
@@ -70,46 +55,76 @@ const PostDetails = () => {
 
   const lockedDate = post?.lockedAt?.toDate?.()?.toLocaleDateString?.() ?? null;
 
-  // State za modale vezane za bedzeve
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
 
-  // Hook koji proverava da li je post sacuvan od strane trenutnog korisnika (Firestore)
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
-  // Dohvata podatke o postu pri prvom renderu ili promeni postId
+  // Post subscription: source of truth je posts/{postId}
+  // getPostById ostaje da bi zadrzao isti normalize/shape kao svuda
   useEffect(() => {
-    const fetchPost = async () => {
-      try {
-        const postData = await getPostById(postId);
-        setPost(postData);
-      } catch (error) {
-        console.error("Error fetching post:", error);
-      } finally {
+    setIsLoading(true);
+    let cancelled = false;
+
+    const postRef = doc(db, "posts", postId);
+
+    const unsub = onSnapshot(
+      postRef,
+      async (snap) => {
+        if (cancelled) return;
+
+        if (!snap.exists()) {
+          setPost(null);
+          setIsLoading(false);
+          return;
+        }
+
+        try {
+          const postData = await getPostById(postId);
+          if (!cancelled) setPost(postData);
+        } catch (error) {
+          console.error("Error fetching post:", error);
+        } finally {
+          if (!cancelled) setIsLoading(false);
+        }
+      },
+      (error) => {
+        if (cancelled) return;
+        console.error("PostDetails onSnapshot error:", error);
         setIsLoading(false);
       }
-    };
+    );
 
-    fetchPost();
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [postId]);
 
-  // Kada je post ucitan, dohvatamo podatke o autoru
+  // Author fetch: zavisi samo od userId (da ne refetchuje autora na svaku reakciju)
   useEffect(() => {
-    if (post?.userId) {
-      const fetchUser = async () => {
-        const data = await getUserById(post.userId);
-        setAuthor(data);
-      };
-      fetchUser();
-    }
-  }, [post]);
+    if (!post?.userId) return;
 
-  // Fallback prikaz dok traje ucitavanje ili ako post ne postoji
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await getUserById(post.userId);
+        if (!cancelled) setAuthor(data);
+      } catch (e) {
+        console.error("Error fetching author:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [post?.userId]);
+
   if (isLoading) return <Spinner />;
   if (!post) return <p>Post not found.</p>;
 
-  // Menja status sacuvanosti posta (toggle)
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
 
@@ -124,7 +139,6 @@ const PostDetails = () => {
     setIsSaved(newState);
   };
 
-  // Otvara modal sa PNG bedzevima za post (sprecava bubbling ka parent elementima)
   const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
     setSelectedBadge(badgeKey);
@@ -187,6 +201,8 @@ const PostDetails = () => {
     }
   };
 
+  // Ova funkcija ti vise realno ne treba za reakcije kad imas onSnapshot,
+  // ali je ostavljam da ne diramo ostalu logiku (moze da posluzi za manuelni refresh ako zelis).
   const refetchPost = async () => {
     try {
       const freshPost = await getPostById(postId);
@@ -195,7 +211,6 @@ const PostDetails = () => {
       console.error("Error refetching post:", error);
     }
   };
-
   return (
     <div
       className={`${

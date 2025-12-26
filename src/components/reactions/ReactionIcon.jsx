@@ -52,6 +52,9 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
   const [isToggling, setIsToggling] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
 
+  // Optimistic count delta (instant UI feedback)
+  const [optimisticDelta, setOptimisticDelta] = useState(0);
+
   const cooldownTimerRef = useRef(null);
 
   // Keep uid reactive (login/logout)
@@ -65,9 +68,7 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
   const startCooldown = useCallback(() => {
     setIsCoolingDown(true);
 
-    if (cooldownTimerRef.current) {
-      clearTimeout(cooldownTimerRef.current);
-    }
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
 
     cooldownTimerRef.current = setTimeout(() => {
       setIsCoolingDown(false);
@@ -80,6 +81,11 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
       if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
     };
   }, []);
+
+  // Reset optimistic delta once the parent delivers a new authoritative count
+  useEffect(() => {
+    setOptimisticDelta(0);
+  }, [count]);
 
   // isActive state via deterministic reaction doc
   const fetchIsActive = useCallback(async () => {
@@ -121,10 +127,11 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
 
     setIsToggling(true);
 
-    let didToggleSucceed = false;
+    // For safe rollback on error
+    const prevIsActive = isActive;
 
     try {
-      const result = await runTransaction(db, async (tx) => {
+      const nextIsActive = await runTransaction(db, async (tx) => {
         const snap = await tx.get(reactionRef);
 
         if (snap.exists()) {
@@ -142,27 +149,36 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
         return true;
       });
 
-      didToggleSucceed = true;
-      setIsActive(result);
+      // Update active state
+      setIsActive(nextIsActive);
+
+      // Optimistic count bump (instant)
+      setOptimisticDelta((d) => d + (nextIsActive ? 1 : -1));
 
       showInfoToast(
-        result ? reactionMessages[type] : reactionRemovalMessages[type]
+        nextIsActive ? reactionMessages[type] : reactionRemovalMessages[type]
       );
 
-      // MVP: refetch only when toggle succeeded
+      // Refetch only when toggle succeeded (PostDetails can pull new aggregates)
       if (typeof onAfterToggle === "function") {
         onAfterToggle();
       } else {
+        // If no parent refetch, at least resync my active state
         fetchIsActive();
       }
     } catch (err) {
       console.error("[ReactionIcon] toggle failed:", err?.message);
       showInfoToast("Something went wrong. Please try again.");
 
-      // Optional: keep isActive in sync after failure
-      if (!didToggleSucceed) {
-        fetchIsActive();
-      }
+      // Roll back optimistic state
+      setIsActive(prevIsActive);
+      // If we optimistically moved, undo it (based on prev->intended)
+      // If prev was false and we tried to set true -> undo +1
+      // If prev was true and we tried to set false -> undo -1
+      setOptimisticDelta((d) => d + (prevIsActive ? 1 : -1));
+
+      // Resync from Firestore to be sure
+      fetchIsActive();
     } finally {
       setIsToggling(false);
       startCooldown();
@@ -171,6 +187,8 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
 
   const tooltipId = `tooltip-${type}-${postId}`;
   const disabled = locked || isToggling || isCoolingDown;
+
+  const displayCount = Math.max(0, count + optimisticDelta);
 
   return (
     <>
@@ -186,7 +204,7 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
         data-tooltip-content={reactionLabels[type]}
       >
         <Icon />
-        <span style={{ marginLeft: "4px" }}>{count}</span>
+        <span style={{ marginLeft: "4px" }}>{displayCount}</span>
       </button>
 
       <ReactTooltip id={tooltipId} />
@@ -199,7 +217,7 @@ ReactionIcon.propTypes = {
   postId: PropTypes.string.isRequired,
   locked: PropTypes.bool,
 
-  // MVP: count dolazi iz post.reactionCounts
+  // Count dolazi iz post.reactionCounts (backend authoritative)
   count: PropTypes.number.isRequired,
 
   // PostDetails moze proslediti refetch
