@@ -9,12 +9,12 @@ import { httpsCallable } from "firebase/functions";
 import { doc, onSnapshot } from "firebase/firestore";
 import { functions, db } from "../firebase";
 
-import { getPostById } from "../services/fetchPosts";
 import { getUserById } from "../services/userService";
 import { submitReport } from "../services/reportService";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { useCheckSavedStatus } from "../hooks/useCheckSavedStatus";
+import { normalizePostDoc } from "../mappers/posts/normalizePostDoc";
 
 import AuthorLink from "../components/AuthorLink";
 import ReactionSummary from "../components/reactions/ReactionSummary";
@@ -71,7 +71,7 @@ const PostDetails = () => {
 
     const unsub = onSnapshot(
       postRef,
-      async (snap) => {
+      (snap) => {
         if (cancelled) return;
 
         if (!snap.exists()) {
@@ -80,14 +80,15 @@ const PostDetails = () => {
           return;
         }
 
-        try {
-          const postData = await getPostById(postId);
-          if (!cancelled) setPost(postData);
-        } catch (error) {
-          console.error("Error fetching post:", error);
-        } finally {
-          if (!cancelled) setIsLoading(false);
+        const postData = normalizePostDoc(snap);
+        if (!postData) {
+          setPost(null);
+          setIsLoading(false);
+          return;
         }
+
+        setPost(postData);
+        setIsLoading(false);
       },
       (error) => {
         if (cancelled) return;
@@ -101,7 +102,6 @@ const PostDetails = () => {
       unsub();
     };
   }, [postId]);
-
   // Author fetch: zavisi samo od userId (da ne refetchuje autora na svaku reakciju)
   useEffect(() => {
     if (!post?.userId) return;
@@ -203,14 +203,6 @@ const PostDetails = () => {
 
   // Ova funkcija ti vise realno ne treba za reakcije kad imas onSnapshot,
   // ali je ostavljam da ne diramo ostalu logiku (moze da posluzi za manuelni refresh ako zelis).
-  const refetchPost = async () => {
-    try {
-      const freshPost = await getPostById(postId);
-      setPost(freshPost);
-    } catch (error) {
-      console.error("Error refetching post:", error);
-    }
-  };
   return (
     <div
       className={`${
@@ -309,7 +301,6 @@ const PostDetails = () => {
               postId={post.id}
               locked={post.locked}
               reactionCounts={post.reactionCounts}
-              onAfterToggle={refetchPost}
             />
 
             <button

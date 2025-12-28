@@ -37,6 +37,9 @@ export function normalizePostDoc(docSnap) {
   const description =
     typeof data.description === "string" ? data.description.trim() : "";
 
+  // Content (MVP: uvek string, ne trimujemo da sacuvamo formatiranje)
+  const content = typeof data.content === "string" ? data.content : "";
+
   // Category (opcion)
   const category =
     typeof data.category === "string" && data.category.trim()
@@ -99,6 +102,7 @@ export function normalizePostDoc(docSnap) {
     userId,
     title,
     description,
+    content,
     category,
     tags,
 

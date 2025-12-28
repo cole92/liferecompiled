@@ -40,13 +40,31 @@ const makeFallbackAuthor = () => ({
  * @param {Object} data - raw podaci iz Firestore user dokumenta
  * @returns {Object} normalizovan autor shape
  */
-const normalizeAuthor = (uid, data) => ({
-  id: uid,
-  name: data?.name || "Unknown author",
-  profilePicture: data?.profilePicture || DEFAULT_PROFILE_PICTURE,
-  badges: typeof data?.badges === "object" && data?.badges ? data.badges : {},
-  deleted: false,
-});
+// services/userService.js
+
+const normalizeAuthor = (uid, data) => {
+  const rawBadges =
+    typeof data?.badges === "object" && data.badges ? data.badges : {};
+
+  // Support both shapes:
+  // 1) nested: badges: { topContributor: true }
+  // 2) legacy literal: "badges.topContributor": true
+  const topContributor = Boolean(
+    rawBadges.topContributor || data?.["badges.topContributor"]
+  );
+
+  return {
+    id: uid,
+    name: data?.name || "Unknown author",
+    profilePicture: data?.profilePicture || DEFAULT_PROFILE_PICTURE,
+    badges: {
+      ...rawBadges,
+      topContributor,
+    },
+    deleted: false,
+  };
+};
+
 
 /**
  * @helper getUserById

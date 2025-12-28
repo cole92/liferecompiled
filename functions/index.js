@@ -600,18 +600,16 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
   "reactions/{reactionId}",
   async (event) => {
     try {
-      const data = event.data?.data() || {};
+      const reactionId = event?.params?.reactionId;
+      if (!reactionId) return null;
 
+      const data = event.data?.data() || {};
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      // Guard: only idea + must have postId
       if (!postId || reactionType !== "idea") return null;
 
-      const reactionId = event.params.reactionId;
       const eventId = event?.id;
-
-      // If eventId is missing, we cannot guarantee idempotency safely
       if (!eventId) {
         console.warn("[warn] reactions.idea.onCreate: missing event.id", {
           reactionId,
@@ -621,45 +619,115 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
       }
 
       const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
 
-      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
       const markerId = `reactions.idea.onCreate__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
       const expiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
-      // Thresholds (helper)
       const { idea: ideaThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: same event retries are ignored
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
+        // A) Ledger: already counted?
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const alreadyCounted = ledgerData?.active === true;
+
+        if (alreadyCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onCreate",
+              status: "skipped",
+              reason: "already_counted",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // B) stale-create: reaction must still exist
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (!liveReactionSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "stale_create",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onCreate",
+              status: "skipped",
+              reason: "stale_create",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // C) post must exist
         const postSnap = await tx.get(postRef);
-
-        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
-          console.warn("[warn] reactions.idea.onCreate: post missing", {
-            eventId,
-            reactionId,
-            postId,
-          });
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
 
-          tx.set(markerRef, {
-            type: "reactions.idea.onCreate",
-            status: "skipped",
-            reason: "post_missing",
-            postId,
-            reactionId,
-            reactionType,
-            eventId,
-            processedAt: FieldValue.serverTimestamp(),
-            expiresAt,
-          });
-
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onCreate",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
           return;
         }
 
@@ -667,24 +735,41 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
         const current = postData?.reactionCounts?.idea ?? 0;
         const next = current + 1;
 
-        // Keep other keys in nested maps via dot-notation
+        // ---------------- WRITES ----------------
         tx.update(postRef, {
           "reactionCounts.idea": next,
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
-        // Marker written after updates (same transaction)
-        tx.set(markerRef, {
-          type: "reactions.idea.onCreate",
-          status: "applied",
-          reason: null,
-          postId,
-          reactionId,
-          reactionType,
-          eventId,
-          processedAt: FieldValue.serverTimestamp(),
-          expiresAt,
-        });
+        // ledger becomes active (counted)
+        tx.set(
+          ledgerRef,
+          {
+            active: true,
+            postId,
+            reactionType,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.idea.onCreate",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
       });
 
       console.log("[ok] reactions.idea.onCreate", {
@@ -705,11 +790,15 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
   }
 );
 
-// -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2) --------------------
+// -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2 + ledger) --------------------
 exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
   "reactions/{reactionId}",
   async (event) => {
+    const reactionId = event?.params?.reactionId;
+
     try {
+      if (!reactionId) return null;
+
       const data = event.data?.data() || {};
       const postId = data?.postId;
       const reactionType = data?.reactionType;
@@ -717,10 +806,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
       // Guard: only idea + must have postId
       if (!postId || reactionType !== "idea") return null;
 
-      const reactionId = event.params.reactionId;
       const eventId = event?.id;
-
-      // If eventId is missing, we cannot guarantee idempotency safely
       if (!eventId) {
         console.warn("[warn] reactions.idea.onDelete: missing event.id", {
           reactionId,
@@ -730,45 +816,101 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
       }
 
       const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
 
-      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
       const markerId = `reactions.idea.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      // Ledger is keyed by reactionId (deterministic id) -> tracks whether it was counted
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
       const expiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
-      // Thresholds (helper)
       const { idea: ideaThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: same event retries are ignored
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
+        // 1) stale_delete: if reaction doc exists again (user re-toggled ON), skip this delete
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (liveReactionSnap.exists) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onDelete",
+              status: "skipped",
+              reason: "stale_delete",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 2) Ledger gate: only decrement if it was previously counted
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const wasCounted = ledgerData.active === true;
+
+        if (!wasCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onDelete",
+              status: "skipped",
+              reason: "not_counted",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 3) Post must exist; if not, just flip ledger off and stop
         const postSnap = await tx.get(postRef);
-
-        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
-          console.warn("[warn] reactions.idea.onDelete: post missing", {
-            eventId,
-            reactionId,
-            postId,
-          });
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
 
-          tx.set(markerRef, {
-            type: "reactions.idea.onDelete",
-            status: "skipped",
-            reason: "post_missing",
-            postId,
-            reactionId,
-            reactionType,
-            eventId,
-            processedAt: FieldValue.serverTimestamp(),
-            expiresAt,
-          });
-
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onDelete",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
           return;
         }
 
@@ -776,23 +918,39 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
         const current = postData?.reactionCounts?.idea ?? 0;
         const next = Math.max(current - 1, 0);
 
+        // ---------------- WRITES ----------------
+
         tx.update(postRef, {
           "reactionCounts.idea": next,
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
-        // Marker written after updates (same transaction)
-        tx.set(markerRef, {
-          type: "reactions.idea.onDelete",
-          status: "applied",
-          reason: null,
-          postId,
-          reactionId,
-          reactionType,
-          eventId,
-          processedAt: FieldValue.serverTimestamp(),
-          expiresAt,
-        });
+        tx.set(
+          ledgerRef,
+          {
+            active: false,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.idea.onDelete",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
       });
 
       console.log("[ok] reactions.idea.onDelete", {
@@ -804,11 +962,10 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
     } catch (err) {
       console.error("[err] reactionsIdeaOnDeleteV2", {
         eventId: event?.id ?? null,
-        reactionId: event?.params?.reactionId ?? null,
+        reactionId,
         message: err?.message,
         stack: err?.stack,
       });
-
       throw err;
     }
   }
@@ -819,17 +976,16 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
   "reactions/{reactionId}",
   async (event) => {
     try {
+      const reactionId = event?.params?.reactionId;
+      if (!reactionId) return null;
+
       const data = event.data?.data() || {};
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      // Guard: only hot + must have postId
       if (!postId || reactionType !== "hot") return null;
 
-      const reactionId = event.params.reactionId;
       const eventId = event?.id;
-
-      // If eventId is missing, we cannot guarantee idempotency safely
       if (!eventId) {
         console.warn("[warn] reactions.hot.onCreate: missing event.id", {
           reactionId,
@@ -839,45 +995,111 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
       }
 
       const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
 
-      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
       const markerId = `reactions.hot.onCreate__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
       const expiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
-      // Thresholds (helper)
       const { hot: hotThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: same event retries are ignored
+        // ---------------- READS (all first) ----------------
+
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const alreadyCounted = ledgerData?.active === true;
+
+        if (alreadyCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onCreate",
+              status: "skipped",
+              reason: "already_counted",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (!liveReactionSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "stale_create",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onCreate",
+              status: "skipped",
+              reason: "stale_create",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
         const postSnap = await tx.get(postRef);
-
-        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
-          console.warn("[warn] reactions.hot.onCreate: post missing", {
-            eventId,
-            reactionId,
-            postId,
-          });
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
 
-          tx.set(markerRef, {
-            type: "reactions.hot.onCreate",
-            status: "skipped",
-            reason: "post_missing",
-            postId,
-            reactionId,
-            reactionType,
-            eventId,
-            processedAt: FieldValue.serverTimestamp(),
-            expiresAt,
-          });
-
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onCreate",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
           return;
         }
 
@@ -885,25 +1107,41 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
         const current = postData?.reactionCounts?.hot ?? 0;
         const next = current + 1;
 
-        // Update aggregates
+        // ---------------- WRITES ----------------
         tx.update(postRef, {
           "reactionCounts.hot": next,
           lastHotAt: FieldValue.serverTimestamp(),
           "badges.trending": next >= hotThreshold,
         });
 
-        // Marker written after updates (same transaction)
-        tx.set(markerRef, {
-          type: "reactions.hot.onCreate",
-          status: "applied",
-          reason: null,
-          postId,
-          reactionId,
-          reactionType,
-          eventId,
-          processedAt: FieldValue.serverTimestamp(),
-          expiresAt,
-        });
+        tx.set(
+          ledgerRef,
+          {
+            active: true,
+            postId,
+            reactionType,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.hot.onCreate",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
       });
 
       console.log("[ok] reactions.hot.onCreate", {
@@ -919,8 +1157,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
         message: err?.message,
         stack: err?.stack,
       });
-
-      throw err; // transient failure -> retry
+      throw err;
     }
   }
 );
@@ -930,17 +1167,16 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
   "reactions/{reactionId}",
   async (event) => {
     try {
+      const reactionId = event?.params?.reactionId;
+      if (!reactionId) return null;
+
       const data = event.data?.data() || {};
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
-      // Guard: only hot + must have postId
       if (!postId || reactionType !== "hot") return null;
 
-      const reactionId = event.params.reactionId;
       const eventId = event?.id;
-
-      // If eventId is missing, we cannot guarantee idempotency safely
       if (!eventId) {
         console.warn("[warn] reactions.hot.onDelete: missing event.id", {
           reactionId,
@@ -950,45 +1186,107 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
       }
 
       const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
 
-      // Idempotency marker MUST be bound to eventId (works with deterministic reactionId toggle)
       const markerId = `reactions.hot.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
       const expiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
-      // Thresholds (helper)
       const { hot: hotThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // Idempotency: same event retries are ignored
+        // ---------------- READS (all first) ----------------
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
+        // stale-delete: if reaction exists again -> skip decrement
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (liveReactionSnap.exists) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onDelete",
+              status: "skipped",
+              reason: "stale_delete",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // ledger: only decrement if counted (and matches this post/type)
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+
+        const wasCounted = ledgerData?.active === true;
+
+        // optional sanity: avoid decrement if ledger belongs to other post/type
+        const ledgerPostId = ledgerData?.postId ?? null;
+        const ledgerType = ledgerData?.reactionType ?? null;
+        const ledgerMismatch =
+          (ledgerPostId && ledgerPostId !== postId) ||
+          (ledgerType && ledgerType !== reactionType);
+
+        if (!wasCounted || ledgerMismatch) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onDelete",
+              status: "skipped",
+              reason: !wasCounted ? "not_counted" : "ledger_mismatch",
+              postId,
+              reactionId,
+              reactionType,
+              ledgerPostId,
+              ledgerType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
         const postSnap = await tx.get(postRef);
-
-        // Edge: post missing (deleted / invalid ref)
         if (!postSnap.exists) {
-          console.warn("[warn] reactions.hot.onDelete: post missing", {
-            eventId,
-            reactionId,
-            postId,
-          });
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
 
-          tx.set(markerRef, {
-            type: "reactions.hot.onDelete",
-            status: "skipped",
-            reason: "post_missing",
-            postId,
-            reactionId,
-            reactionType,
-            eventId,
-            processedAt: FieldValue.serverTimestamp(),
-            expiresAt,
-          });
-
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onDelete",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
           return;
         }
 
@@ -1000,25 +1298,39 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
           "reactionCounts.hot": next,
         };
 
-        // COUNT rule: if it drops below threshold -> trending off immediately
         if (next < hotThreshold) {
           update["badges.trending"] = false;
         }
 
+        // ---------------- WRITES ----------------
         tx.update(postRef, update);
 
-        // Marker written after updates (same transaction)
-        tx.set(markerRef, {
-          type: "reactions.hot.onDelete",
-          status: "applied",
-          reason: null,
-          postId,
-          reactionId,
-          reactionType,
-          eventId,
-          processedAt: FieldValue.serverTimestamp(),
-          expiresAt,
-        });
+        tx.set(
+          ledgerRef,
+          {
+            active: false,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.hot.onDelete",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
       });
 
       console.log("[ok] reactions.hot.onDelete", {
@@ -1034,8 +1346,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
         message: err?.message,
         stack: err?.stack,
       });
-
-      throw err; // transient failure -> retry
+      throw err;
     }
   }
 );
@@ -1168,7 +1479,6 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       const reactorId = data?.userId;
       const reactionType = data?.reactionType;
 
-      // Guard: only powerup
       if (reactionType !== "powerup") return null;
 
       const eventId = event?.id;
@@ -1180,7 +1490,6 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         return null;
       }
 
-      // Marker MUST be bound to eventId (so toggle with deterministic reactionId works)
       const markerId = `reactions.powerup.onCreate__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
@@ -1188,7 +1497,6 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
-      // Missing fields: valid skip (no retry loop)
       if (!postId || !reactorId) {
         await markerRef.set(
           {
@@ -1212,16 +1520,99 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       const postRef = db.collection("posts").doc(postId);
       const reactionRef = db.collection("reactions").doc(reactionId);
 
-      // Thresholds (helper)
+      // Ledger: source-of-truth da li je reaction vec uracunat
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
+
       const { powerup: powerupThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // ---------------- READS (must be first) ----------------
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
+        // A) Ledger state (da li je vec uracunat)
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const alreadyCounted = ledgerData?.active === true;
+
+        if (alreadyCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "already_counted",
+              postId,
+              reactorId,
+              authorId: ledgerData?.authorId ?? null,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // B) Stale-create guard: reaction doc mora jos da postoji
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (!liveReactionSnap.exists) {
+          // Ključno: ovde NISTA nije uracunato, i ledger ostaje inactive
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "stale_create",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "stale_create",
+              postId,
+              reactorId,
+              authorId: null,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // C) Post mora da postoji
         const postSnap = await tx.get(postRef);
         if (!postSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
           tx.set(
             markerRef,
             {
@@ -1243,9 +1634,23 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         }
 
         const postData = postSnap.data() || {};
-        const authorId = postData?.userId;
+        const authorId = postData?.userId ?? null;
 
         if (!authorId) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "author_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
           tx.set(
             markerRef,
             {
@@ -1266,13 +1671,12 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           return;
         }
 
-        // define refs early so they can never be null
+        const isSelf = reactorId === authorId;
+
+        // userStats se cita samo ako nije self
         const userStatsRef = db.collection("userStats").doc(authorId);
         const userPublicRef = db.collection("users").doc(authorId);
 
-        const isSelf = reactorId === authorId;
-
-        // Read userStats ONLY if not self-powerup
         let userStatsData = {};
         if (!isSelf) {
           const userStatsSnap = await tx.get(userStatsRef);
@@ -1281,13 +1685,28 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             : {};
         }
 
-        // ---------------- WRITES (after reads) ----------------
+        // ---------------- WRITES ----------------
 
-        // Stamp authorId into reaction doc (server-trusted)
-        tx.set(reactionRef, { authorId }, { merge: true });
+        // Stamp authorId (safe update, ne moze resurrect)
+        tx.update(reactionRef, { authorId });
 
-        // Self-powerup reject (MVP policy) - no aggregate changes
+        // Self-powerup: ne uracunava se + ledger ostaje inactive
         if (isSelf) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              postId,
+              reactorId,
+              authorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "self_powerup_rejected",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
           tx.set(
             markerRef,
             {
@@ -1308,12 +1727,12 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           return;
         }
 
-        // Update post aggregate
+        // 1) Post aggregate (+1) — transaction safe
         tx.update(postRef, {
           "reactionCounts.powerup": FieldValue.increment(1),
         });
 
-        // Update author aggregate (init if missing via set+merge)
+        // 2) Author aggregate (+1) + badge threshold
         const currentTotal = userStatsData?.powerupsTotal ?? 0;
         const nextTotal = currentTotal + 1;
 
@@ -1334,14 +1753,30 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
 
         tx.set(userStatsRef, patch, { merge: true });
 
-        // Mirror public badge to users/{uid} so others can see it (MVP)
         if (shouldSetTop) {
+          // NESTED (avoid literal key)
           tx.set(
             userPublicRef,
-            { "badges.topContributor": true },
+            { badges: { topContributor: true } },
             { merge: true }
           );
         }
+
+        // 3) Ledger: sad JE uracunato
+        tx.set(
+          ledgerRef,
+          {
+            active: true,
+            postId,
+            reactorId,
+            authorId,
+            reactionType,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
 
         // Marker applied
         tx.set(
@@ -1395,10 +1830,8 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       const reactorId = data?.userId;
       const reactionType = data?.reactionType;
 
-      // Prefer stamped authorId (server-trusted) for resilience
       const stampedAuthorId = data?.authorId ?? null;
 
-      // Guard: only powerup
       if (reactionType !== "powerup") return null;
 
       const eventId = event?.id;
@@ -1410,7 +1843,6 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
         return null;
       }
 
-      // Marker MUST be bound to eventId (so toggle with deterministic reactionId works)
       const markerId = `reactions.powerup.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
@@ -1418,7 +1850,6 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
-      // Missing fields: valid skip (no retry loop)
       if (!postId || !reactorId) {
         await markerRef.set(
           {
@@ -1440,37 +1871,93 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       }
 
       const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
       await db.runTransaction(async (tx) => {
-        // ---------------- READS (must be first) ----------------
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
-        // Determine authorId:
-        // 1) use stamped authorId from reaction doc if present
-        // 2) fallback to reading post.userId
-        let authorId = stampedAuthorId;
-
-        let postSnap = null;
-        let postData = null;
-
-        // We still TRY to read post (to decrement post aggregate), but it may not exist.
-        postSnap = await tx.get(postRef);
-        if (postSnap.exists) {
-          postData = postSnap.data() || {};
-          if (!authorId) authorId = postData?.userId ?? null;
-        }
-
-        if (!authorId) {
+        // 1) Stale-delete guard: if reaction exists again, skip decrement
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (liveReactionSnap.exists) {
           tx.set(
             markerRef,
             {
               type: "reactions.powerup.onDelete",
               status: "skipped",
-              reason:
-                postSnap && !postSnap.exists
-                  ? "post_missing"
-                  : "author_missing",
+              reason: "stale_delete",
+              postId,
+              reactorId,
+              authorId: stampedAuthorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 2) Ledger: only decrement if it was counted
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const wasCounted = ledgerData?.active === true;
+
+        if (!wasCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: "not_counted",
+              postId,
+              reactorId,
+              authorId: ledgerData?.authorId ?? stampedAuthorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 3) Determine authorId (ledger > stamped > post.userId)
+        let authorId = ledgerData?.authorId ?? stampedAuthorId ?? null;
+
+        const postSnap = await tx.get(postRef);
+        const postExists = postSnap.exists;
+        const postData = postExists ? postSnap.data() || {} : null;
+
+        if (!authorId && postExists) authorId = postData?.userId ?? null;
+
+        // If we cannot resolve authorId, we still MUST turn ledger off
+        if (!authorId) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              lastEventId: eventId,
+              lastReason: postExists ? "author_missing" : "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: postExists ? "author_missing" : "post_missing",
               postId,
               reactorId,
               authorId: null,
@@ -1485,8 +1972,19 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
           return;
         }
 
-        // Self-powerup guard (must match onCreate policy)
+        // Self guard (safety)
         if (reactorId === authorId) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              lastEventId: eventId,
+              lastReason: "self_powerup_rejected",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
           tx.set(
             markerRef,
             {
@@ -1513,24 +2011,63 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
           ? userStatsSnap.data() || {}
           : {};
 
-        // ---------------- WRITES (after reads) ----------------
+        // ---------------- WRITES ----------------
 
-        // Decrement post aggregate ONLY if post exists
-        if (postSnap && postSnap.exists) {
+        // A) Decrement post aggregate only if post exists
+        if (postExists) {
           const currentPostPowerups = postData?.reactionCounts?.powerup ?? 0;
           const nextPostPowerups = Math.max(currentPostPowerups - 1, 0);
 
-          tx.update(postRef, {
-            "reactionCounts.powerup": nextPostPowerups,
-          });
+          tx.update(postRef, { "reactionCounts.powerup": nextPostPowerups });
+        } else {
+          // post missing, but reaction was counted -> ledger must go off
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactorId,
+              authorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
         }
 
-        // Decrement author aggregate (clamp 0) - userStats doc may be missing
+        // B) Decrement author aggregate (clamp 0) - latch badges
         const currentTotal = userStatsData?.powerupsTotal ?? 0;
         const nextTotal = Math.max(currentTotal - 1, 0);
-
-        // Latch: do not touch badges.topContributor
         tx.set(userStatsRef, { powerupsTotal: nextTotal }, { merge: true });
+
+        // C) Ledger: no longer counted
+        tx.set(
+          ledgerRef,
+          {
+            active: false,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
 
         // Marker applied
         tx.set(
@@ -1544,7 +2081,6 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             authorId,
             reactionId,
             reactionType,
-            postMissing: !(postSnap && postSnap.exists),
             eventId,
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
