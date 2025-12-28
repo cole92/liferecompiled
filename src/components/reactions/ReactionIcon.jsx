@@ -42,7 +42,7 @@ const reactionRemovalMessages = {
   powerup: "⚡ Took back your Powerup — oh wow, thanks a lot. 🙃",
 };
 
-const COOLDOWN_MS = 0;
+const COOLDOWN_MS = 200;
 
 const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
   const Icon = iconMap[type];

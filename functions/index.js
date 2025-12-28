@@ -626,7 +626,13 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
 
       const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
+      // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -670,6 +676,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactionType,
               lastEventId: eventId,
@@ -704,6 +711,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactionType,
               lastEventId: eventId,
@@ -741,11 +749,12 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
-        // ledger becomes active (counted)
+        // ledger becomes active (counted) -> remove TTL field
         tx.set(
           ledgerRef,
           {
             active: true,
+            expiresAt: FieldValue.delete(),
             postId,
             reactionType,
             lastEventId: eventId,
@@ -824,7 +833,13 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
       // Ledger is keyed by reactionId (deterministic id) -> tracks whether it was counted
       const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
+      // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -882,13 +897,14 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
           return;
         }
 
-        // 3) Post must exist; if not, just flip ledger off and stop
+        // 3) Post must exist; if not, just flip ledger off and stop (with TTL)
         const postSnap = await tx.get(postRef);
         if (!postSnap.exists) {
           tx.set(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               lastEventId: eventId,
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
@@ -919,16 +935,17 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
         const next = Math.max(current - 1, 0);
 
         // ---------------- WRITES ----------------
-
         tx.update(postRef, {
           "reactionCounts.idea": next,
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
+        // ledger becomes inactive -> set TTL
         tx.set(
           ledgerRef,
           {
             active: false,
+            expiresAt: ledgerExpiresAt,
             lastEventId: eventId,
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
@@ -1002,7 +1019,13 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
 
       const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
+      // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -1043,6 +1066,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactionType,
               lastEventId: eventId,
@@ -1076,6 +1100,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactionType,
               lastEventId: eventId,
@@ -1114,10 +1139,12 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
           "badges.trending": next >= hotThreshold,
         });
 
+        // ledger becomes active -> remove TTL field
         tx.set(
           ledgerRef,
           {
             active: true,
+            expiresAt: FieldValue.delete(),
             postId,
             reactionType,
             lastEventId: eventId,
@@ -1193,7 +1220,13 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
 
       const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
+      // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -1265,6 +1298,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               lastEventId: eventId,
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
@@ -1305,10 +1339,12 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
         // ---------------- WRITES ----------------
         tx.update(postRef, update);
 
+        // ledger becomes inactive -> set TTL
         tx.set(
           ledgerRef,
           {
             active: false,
+            expiresAt: ledgerExpiresAt,
             lastEventId: eventId,
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
@@ -1493,7 +1529,13 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       const markerId = `reactions.powerup.onCreate__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
+      // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -1561,11 +1603,12 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         // B) Stale-create guard: reaction doc mora jos da postoji
         const liveReactionSnap = await tx.get(reactionRef);
         if (!liveReactionSnap.exists) {
-          // Ključno: ovde NISTA nije uracunato, i ledger ostaje inactive
+          // Nista nije uracunato, ledger ostaje inactive + TTL
           tx.set(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactorId,
               reactionType,
@@ -1603,6 +1646,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactorId,
               reactionType,
@@ -1641,6 +1685,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactorId,
               reactionType,
@@ -1690,12 +1735,13 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         // Stamp authorId (safe update, ne moze resurrect)
         tx.update(reactionRef, { authorId });
 
-        // Self-powerup: ne uracunava se + ledger ostaje inactive
+        // Self-powerup: ne uracunava se + ledger inactive + TTL
         if (isSelf) {
           tx.set(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               postId,
               reactorId,
               authorId,
@@ -1727,7 +1773,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           return;
         }
 
-        // 1) Post aggregate (+1) — transaction safe
+        // 1) Post aggregate (+1)
         tx.update(postRef, {
           "reactionCounts.powerup": FieldValue.increment(1),
         });
@@ -1762,11 +1808,12 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           );
         }
 
-        // 3) Ledger: sad JE uracunato
+        // 3) Ledger: sad JE uracunato -> remove TTL field
         tx.set(
           ledgerRef,
           {
             active: true,
+            expiresAt: FieldValue.delete(),
             postId,
             reactorId,
             authorId,
@@ -1846,7 +1893,13 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       const markerId = `reactions.powerup.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
+      // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       );
 
@@ -1939,12 +1992,13 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
 
         if (!authorId && postExists) authorId = postData?.userId ?? null;
 
-        // If we cannot resolve authorId, we still MUST turn ledger off
+        // If we cannot resolve authorId, we still MUST turn ledger off (with TTL)
         if (!authorId) {
           tx.set(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               lastEventId: eventId,
               lastReason: postExists ? "author_missing" : "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
@@ -1972,12 +2026,13 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
           return;
         }
 
-        // Self guard (safety)
+        // Self guard (safety) -> ledger off with TTL
         if (reactorId === authorId) {
           tx.set(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               lastEventId: eventId,
               lastReason: "self_powerup_rejected",
               updatedAt: FieldValue.serverTimestamp(),
@@ -2020,11 +2075,12 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
 
           tx.update(postRef, { "reactionCounts.powerup": nextPostPowerups });
         } else {
-          // post missing, but reaction was counted -> ledger must go off
+          // post missing, but reaction was counted -> ledger must go off (with TTL)
           tx.set(
             ledgerRef,
             {
               active: false,
+              expiresAt: ledgerExpiresAt,
               lastEventId: eventId,
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
@@ -2057,11 +2113,12 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
         const nextTotal = Math.max(currentTotal - 1, 0);
         tx.set(userStatsRef, { powerupsTotal: nextTotal }, { merge: true });
 
-        // C) Ledger: no longer counted
+        // C) Ledger: no longer counted -> set TTL
         tx.set(
           ledgerRef,
           {
             active: false,
+            expiresAt: ledgerExpiresAt,
             lastEventId: eventId,
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
