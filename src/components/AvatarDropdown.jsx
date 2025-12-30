@@ -25,6 +25,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const userId = user?.uid || user?.id || user?.userId;
 
   const [isTopContributor, setIsTopContributor] = useState(false);
+  const [liveProfilePicture, setLiveProfilePicture] = useState(null);
 
   // Close menu on route change (kad kliknes link, da ne ostane otvoren)
   useEffect(() => {
@@ -35,6 +36,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   useEffect(() => {
     if (!userId) {
       setIsTopContributor(false);
+      setLiveProfilePicture(null);
       return;
     }
 
@@ -45,6 +47,8 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
       (snap) => {
         const data = snap.data();
         const flag = !!data?.badges?.topContributor;
+        const pic = data?.profilePicture || null;
+        setLiveProfilePicture(pic);
         setIsTopContributor(flag);
       },
       (err) => {
@@ -96,7 +100,11 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
         aria-expanded={showMenu}
       >
         <img
-          src={user?.profilePicture || DEFAULT_PROFILE_PICTURE}
+          src={
+            liveProfilePicture ||
+            user?.profilePicture ||
+            DEFAULT_PROFILE_PICTURE
+          }
           alt="User Avatar"
           className={`w-10 h-10 rounded-full object-cover border-2 border-gray-300 ${
             isTopContributor ? "ring-2 ring-purple-800" : ""
