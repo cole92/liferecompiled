@@ -81,11 +81,14 @@ const PostFilterBar = ({
       {/* Search polje: uvek prisutno desno da bi se izbegao layout jump pri ulasku/izlasku iz search moda */}
       <div className="flex items-center gap-2 max-w-md flex-1 md:flex-none md:ml-auto">
         <input
+          id="my-posts-search"
+          name="myPostsSearch"
           type="text"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search your posts by title..."
           aria-label="Search your posts by title"
+          autoComplete="off"
           className="border border-gray-600 bg-gray-800 text-white px-3 py-2 rounded w-full"
         />
         {hasSearch && (

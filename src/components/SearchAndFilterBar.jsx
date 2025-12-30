@@ -121,14 +121,19 @@ const SearchAndFilterBar = ({
         <div className="flex items-center gap-4 bg-white p-4 z-10 rounded-lg shadow-md sticky top-0">
           {showSearch && (
             <input
+              id="home-search"
+              name="homeSearch"
               type="text"
               placeholder="Search posts..."
               value={localSearchTerm}
               onChange={handleSearchChange}
+              autoComplete="off"
               className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           )}
           <select
+            id="home-sort"
+            name="homeSort"
             value={localSortBy}
             onChange={handleSortChange}
             className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -176,22 +181,28 @@ const SearchAndFilterBar = ({
                   const isActive = selectedCategories.includes(categoryItem);
                   const isDisabled = hasActiveCategory && !isActive;
 
+                  const checkboxId = `filter-category-${categoryItem
+                    .toLowerCase()
+                    .replace(/\s+/g, "-")}`;
+
                   return (
-                    <label
+                    <div
                       key={categoryItem}
                       className={`flex items-center space-x-2 ${
                         isDisabled ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                     >
                       <input
+                        id={checkboxId}
+                        name="categoryFilter"
                         type="checkbox"
                         value={categoryItem}
                         checked={isActive}
                         onChange={handleCategoryChange}
                         disabled={isDisabled}
                       />
-                      <span>{categoryItem}</span>
-                    </label>
+                      <label htmlFor={checkboxId}>{categoryItem}</label>
+                    </div>
                   );
                 })}
 

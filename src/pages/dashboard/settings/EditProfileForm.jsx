@@ -183,19 +183,39 @@ const EditProfileForm = ({ userData }) => {
   };
 
   return (
-    <form className="space-y-6" aria-busy={isSaving}>
+    <form
+      className="space-y-6"
+      aria-busy={isSaving ? "true" : "false"}
+      noValidate
+    >
       {/* Profilna slika */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          id="profile-picture-label"
+          className="block text-sm font-medium text-gray-700 mb-2"
+        >
           Profile Picture
         </label>
+
         <img
           src={formData.profilePicture || DEFAULT_PROFILE_PICTURE}
-          alt="Profile"
+          alt={
+            formData.name
+              ? `${formData.name} profile picture`
+              : "Profile picture"
+          }
           className="rounded-full mb-3"
           style={{ width: "100px", height: "100px" }}
         />
+
+        {/* Status za upload (screen reader info) */}
+        <p id="profile-picture-status" className="sr-only" aria-live="polite">
+          {isUploading ? "Uploading profile picture." : "Upload idle."}
+        </p>
+
         <CloudinaryUpload
+          aria-labelledby="profile-picture-label"
+          aria-describedby="profile-picture-status"
           onUploadStart={() => setIsUploading(true)}
           onUploadComplete={(url) => {
             setIsUploading(false);
@@ -205,17 +225,19 @@ const EditProfileForm = ({ userData }) => {
         />
       </div>
 
-      {/* Ime */}
+      {/* Name */}
       <div>
         <label
-          htmlFor="name"
+          htmlFor="profile-name"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
           Name
         </label>
+
         <input
           type="text"
-          id="name"
+          id="profile-name"
+          name="name"
           className="w-full border border-gray-300 rounded px-3 py-2"
           value={formData.name}
           onChange={(e) => {
@@ -229,71 +251,100 @@ const EditProfileForm = ({ userData }) => {
             setTouchedName(true);
             validateForm();
           }}
-          aria-describedby={
-            touchedName && errors.name ? "name-error" : "name-help"
-          }
           maxLength={NAME_MAX}
+          aria-invalid={touchedName && Boolean(errors.name)}
+          aria-describedby="profile-name-help profile-name-error"
         />
 
-        {touchedName && errors.name ? (
-          // a11y: error poruka je povezana sa input-om preko aria-describedby
-          <p id="name-error" className="text-red-500 text-sm mt-1">
-            {errors.name}
-          </p>
-        ) : (
-          <p id="name-help" className="text-xs text-gray-500 mt-1">
-            Allowed: letters, spaces, hyphens (-), apostrophes (&apos;).{" "}
-            {NAME_MIN}-{NAME_MAX} chars.
-          </p>
-        )}
+        {/* Help je uvek tu */}
+        <p id="profile-name-help" className="text-xs text-gray-500 mt-1">
+          Allowed: letters, spaces, hyphens (-), apostrophes (&apos;).{" "}
+          {NAME_MIN}-{NAME_MAX} chars.
+        </p>
+
+        {/* Error je uvek tu (ali prazan kad nema errora) */}
+        <p
+          id="profile-name-error"
+          className="text-red-500 text-sm mt-1"
+          role="alert"
+          aria-live="polite"
+        >
+          {touchedName && errors.name ? errors.name : ""}
+        </p>
       </div>
 
       {/* Bio */}
       <div>
         <label
-          htmlFor="bio"
+          htmlFor="profile-bio"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
           Bio
         </label>
+
         <textarea
-          id="bio"
-          rows="3"
+          id="profile-bio"
+          name="bio"
+          rows={3}
           className="w-full border border-gray-300 rounded px-3 py-2"
           value={formData.bio}
           onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
           maxLength={280}
+          aria-invalid={Boolean(errors.bio)}
+          aria-describedby="profile-bio-counter profile-bio-error"
         />
-        <div className="text-sm mt-1 text-gray-500">
+
+        {/* Counter kao opis textarea */}
+        <div
+          id="profile-bio-counter"
+          className="text-sm mt-1 text-gray-500"
+          aria-live="polite"
+        >
           <span className={280 - formData.bio.length < 1 ? "text-red-500" : ""}>
             {280 - formData.bio.length} characters left
           </span>
         </div>
-        {errors.bio && (
-          <p className="text-red-500 text-sm mt-1">{errors.bio}</p>
-        )}
+
+        <p
+          id="profile-bio-error"
+          className="text-red-500 text-sm mt-1"
+          role="alert"
+          aria-live="polite"
+        >
+          {errors.bio ? errors.bio : ""}
+        </p>
       </div>
 
       {/* Status */}
       <div>
         <label
-          htmlFor="status"
+          htmlFor="profile-status"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
           Status
         </label>
+
         <select
-          id="status"
+          id="profile-status"
+          name="status"
           className="w-full border border-gray-300 rounded px-3 py-2"
           value={formData.status}
           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+          aria-invalid={Boolean(errors.status)}
+          aria-describedby="profile-status-error"
         >
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
-        {errors.status && (
-          <p className="text-red-500 text-sm mt-1">{errors.status}</p>
-        )}
+
+        <p
+          id="profile-status-error"
+          className="text-red-500 text-sm mt-1"
+          role="alert"
+          aria-live="polite"
+        >
+          {errors.status ? errors.status : ""}
+        </p>
       </div>
 
       {/* Footer akcije */}
@@ -313,12 +364,12 @@ const EditProfileForm = ({ userData }) => {
             onClick={handleSave}
             disabled={isSaving || isUploading}
             className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50 min-w-[9rem] whitespace-nowrap"
+            aria-disabled={isSaving || isUploading ? "true" : "false"}
           >
             Save Changes
           </button>
         </div>
 
-        {/* Back link */}
         <button
           type="button"
           onClick={() => navigate(-1)}

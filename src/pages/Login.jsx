@@ -41,9 +41,12 @@ const Login = () => {
   const firebaseErrorMessages = {
     "auth/user-not-found": "Invalid email or password. Please try again.",
     "auth/invalid-credential": "Invalid email or password. Please try again.",
-    "auth/too-many-requests": "Too many failed attempts. Please try again later.",
-    "auth/network-request-failed": "Network error. Please check your connection and try again.",
-    "auth/user-disabled": "Your account has been disabled. Please contact support.",
+    "auth/too-many-requests":
+      "Too many failed attempts. Please try again later.",
+    "auth/network-request-failed":
+      "Network error. Please check your connection and try again.",
+    "auth/user-disabled":
+      "Your account has been disabled. Please contact support.",
   };
 
   // Funkcija za obradu prijave
@@ -83,7 +86,8 @@ const Login = () => {
     } catch (error) {
       // Prikaz friendly user Firebase gresaka
       const message =
-        firebaseErrorMessages[error.code] || "An unexpected error occurred. Please try again.";
+        firebaseErrorMessages[error.code] ||
+        "An unexpected error occurred. Please try again.";
       toast.error(message);
     } finally {
       // Uklanjamo spiner
@@ -94,36 +98,54 @@ const Login = () => {
   return (
     <div className="form-container">
       <h2 className="text-center mb-4">Log In</h2>
-      {/* Forma za prijavu sa validacijom */}
-      <form onSubmit={handleLogin} noValidate>
+
+      <form
+        onSubmit={handleLogin}
+        noValidate
+        aria-busy={loading ? "true" : "false"}
+      >
         {/* Email */}
         <div className="mb-3">
           <label htmlFor="email" className="form-label">
             Email address
           </label>
+
           <input
             type="email"
-            className="form-control"
+            className={`form-control ${errors.email ? "is-invalid" : ""}`}
             id="email"
+            name="email"
             placeholder="name@example.com"
             autoComplete="email"
+            inputMode="email"
             value={formData.email}
             onChange={(e) => {
               setFormData({ ...formData, email: e.target.value });
               if (errors.email) setErrors({ ...errors, email: "" });
             }}
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            required
           />
-          {errors.email && <p className="text-danger">{errors.email}</p>}
+
+          {errors.email && (
+            <p id="email-error" className="text-danger mt-1 mb-0" role="alert">
+              {errors.email}
+            </p>
+          )}
         </div>
+
         {/* Password */}
         <div className="mb-3">
           <label htmlFor="password" className="form-label">
             Password
           </label>
+
           <input
             type="password"
-            className="form-control"
+            className={`form-control ${errors.password ? "is-invalid" : ""}`}
             id="password"
+            name="password"
             placeholder="Enter your password"
             autoComplete="current-password"
             value={formData.password}
@@ -131,9 +153,22 @@ const Login = () => {
               setFormData({ ...formData, password: e.target.value });
               if (errors.password) setErrors({ ...errors, password: "" });
             }}
+            aria-invalid={Boolean(errors.password)}
+            aria-describedby={errors.password ? "password-error" : undefined}
+            required
           />
-          {errors.password && <p className="text-danger">{errors.password}</p>}
+
+          {errors.password && (
+            <p
+              id="password-error"
+              className="text-danger mt-1 mb-0"
+              role="alert"
+            >
+              {errors.password}
+            </p>
+          )}
         </div>
+
         {loading ? (
           <Spinner message="" />
         ) : (
