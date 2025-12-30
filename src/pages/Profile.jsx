@@ -294,9 +294,6 @@ const Profile = () => {
                   ? dayjs(userData.createdAt.toDate()).format("DD MMMM 'YYYY")
                   : "---"}
               </p>
-              <p className="cursor-default select-none">
-                Status: {userData.status}
-              </p>
             </>
           )}
         </div>

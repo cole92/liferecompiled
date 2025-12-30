@@ -41,7 +41,6 @@ const EditProfileForm = ({ userData }) => {
   const [originalData, setOriginalData] = useState({
     name: "",
     bio: "",
-    status: "Active",
     profilePicture: "",
   });
 
@@ -49,7 +48,6 @@ const EditProfileForm = ({ userData }) => {
   const [formData, setFormData] = useState({
     name: "",
     bio: "",
-    status: "Active",
     profilePicture: "",
   });
 
@@ -64,7 +62,6 @@ const EditProfileForm = ({ userData }) => {
       const next = {
         name: userData.name || "",
         bio: userData.bio || "",
-        status: userData.status || "Active",
         profilePicture: userData.profilePicture || "",
       };
       setFormData(next);
@@ -77,7 +74,6 @@ const EditProfileForm = ({ userData }) => {
     const newErrors = {};
 
     const cleanName = sanitizeName(formData.name);
-    const allowedStatuses = ["Active", "Inactive"];
 
     if (!cleanName) {
       newErrors.name = "Name is required.";
@@ -94,10 +90,6 @@ const EditProfileForm = ({ userData }) => {
       newErrors.bio = "Bio must be 280 characters or less.";
     }
 
-    if (!allowedStatuses.includes(formData.status)) {
-      newErrors.status = "Invalid status";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -107,7 +99,6 @@ const EditProfileForm = ({ userData }) => {
     if (
       formData.name === originalData.name &&
       formData.bio === originalData.bio &&
-      formData.status === originalData.status &&
       formData.profilePicture === originalData.profilePicture
     ) {
       showWarningToast("No changes to save");
@@ -123,8 +114,6 @@ const EditProfileForm = ({ userData }) => {
       // Difujemo polja prema snapshotu, saljemo samo promenjena
       if (cleanName !== originalData.name) updatedData.name = cleanName;
       if (formData.bio !== originalData.bio) updatedData.bio = formData.bio;
-      if (formData.status !== originalData.status)
-        updatedData.status = formData.status;
       if (formData.profilePicture !== originalData.profilePicture) {
         updatedData.profilePicture = formData.profilePicture;
       }
@@ -144,7 +133,6 @@ const EditProfileForm = ({ userData }) => {
         const normalized = {
           name: updatedData.name ?? originalData.name,
           bio: updatedData.bio ?? originalData.bio,
-          status: updatedData.status ?? originalData.status,
           profilePicture:
             updatedData.profilePicture ?? originalData.profilePicture,
         };
@@ -173,7 +161,6 @@ const EditProfileForm = ({ userData }) => {
     setFormData({
       name: originalData.name,
       bio: originalData.bio,
-      status: originalData.status,
       profilePicture: originalData.profilePicture,
     });
 
@@ -315,38 +302,6 @@ const EditProfileForm = ({ userData }) => {
         </p>
       </div>
 
-      {/* Status */}
-      <div>
-        <label
-          htmlFor="profile-status"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Status
-        </label>
-
-        <select
-          id="profile-status"
-          name="status"
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={formData.status}
-          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-          aria-invalid={Boolean(errors.status)}
-          aria-describedby="profile-status-error"
-        >
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-        </select>
-
-        <p
-          id="profile-status-error"
-          className="text-red-500 text-sm mt-1"
-          role="alert"
-          aria-live="polite"
-        >
-          {errors.status ? errors.status : ""}
-        </p>
-      </div>
-
       {/* Footer akcije */}
       <div className="flex flex-col items-end gap-2">
         <div className="flex items-center justify-end gap-3">
@@ -387,7 +342,6 @@ EditProfileForm.propTypes = {
     id: PropTypes.string.isRequired,
     name: PropTypes.string,
     bio: PropTypes.string,
-    status: PropTypes.string,
     profilePicture: PropTypes.string,
   }).isRequired,
 };
