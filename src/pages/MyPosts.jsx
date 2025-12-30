@@ -128,6 +128,7 @@ const MyPosts = () => {
           id: user.uid,
           name: user.name || "Unknown author",
           profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
+          badges: user.badges || {},
         };
 
         // Normalizacija strane: enriched author + fallback za comments (MyPosts ne koristi reactions/commentsCount)
@@ -189,6 +190,7 @@ const MyPosts = () => {
         id: user.uid,
         name: user.name || "Unknown author",
         profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
+        badges: user.badges || {},
       };
 
       const newPosts = querySnapshot.docs.map((docSnap) => ({

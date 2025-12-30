@@ -280,8 +280,15 @@ const PostDetails = () => {
             <span className="text-gray-600">📂 {post?.category}</span>
           </div>
 
-          {/* Sadrzaj posta */}
-          <div className="mt-6 text-gray-700 whitespace-pre-wrap leading-relaxed">
+          {/* Description (summary) */}
+          {post?.description && (
+           <p className="mt-5 text-gray-700 text-base leading-relaxed break-words overflow-x-hidden">
+              {post.description}
+            </p>
+          )}
+
+          {/* Content */}
+          <div className="mt-6 text-gray-800 whitespace-pre-wrap break-words leading-relaxed overflow-x-hidden">
             {post?.content}
           </div>
 

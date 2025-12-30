@@ -64,6 +64,7 @@ const Trash = () => {
         id: user.uid,
         name: user.name || "Anonymous",
         profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
+        badges: user.badges || {},
       }
     : null;
 
