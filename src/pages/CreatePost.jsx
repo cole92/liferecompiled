@@ -1,15 +1,13 @@
 import { useState, useContext } from "react";
-
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
+import { useNavigate } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
-
 import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 
 import Spinner from "../components/Spinner";
 import TagsInput from "../components/TagsInput";
-
 import { validCategories } from "../constants/postCategories";
 
 /**
@@ -17,55 +15,52 @@ import { validCategories } from "../constants/postCategories";
  *
  * Forma za kreiranje novog posta.
  *
- * Namena:
- * - Validira polja forme (title, description, content, category)
- * - Cuva post u Firestore kolekciji `posts`
- * - Automatski upisuje metadata polja:
- *   - `userId` (autor)
- *   - `createdAt` (serverTimestamp)
- *   - `deleted:false`, `deletedAt:null`
- *   - `updatedAt:null`, `locked:false`
- *   - `title_lc` (normalizovan naslov za server-side prefix search)
- * - Koristi `TagsInput`, `ToastUtils` i `Spinner` za UX
- *
- * Napomene:
- * - Statistika korisnika (userStats) se vise ne azurira sa klijenta;
- *   backend (Cloud Functions v2) je izvor istine za stats.
- *
- * @returns {JSX.Element}
+ * - Validira polja forme
+ * - Kreira post u Firestore
+ * - Fokusira prvu gresku (UX)
+ * - Posle uspeha redirect na PostDetails
  */
-
 const CreatePost = () => {
-  // State za polja forme
-  const [title, setTitle] = useState(""); // Naslov posta
-  const [description, setDescripton] = useState(""); // Opis posta (opciono)
-  const [content, setContent] = useState(""); // Sadrzaj posta
-  const [tags, setTags] = useState([]); // Tagovi posta
-  const [category, setCategory] = useState(""); // Kategorija
-  const [errors, setErrors] = useState({}); // State za greske u validaciji
-  const { user } = useContext(AuthContext); // Dohvatamo trenutno prijavljenog korisnika
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
 
-  // Regex za validaciju naslova (dozvoljava slova, brojeve, razmake i osnovnu interpunkciju)
+  const [title, setTitle] = useState("");
+  const [description, setDescripton] = useState("");
+  const [content, setContent] = useState("");
+  const [tags, setTags] = useState([]);
+  const [category, setCategory] = useState("");
+  const [errors, setErrors] = useState({});
+
   const titleRegex = /^[\p{L}0-9 ,.?!-]+$/u;
 
-  // Funkcija za dodavanje posta u Firestore (dopunjuje postData sa metadata poljima i title_lc)
-  const createPost = async (postData) => {
-    try {
-      // Provera da li je korisnik autentifikovan
-      if (!user) {
-        showErrorToast("You must be logged in to create a post.");
-        return;
-      }
+  // Fokus + scroll na prvu gresku
+  const focusFirstError = (newErrors) => {
+    const order = ["title", "description", "content", "category"];
+    const firstKey = order.find((k) => newErrors[k]);
+    if (!firstKey) return;
 
-      // Normalizovan naslov za pretragu (lowercase + trim)
+    const el = document.getElementById(firstKey);
+    if (el) {
+      el.focus({ preventScroll: true });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
+  // Kreiranje posta (vraca postId ili null)
+  const createPost = async (postData) => {
+    if (!user) {
+      showErrorToast("You must be logged in to create a post.");
+      return null;
+    }
+
+    try {
       const normalizedTitle = postData.title.toLowerCase().trim();
 
-      // Dodavanje posta u Firestore bazu
       const docRef = await addDoc(collection(db, "posts"), {
-        ...postData, // Podaci iz forme
+        ...postData,
         title_lc: normalizedTitle,
-        userId: user.uid, // Povezujemo post sa korisnikom
-        createdAt: serverTimestamp(), // Timestamp iz Firestore-a
+        userId: user.uid,
+        createdAt: serverTimestamp(),
         deleted: false,
         deletedAt: null,
         updatedAt: null,
@@ -73,67 +68,76 @@ const CreatePost = () => {
       });
 
       showSuccessToast("Post successfully created!");
-      console.log("Post added with ID:", docRef.id);
+      return docRef.id;
     } catch (error) {
+      console.error("Error creating post:", error);
       showErrorToast("Error creating post. Please try again.");
-      console.error("Error adding document:", error);
+      return null;
     }
   };
 
-  // Submit handler: validira formu, poziva createPost i po uspehu resetuje formu
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const newErrors = {}; // Objekat za cuvanje gresaka
 
-    // Validacija za naslov
-    if (!title.trim()) {
+    const newErrors = {};
+
+    const cleanTitle = title.trim();
+    const cleanDescription = description.trim();
+    const cleanContent = content.trim();
+    const cleanCategory = category.trim();
+
+    // Title
+    if (!cleanTitle) {
       newErrors.title = "Title is required";
-    } else if (title.trim().length < 5) {
+    } else if (cleanTitle.length < 5) {
       newErrors.title = "Title must be at least 5 characters long";
-    } else if (title.trim().length > 25) {
+    } else if (cleanTitle.length > 25) {
       newErrors.title = "Title must not exceed 25 characters";
-    } else if (!titleRegex.test(title.trim())) {
+    } else if (!titleRegex.test(cleanTitle)) {
       newErrors.title =
         "Allowed characters: letters, numbers, spaces, commas, periods, question marks, exclamation points, and hyphens.";
     }
 
-    // Validacija za opis (ako je unet)
-    if (description.trim() && description.trim().length < 10) {
+    // Description
+    if (cleanDescription && cleanDescription.length < 10) {
       newErrors.description = "Description must be at least 10 characters long";
     }
 
-    // Validacija za sadrzaj
-    if (!content.trim()) {
+    // Content
+    if (!cleanContent) {
       newErrors.content = "Content is required";
-    } else if (content.trim().length < 20) {
+    } else if (cleanContent.length < 20) {
       newErrors.content = "Content must be at least 20 characters long";
     }
 
-    if (category.trim() === "") {
+    // Category
+    if (!cleanCategory) {
       newErrors.category = "Please select a category";
-    } else if (!validCategories.includes(category)) {
+    } else if (!validCategories.includes(cleanCategory)) {
       newErrors.category = "Invalid category selected";
     }
 
-    // Proveravamo ima li gresaka
     if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors); // Postavljamo greske u state
-      return; // Prekidamo proces ako ima gresaka
+      setErrors(newErrors);
+      focusFirstError(newErrors);
+      return;
     }
 
-    // Kreiramo objekat sa podacima posta
     const postData = {
-      title,
-      description,
-      content,
-      category,
+      title: cleanTitle,
+      description: cleanDescription,
+      content: cleanContent,
+      category: cleanCategory,
       tags,
     };
 
-    // Sada pozivamo `createPost` funkciju kako bismo sacuvali post u Firestore
-    await createPost(postData);
+    const newPostId = await createPost(postData);
+    if (!newPostId) return;
 
-    // Ako je uspesno dodato, resetujemo formu
+    // Redirect na novi post
+    navigate(`/post/${newPostId}`);
+
+    // (nije obavezno jer odlazimo sa strane, ali cisto)
     setTitle("");
     setDescripton("");
     setContent("");
@@ -142,7 +146,6 @@ const CreatePost = () => {
     setErrors({});
   };
 
-  // Funkcija za resetovanje forme (Cancel btn)
   const handleReset = () => {
     setTitle("");
     setDescripton("");
@@ -151,37 +154,36 @@ const CreatePost = () => {
     setCategory("");
     setErrors({});
   };
+
   if (!user) return <Spinner message="Loading user info..." />;
 
   return (
     <div className="container mt-5">
       <h1>Create a New Post</h1>
+
       <form onSubmit={handleSubmit} noValidate>
-        {/* Naslov */}
+        {/* Title */}
         <div className="mb-3">
           <label htmlFor="title" className="form-label">
             Title
           </label>
           <input
-            type="text"
             id="title"
+            type="text"
             className={`form-control ${errors.title ? "is-invalid" : ""}`}
             placeholder="Enter post title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            required
           />
-
           {errors.title && (
             <div className="invalid-feedback">{errors.title}</div>
           )}
-          <small className="form-text  text-light">
-            A good title is short and descriptive (e.g., &quot;React
-            Tips&quot;).
+          <small className="form-text text-light">
+            A good title is short and descriptive (e.g. &quot;React Tips&quot;).
           </small>
         </div>
 
-        {/* Opis */}
+        {/* Description */}
         <div className="mb-3">
           <label htmlFor="description" className="form-label">
             Description
@@ -190,21 +192,17 @@ const CreatePost = () => {
             id="description"
             className={`form-control ${errors.description ? "is-invalid" : ""}`}
             placeholder="Enter a short description"
-            maxLength={300} // Sprecavamo unos vise od 300 karaktera
+            maxLength={300}
             value={description}
             onChange={(e) => setDescripton(e.target.value)}
-            rows="3"
+            rows={3}
           />
-          <small className="form-text  text-light">
-            This field is optional, but if filled, please keep it between 10 and{" "}
-            {300 - description.trim().length} characters.
-          </small>
           {errors.description && (
             <div className="invalid-feedback">{errors.description}</div>
           )}
         </div>
 
-        {/* Sadrzaj */}
+        {/* Content */}
         <div className="mb-3">
           <label htmlFor="content" className="form-label">
             Content
@@ -213,25 +211,20 @@ const CreatePost = () => {
             id="content"
             className={`form-control ${errors.content ? "is-invalid" : ""}`}
             placeholder="Enter the main content of the post"
-            maxLength={5000} // Sprecavamo unos vise od 5000 karaktera
+            maxLength={5000}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            rows="6"
-            required
+            rows={6}
           />
           {errors.content && (
             <div className="invalid-feedback">{errors.content}</div>
           )}
-          <small className="form-text  text-light">
-            Content should be at least 20 characters and no longer than{" "}
-            {5000 - content.trim().length} characters.
-          </small>
         </div>
 
-        {/* Tagovi */}
+        {/* Tags */}
         <TagsInput tags={tags} setTags={setTags} />
 
-        {/* Kategorija */}
+        {/* Category */}
         <div className="mb-3">
           <label htmlFor="category" className="form-label">
             Category
@@ -241,36 +234,20 @@ const CreatePost = () => {
             className={`form-select ${errors.category ? "is-invalid" : ""}`}
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            required
           >
             <option value="">Select a category</option>
-            <option value="Frontend">Frontend</option>
-            <option value="Backend">Backend</option>
-            <option value="Database & Data Management">
-              Database & Data Management
-            </option>
-            <option value="DevOps & Cloud">DevOps & Cloud</option>
-            <option value="AI & Machine Learning">AI & Machine Learning</option>
-            <option value="Career & Freelance">Career & Freelance</option>
-            <option value="Personal Development">Personal Development</option>
-            <option value="Lifestyle & Productivity">
-              Lifestyle & Productivity
-            </option>
-            <option value="Education & Learning">Education & Learning</option>
-            <option value="Developer Health">Developer Health</option>
-            <option value="Soft Skills & Networking">
-              Soft Skills & Networking
-            </option>
-            <option value="Inspiration & Motivation">
-              Inspiration & Motivation
-            </option>
+            {validCategories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
           </select>
           {errors.category && (
             <div className="invalid-feedback">{errors.category}</div>
           )}
         </div>
 
-        {/* Dugmad */}
+        {/* Actions */}
         <button type="submit" className="btn btn-primary">
           Save Post
         </button>
