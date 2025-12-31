@@ -1,12 +1,11 @@
 import PropTypes from "prop-types";
 import { useState, useRef, useEffect } from "react";
 import { WithContext as ReactTags } from "react-tag-input";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
 import { predefinedTags } from "../constants/tags";
 import { categorizedTags } from "../constants/tags";
+
 import "../styles/TagsDropDown.css";
-import "../styles/tagsInput.css"
+import "../styles/TagsInput.css";
 
 const TagsInput = ({ tags, setTags }) => {
   const [error, setError] = useState(null);
@@ -87,7 +86,7 @@ const TagsInput = ({ tags, setTags }) => {
     setError(null);
     setTags([...tags, { id: foundTag, text: foundTag }]);
 
-    // MVP: reset input after successful add (closes dropdown + avoids weird states)
+    // MVP: reset input after successful add
     setInputValue("");
   };
 
@@ -133,69 +132,66 @@ const TagsInput = ({ tags, setTags }) => {
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="mb-3">
-        <label htmlFor="tags" className="form-label">
-          Tags
-        </label>
+    <div className="mb-3">
+      <label htmlFor="tags" className="form-label">
+        Tags
+      </label>
 
-        {/* Predefined tags */}
-        <div className="mb-2">
-          {predefinedTags.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              className={`btn btn-outline-primary btn-sm me-2 mb-2 ${
-                tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() => handleAddition({ id: tag, text: tag })}
-              disabled={isTagDisabled(tag)}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-
-        <small className="form-text text-light">
-          Add up to 5 tags to describe your post.
-        </small>
-
-        {/* ReactTags input + dropdown */}
-        <div
-          className="tags-input-wrapper"
-          ref={containerRef}
-          onKeyDown={(e) => {
-            // Prevent form submit from inside tag input
-            if (e.key === "Enter") e.preventDefault();
-          }}
-        >
-          <ReactTags
-            id="tags"
-            tags={tags}
-            handleDelete={handleDelete}
-            handleAddition={handleAddition}
-            allowUnique={false}
-            inputValue={inputValue}
-            handleInputChange={handleInputChange}
-            inputFieldPosition="bottom"
-            placeholder="Start typing to search for tags"
-          />
-
-          {inputValue && renderFilteredTags()}
-        </div>
-
-        {!error ? (
-          <small className="form-text text-light">
-            Allowed characters: letters, numbers, spaces, dots, underscores,
-            plus (+), hyphens (-), hashtags (#).
-          </small>
-        ) : (
-          <div className="invalid-feedback d-block">{error}</div>
-        )}
+      {/* Predefined tags */}
+      <div className="mb-2">
+        {predefinedTags.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            className={`btn btn-outline-primary btn-sm me-2 mb-2 ${
+              tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
+                ? "active"
+                : ""
+            }`}
+            onClick={() => handleAddition({ id: tag, text: tag })}
+            disabled={isTagDisabled(tag)}
+          >
+            {tag}
+          </button>
+        ))}
       </div>
-    </DndProvider>
+
+      <small className="form-text text-light">
+        Add up to 5 tags to describe your post.
+      </small>
+
+      <div
+        className="tags-input-wrapper"
+        ref={containerRef}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+      >
+        <ReactTags
+          id="tags"
+          tags={tags}
+          handleDelete={handleDelete}
+          handleAddition={handleAddition}
+          allowUnique={false}
+          allowDragDrop={false}
+          inputValue={inputValue}
+          handleInputChange={handleInputChange}
+          inputFieldPosition="bottom"
+          placeholder="Start typing to search for tags"
+        />
+
+        {inputValue && renderFilteredTags()}
+      </div>
+
+      {!error ? (
+        <small className="form-text text-light">
+          Allowed characters: letters, numbers, spaces, dots, underscores, plus
+          (+), hyphens (-), hashtags (#).
+        </small>
+      ) : (
+        <div className="invalid-feedback d-block">{error}</div>
+      )}
+    </div>
   );
 };
 
