@@ -2,20 +2,19 @@ import PropTypes from "prop-types";
 import { useContext, useEffect, useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { doc, getDoc, getDocs } from "firebase/firestore";
+import { toast } from "react-toastify";
 
 import { AuthContext } from "../../../../context/AuthContext";
 import { db } from "../../../../firebase";
 import { buildSavedQuery } from "../../../../services/savedPostsService";
-
 import { enrichPostWithAuthor } from "../../../../services/userService";
 import {
   showErrorToast,
   showInfoToast,
   showSuccessToast,
 } from "../../../../utils/toastUtils";
-import { toast } from "react-toastify";
 
-import { unsavePost } from "../../../../services/savedService";
+import { savePost, unsavePost } from "../../../../services/savedService";
 import SavedPostCard from "./SavedPostCard";
 import EmptyState from "../EmptyState";
 import SkeletonCard from "../../../../components/ui/skeletonLoader/SkeletonCard";
@@ -28,8 +27,8 @@ import SkeletonCard from "../../../../components/ui/skeletonLoader/SkeletonCard"
  * - Paginacija: users/{uid}/savedPosts (order by savedAt desc, startAfter, limit)
  * - Resilient fetch: Promise.allSettled preskace nevalidne reference (privatno/obrisano)
  * - Enrichment: dohvat posta + autor meta (enrichPostWithAuthor)
- * - Optimistic "unsave": odmah uklanja iz liste, prikazuje Undo toast, i posle tajmera salje upit
- * - Undo: vraca post na originalni index ako korisnik ponisti akciju
+ * - Optimistic "unsave": odmah uklanja iz liste + odmah brise u Firestore
+ * - Undo: radi savePost rollback u okviru toast prozora
  *
  * @returns {JSX.Element}
  */
@@ -40,7 +39,6 @@ const SavedPosts = () => {
   const [savedPosts, setSavedPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Paginacija
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -48,18 +46,25 @@ const SavedPosts = () => {
   const POST_PER_PAGE = 10;
   const UNDO_MS = 7000;
 
-  // Cuvamo pending unsave operacije dok ne istekne undo prozor
-  // Map<postId, { timerId, snapshot, index }>
+  // Map<postId, { snapshot, index, didUndo }>
+  // koristi se kao "lock" da sprecis dupli klik i da znas da li da prikazes success na isteku
   const pendingUndoRef = useRef(new Map());
 
-  // Pomocna: ubaci item na tacan index (korisno za Undo restore)
+  // Guard: da ne radimo setState nakon unmount-a
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const insertAt = (arr, index, item) => {
     const copy = arr.slice();
     copy.splice(Math.min(index, copy.length), 0, item);
     return copy;
   };
 
-  // Helper: pravi "ghost" post kada original vise ne postoji / nemamo pristup
   const buildGhostFromSaved = (savedMeta, id) => ({
     id,
     title: savedMeta.postTitleAtSave || "Post is no longer available",
@@ -80,25 +85,12 @@ const SavedPosts = () => {
     postTitleAtSave: savedMeta.postTitleAtSave,
   });
 
-  // Cleanup svih pending tajmera na unmount
-  useEffect(() => {
-    const ref = pendingUndoRef.current;
-    return () => {
-      for (const { timerId } of ref.values()) {
-        clearTimeout(timerId);
-      }
-      ref.clear();
-    };
-  }, []);
-
   useEffect(() => {
     let canceled = false;
 
-    // Ne pokrecemo fetch dok auth nije gotov; gosti ne citaju
     if (isCheckingAuth) return;
     if (!user) return;
 
-    // Reset state-a pri promeni user-a ili ulasku na stranicu
     setSavedPosts([]);
     setLastDoc(null);
     setHasMore(true);
@@ -112,6 +104,7 @@ const SavedPosts = () => {
           pageSize: POST_PER_PAGE,
           sortDirection: savedSortDirection,
         });
+
         const savedSnap = await getDocs(q);
         if (canceled) return;
 
@@ -122,7 +115,6 @@ const SavedPosts = () => {
           return;
         }
 
-        // Kursor + indikator da li ima jos
         setLastDoc(savedSnap.docs[savedSnap.docs.length - 1]);
         setHasMore(savedSnap.size === POST_PER_PAGE);
 
@@ -134,7 +126,6 @@ const SavedPosts = () => {
             try {
               const postSnap = await getDoc(postRef);
 
-              // Ako doc ne postoji → ghost
               if (!postSnap.exists()) {
                 return buildGhostFromSaved(savedMeta, docItem.id);
               }
@@ -155,22 +146,17 @@ const SavedPosts = () => {
                 docItem.id,
                 error
               );
-
-              // Bilo kakav error (permission-denied, itd.) → tretiramo kao “vise nije dostupan”
               return buildGhostFromSaved(savedMeta, docItem.id);
             }
           })
         );
 
-        // Zadrzi samo fulfilled rezultate
         const posts = results
           .filter((r) => r.status === "fulfilled")
           .map((r) => r.value);
 
-        if (canceled) return;
-        setSavedPosts(posts);
+        if (!canceled) setSavedPosts(posts);
       } catch (error) {
-        // Top-level greska (npr. mreza); per-item greske idu kroz allSettled
         console.error("Error fetching saved posts (top-level):", error);
         if (!canceled) showErrorToast("Something went wrong.");
       } finally {
@@ -181,13 +167,11 @@ const SavedPosts = () => {
     fetchSavedPosts();
 
     return () => {
-      canceled = true; // sprecava setState posle unmount-a
+      canceled = true;
     };
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, isCheckingAuth, savedSortDirection,]);
+  }, [user?.uid, isCheckingAuth, savedSortDirection]);
 
-  // Dovlaci sledecu stranicu i enrich-uje validne postove
   const handleLoadMore = async () => {
     if (!user || !hasMore || isLoadingMore || !lastDoc) return;
     setIsLoadingMore(true);
@@ -197,7 +181,7 @@ const SavedPosts = () => {
         uid: user.uid,
         afterDoc: lastDoc,
         pageSize: POST_PER_PAGE,
-     sortDirection: savedSortDirection,
+        sortDirection: savedSortDirection,
       });
 
       const snap = await getDocs(q);
@@ -207,7 +191,6 @@ const SavedPosts = () => {
         return;
       }
 
-      // Kursor + hasMore
       setLastDoc(snap.docs[snap.docs.length - 1]);
       setHasMore(snap.size === POST_PER_PAGE);
 
@@ -248,7 +231,6 @@ const SavedPosts = () => {
         .filter((r) => r.status === "fulfilled")
         .map((r) => r.value);
 
-      // Merge bez duplikata (novi pregaze stare po id-u)
       setSavedPosts((prev) => {
         const merged = [...prev, ...newPosts];
         const byId = new Map(merged.map((p) => [p.id, p]));
@@ -262,7 +244,6 @@ const SavedPosts = () => {
     }
   };
 
-  // Auth-check moze ostati early-return da ne treperi UI tokom inicijalne provere
   if (isCheckingAuth || isLoading) {
     return (
       <div className="grid gap-4" role="status" aria-live="polite">
@@ -273,81 +254,110 @@ const SavedPosts = () => {
     );
   }
 
-  // Inline komponenta za Undo toast (minimalno, fokus na UX)
   const UndoToast = ({ onUndo }) => (
     <div className="flex items-center gap-3">
       <span>Removed from saved.</span>
-      <button onClick={onUndo} className="underline">
+      <button type="button" onClick={onUndo} className="underline">
         Undo
       </button>
     </div>
   );
-  UndoToast.propTypes = {
-    onUndo: PropTypes.func.isRequired,
-  };
+  UndoToast.propTypes = { onUndo: PropTypes.func.isRequired };
 
-  // Guest gate
-  if (!user) {
-    return <p>Please log in to view saved posts.</p>;
-  }
-
-  // Empty state
-  if (savedPosts.length === 0) {
+  if (!user) return <p>Please log in to view saved posts.</p>;
+  if (savedPosts.length === 0)
     return <EmptyState message="You haven't saved any posts yet." />;
-  }
 
-  // Optimistic unsave sa Undo prozorom (UNDO_MS)
-  const handleUnsave = (post) => {
+  const handleUnsave = async (post) => {
     if (!user) return;
-    // Ako vec ima pending unsave za ovaj post → ignorisi dupli klik
     if (pendingUndoRef.current.has(post.id)) return;
 
     const index = savedPosts.findIndex((p) => p.id === post.id);
     if (index === -1) return;
 
-    // Optimistic: odmah ukloni iz liste
+    // optimistic UI
     setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
 
-    // Zakazi stvarni unsave posle UNDO_MS (ako korisnik ne ponisti)
-    const timerId = setTimeout(async () => {
-      pendingUndoRef.current.delete(post.id);
-      try {
-        await unsavePost(user.uid, post.id);
-        showSuccessToast("Removed from saved!");
-      } catch (error) {
-        // Ako pozadinska operacija padne → vrati post na originalni index
-        setSavedPosts((prev) => insertAt(prev, index, post));
-        showErrorToast("Unsave failed, restored.");
-        console.error(error);
-      }
-    }, UNDO_MS);
-
-    // Upisi u pending mapu info potreban za Undo
-    pendingUndoRef.current.set(post.id, { timerId, snapshot: post, index });
-
-    // Undo callback: prekini tajmer i vrati post na mesto
-    const onUndo = () => {
-      const entry = pendingUndoRef.current.get(post.id);
-      if (!entry) return;
-      clearTimeout(entry.timerId);
-      pendingUndoRef.current.delete(post.id);
-      setSavedPosts((prev) => insertAt(prev, entry.index, entry.snapshot));
-      showInfoToast("Restored.");
+    const snapshotForSave = {
+      postTitleAtSave: post?.title || "Untitled",
+      postUpdatedAtAtSave: post?.updatedAt || post?.createdAt || null,
     };
 
-    // Toast sa Undo dugmetom
-    toast(<UndoToast onUndo={onUndo} />, {
+    // lock odmah (da sprecimo dupli klik)
+    pendingUndoRef.current.set(post.id, {
+      snapshot: post,
+      index,
+      didUndo: false,
+    });
+
+    // unsave odmah u bazu
+    try {
+      await unsavePost(user.uid, post.id);
+    } catch (error) {
+      pendingUndoRef.current.delete(post.id);
+      if (mountedRef.current) {
+        setSavedPosts((prev) => insertAt(prev, index, post));
+      }
+      showErrorToast("Unsave failed, restored.");
+      console.error(error);
+      return;
+    }
+
+    // napravimo toast i sacuvamo id u closure-u (ne u ref)
+    const toastId = toast(<UndoToast onUndo={onUndo} />, {
       autoClose: UNDO_MS,
       position: "top-center",
       pauseOnHover: false,
       pauseOnFocusLoss: false,
+      onClose: () => {
+        // ako je undo vec uradjen, entry je obrisan i nema sta da radimo
+        const entry = pendingUndoRef.current.get(post.id);
+        if (!entry) return;
+
+        if (!entry.didUndo) {
+          showSuccessToast("Removed from saved!");
+        }
+
+        pendingUndoRef.current.delete(post.id);
+      },
     });
+
+    async function onUndo() {
+      const entry = pendingUndoRef.current.get(post.id);
+      if (!entry) return;
+
+      // markiraj undo pre svega
+      pendingUndoRef.current.set(post.id, { ...entry, didUndo: true });
+
+      // vrati u UI odmah
+      if (mountedRef.current) {
+        setSavedPosts((prev) => insertAt(prev, entry.index, entry.snapshot));
+      }
+
+      // dismiss toast ODMAH (ovo si trazio)
+      toast.dismiss(toastId);
+
+      // OTkljucaj ODMAH, da mozes opet save/unsave bez refresha
+      pendingUndoRef.current.delete(post.id);
+
+      try {
+        await savePost(user.uid, post.id, snapshotForSave);
+        showInfoToast("Restored.");
+      } catch (e) {
+        // rollback UI ako restore padne
+        if (mountedRef.current) {
+          setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
+        }
+        showErrorToast("Restore failed.");
+        console.error(e);
+      }
+    }
   };
 
-  // Lista sacuvanih postova + paginacija
   return (
     <div>
       <h1>Saved Posts</h1>
+
       {savedPosts.map((post) => {
         const isPending = pendingUndoRef.current.has(post.id);
         return (
@@ -361,7 +371,6 @@ const SavedPosts = () => {
         );
       })}
 
-      {/* Loading more (mini skeletoni tokom fetch-a) */}
       {isLoadingMore && (
         <div className="mt-2 space-y-2" role="status" aria-live="polite">
           <SkeletonCard />
@@ -369,9 +378,9 @@ const SavedPosts = () => {
         </div>
       )}
 
-      {/* Dugme "Load more" */}
       {hasMore && (
         <button
+          type="button"
           onClick={handleLoadMore}
           disabled={isLoadingMore || !hasMore}
           aria-busy={isLoadingMore}
@@ -381,7 +390,6 @@ const SavedPosts = () => {
         </button>
       )}
 
-      {/* Poruka "You reached the end" */}
       {!hasMore && savedPosts.length > 0 && (
         <p
           className="mt-4 text-sm text-gray-500 text-center"
