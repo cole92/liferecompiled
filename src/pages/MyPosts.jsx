@@ -72,7 +72,7 @@ const MyPosts = () => {
 
   const POST_PER_PAGE = 10;
 
-  // Debounce search (300ms) pre slanja server-side prefix upita (manje Firestore poziva)
+  // Debounce search (300ms)
   const rawSearch = myPostsSearch || "";
   const [debouncedSearch, setDebouncedSearch] = useState(rawSearch.trim());
 
@@ -96,9 +96,7 @@ const MyPosts = () => {
   useEffect(() => {
     let canceled = false;
 
-    // Initial fetch pri promeni filtera / search-a — resetuje paginaciju i pokrece normal ili search mod
     const fetchPosts = async () => {
-      // Reset stanja kada se promeni filter ili user
       setPosts([]);
       setLastDoc(null);
       setHasMore(true);
@@ -106,11 +104,12 @@ const MyPosts = () => {
       setIsLoadingMore(false);
 
       try {
+        // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
         const q = buildPostsQuery({
           userId: user.uid,
           filter,
           afterDoc: null,
-          pageSize: POST_PER_PAGE,
+          pageSize: POST_PER_PAGE + 1,
           q: trimmedSearch,
         });
 
@@ -123,7 +122,6 @@ const MyPosts = () => {
           return;
         }
 
-        // Autor se dobija iz AuthContext-a (UI-safe, bez dodatnih Firestore poziva)
         const author = {
           id: user.uid,
           name: user.name || "Unknown author",
@@ -131,8 +129,16 @@ const MyPosts = () => {
           badges: user.badges || {},
         };
 
-        // Normalizacija strane: enriched author + fallback za comments (MyPosts ne koristi reactions/commentsCount)
-        const userPosts = querySnapshot.docs.map((docSnap) => {
+        const docs = querySnapshot.docs;
+        const pageDocs = docs.slice(0, POST_PER_PAGE);
+
+        if (pageDocs.length === 0) {
+          setPosts([]);
+          setHasMore(false);
+          return;
+        }
+
+        const userPosts = pageDocs.map((docSnap) => {
           const data = docSnap.data();
           return {
             id: docSnap.id,
@@ -144,38 +150,40 @@ const MyPosts = () => {
 
         setPosts(userPosts);
 
-        // Podesi kursor i indikator da li ima jos rezultata
-        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
-        setHasMore(querySnapshot.size === POST_PER_PAGE);
+        // Cursor mora da bude poslednji prikazan doc (ne onaj +1)
+        setLastDoc(pageDocs[pageDocs.length - 1]);
+
+        // Ima jos samo ako smo dobili vise od POST_PER_PAGE
+        setHasMore(docs.length > POST_PER_PAGE);
       } catch (error) {
         console.error("Error fetching posts:", error);
-        if (!canceled)
+        if (!canceled) {
           showErrorToast("Failed to load your posts. Please try again.");
+        }
       } finally {
         if (!canceled) setIsLoading(false);
       }
     };
 
-    if (user?.uid) {
-      fetchPosts();
-    }
+    if (user?.uid) fetchPosts();
+
     return () => {
-      canceled = true; // Cleanup: sprecava setState posle unmount-a
+      canceled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, filter, trimmedSearch]);
 
-  // Dovlaci sledecu stranicu postova (paginacija)
   const handleLoadMore = async () => {
     if (!user || !hasMore || isLoadingMore || !lastDoc) return;
     setIsLoadingMore(true);
 
     try {
+      // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
       const q = buildPostsQuery({
         userId: user.uid,
         filter,
         afterDoc: lastDoc,
-        pageSize: POST_PER_PAGE,
+        pageSize: POST_PER_PAGE + 1,
         q: trimmedSearch,
       });
 
@@ -193,26 +201,32 @@ const MyPosts = () => {
         badges: user.badges || {},
       };
 
-      const newPosts = querySnapshot.docs.map((docSnap) => ({
+      const docs = querySnapshot.docs;
+      const pageDocs = docs.slice(0, POST_PER_PAGE);
+
+      if (pageDocs.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      const newPosts = pageDocs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
         author,
         comments: docSnap.data().comments || [],
       }));
 
-      // Duplicate-safe append: Map merge (novi pregaze stare) da se zadrzi stabilan UI state
       setPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         newPosts.forEach((p) => map.set(p.id, p));
         return Array.from(map.values());
       });
 
-      setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+      // Cursor mora da bude poslednji prikazan doc (ne onaj +1)
+      setLastDoc(pageDocs[pageDocs.length - 1]);
 
-      // Ako je stiglo manje od page size, nema vise podataka
-      if (querySnapshot.size < POST_PER_PAGE) {
-        setHasMore(false);
-      }
+      // Ima jos samo ako smo dobili vise od POST_PER_PAGE
+      setHasMore(docs.length > POST_PER_PAGE);
     } catch (error) {
       console.error("Error loading more posts:", error);
       showErrorToast("Failed to load more posts.");
@@ -221,10 +235,6 @@ const MyPosts = () => {
     }
   };
 
-  // Soft delete (Trash workflow):
-  // - Transaction garantuje integritet (sprecava race conditions)
-  // - Setuje deleted:true + deletedAt
-  // - Lokalno uklanja post odmah za instant feedback (bez refetch-a)
   const handleDelete = async (postId) => {
     try {
       await runTransaction(db, async (tx) => {
@@ -238,6 +248,7 @@ const MyPosts = () => {
           deletedAt: serverTimestamp(),
         });
       });
+
       showSuccessToast("Post moved to Trash.");
       setPosts((prev) => prev.filter((p) => p.id !== postId));
     } catch (error) {
@@ -249,12 +260,6 @@ const MyPosts = () => {
     }
   };
 
-  /**
-   * @function handleLock
-   * Zakljucava post transakcijom: postavlja `locked:true` i `lockedAt`.
-   * Lokalni state se azurira odmah da UI ne ceka refetch.
-   * @param {string} postId - ID posta koji se zakljucava
-   */
   const handleLock = async (postId) => {
     try {
       await runTransaction(db, async (transaction) => {
@@ -275,7 +280,6 @@ const MyPosts = () => {
       setIsLockModalOpen(false);
       showSuccessToast("Post successfully locked.");
 
-      // Lokalno oznaci da je post zakljucan (instant feedback)
       setPosts((prevPosts) =>
         prevPosts.map((post) =>
           post.id === postId
@@ -293,24 +297,34 @@ const MyPosts = () => {
     }
   };
 
-  // Klijentska filtracija (vazi samo u normal modu; u search modu se prikazuje ceo rezultat search-a)
   const filteredPosts = posts.filter((post) => {
     if (filter === "active") return !post.locked;
     if (filter === "locked") return post.locked;
-    return true; // all
+    return true;
   });
 
   const isSearchMode = trimmedSearch.length > 0;
-  // visiblePosts: search mod koristi raw posts, normal mod primenjuje active/locked filte
   const visiblePosts = isSearchMode ? posts : filteredPosts;
 
-  // Prikaz korisnickog interfejsa
+  // Auto-load sledece strane ako je trenutna strana ispraznjena (npr. sve prebaceno u Trash),
+  // a cursor kaze da postoji jos podataka.
+  useEffect(() => {
+    if (isLoading) return;
+    if (isLoadingMore) return;
+    if (!hasMore) return;
+    if (!lastDoc) return;
+    if (visiblePosts.length > 0) return;
+
+    handleLoadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, isLoadingMore, hasMore, lastDoc, visiblePosts.length]);
+
   return (
     <div className="mb-6">
-      {/* Pozdravna poruka i dugme za dodavanje posta */}
       <h2 className="text-2xl font-semibold mb-2">
         Welcome, {user ? user.email : "Guest"}
       </h2>
+
       <button
         onClick={() => navigate("/dashboard/create")}
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
@@ -318,8 +332,7 @@ const MyPosts = () => {
         Create New Post
       </button>
 
-      {/* Empty state — razlicite poruke za search mod i normal mod */}
-      {!isLoading && visiblePosts.length === 0 && (
+      {!isLoading && visiblePosts.length === 0 && !hasMore && (
         <EmptyState
           message={
             isSearchMode
@@ -329,7 +342,6 @@ const MyPosts = () => {
         />
       )}
 
-      {/* Lista postova sa mogucnoscu brisanja i zakljucavanja (samo za vlasnika) */}
       {!isLoading && visiblePosts.length > 0 && (
         <PostsList
           posts={visiblePosts}
@@ -354,7 +366,6 @@ const MyPosts = () => {
         </div>
       )}
 
-      {/* Loading more (mini skeletoni) */}
       {isLoadingMore && (
         <div className="mt-2 space-y-2" role="status" aria-live="polite">
           <SkeletonCard />
@@ -362,7 +373,6 @@ const MyPosts = () => {
         </div>
       )}
 
-      {/* Dugme "Load more" */}
       {hasMore && (
         <button
           onClick={handleLoadMore}
@@ -374,7 +384,6 @@ const MyPosts = () => {
         </button>
       )}
 
-      {/* End helper — koristi visiblePosts.length tako da radi u oba moda */}
       {!hasMore && visiblePosts.length > 0 && (
         <p
           className="mt-4 text-sm text-gray-500 text-center"
@@ -384,7 +393,6 @@ const MyPosts = () => {
         </p>
       )}
 
-      {/* Modal za potvrdu brisanja posta */}
       <ConfirmModal
         isOpen={isModalOpen}
         title="Delete Post?"
@@ -396,7 +404,6 @@ const MyPosts = () => {
         onConfirm={() => handleDelete(postToDelete)}
       />
 
-      {/* Modal za potvrdu zakljucavanja posta (locked state) */}
       <ConfirmModal
         isOpen={isLockModalOpen}
         title="Lock Post?"

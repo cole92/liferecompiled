@@ -47,7 +47,6 @@ const SavedPosts = () => {
   const UNDO_MS = 7000;
 
   // Map<postId, { snapshot, index, didUndo }>
-  // koristi se kao "lock" da sprecis dupli klik i da znas da li da prikazes success na isteku
   const pendingUndoRef = useRef(new Map());
 
   // Guard: da ne radimo setState nakon unmount-a
@@ -98,10 +97,12 @@ const SavedPosts = () => {
 
     const fetchSavedPosts = async () => {
       setIsLoading(true);
+
       try {
+        // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
         const q = buildSavedQuery({
           uid: user.uid,
-          pageSize: POST_PER_PAGE,
+          pageSize: POST_PER_PAGE + 1,
           sortDirection: savedSortDirection,
         });
 
@@ -111,15 +112,23 @@ const SavedPosts = () => {
         if (savedSnap.empty) {
           setSavedPosts([]);
           setHasMore(false);
-          setIsLoading(false);
           return;
         }
 
-        setLastDoc(savedSnap.docs[savedSnap.docs.length - 1]);
-        setHasMore(savedSnap.size === POST_PER_PAGE);
+        const docs = savedSnap.docs;
+        const pageDocs = docs.slice(0, POST_PER_PAGE);
+
+        if (pageDocs.length === 0) {
+          setSavedPosts([]);
+          setHasMore(false);
+          return;
+        }
+
+        setLastDoc(pageDocs[pageDocs.length - 1]);
+        setHasMore(docs.length > POST_PER_PAGE);
 
         const results = await Promise.allSettled(
-          savedSnap.docs.map(async (docItem) => {
+          pageDocs.map(async (docItem) => {
             const savedMeta = docItem.data();
             const postRef = doc(db, "posts", docItem.id);
 
@@ -177,10 +186,11 @@ const SavedPosts = () => {
     setIsLoadingMore(true);
 
     try {
+      // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
       const q = buildSavedQuery({
         uid: user.uid,
         afterDoc: lastDoc,
-        pageSize: POST_PER_PAGE,
+        pageSize: POST_PER_PAGE + 1,
         sortDirection: savedSortDirection,
       });
 
@@ -191,11 +201,19 @@ const SavedPosts = () => {
         return;
       }
 
-      setLastDoc(snap.docs[snap.docs.length - 1]);
-      setHasMore(snap.size === POST_PER_PAGE);
+      const docs = snap.docs;
+      const pageDocs = docs.slice(0, POST_PER_PAGE);
+
+      if (pageDocs.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      setLastDoc(pageDocs[pageDocs.length - 1]);
+      setHasMore(docs.length > POST_PER_PAGE);
 
       const results = await Promise.allSettled(
-        snap.docs.map(async (docItem) => {
+        pageDocs.map(async (docItem) => {
           const savedMeta = docItem.data();
           const postRef = doc(db, "posts", docItem.id);
 
@@ -244,6 +262,19 @@ const SavedPosts = () => {
     }
   };
 
+  // Auto-load sledece strane ako je stranica "ispraznjena" (npr. user unsave-uje sve sa prve strane),
+  // a cursor kaze da postoji jos.
+  useEffect(() => {
+    if (isLoading) return;
+    if (isLoadingMore) return;
+    if (!hasMore) return;
+    if (!lastDoc) return;
+    if (savedPosts.length > 0) return;
+
+    handleLoadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, isLoadingMore, hasMore, lastDoc, savedPosts.length]);
+
   if (isCheckingAuth || isLoading) {
     return (
       <div className="grid gap-4" role="status" aria-live="polite">
@@ -265,8 +296,11 @@ const SavedPosts = () => {
   UndoToast.propTypes = { onUndo: PropTypes.func.isRequired };
 
   if (!user) return <p>Please log in to view saved posts.</p>;
-  if (savedPosts.length === 0)
+
+  // EmptyState prikazi samo kad stvarno NEMA vise
+  if (savedPosts.length === 0 && !hasMore) {
     return <EmptyState message="You haven't saved any posts yet." />;
+  }
 
   const handleUnsave = async (post) => {
     if (!user) return;
@@ -283,14 +317,13 @@ const SavedPosts = () => {
       postUpdatedAtAtSave: post?.updatedAt || post?.createdAt || null,
     };
 
-    // lock odmah (da sprecimo dupli klik)
+    // lock odmah
     pendingUndoRef.current.set(post.id, {
       snapshot: post,
       index,
       didUndo: false,
     });
 
-    // unsave odmah u bazu
     try {
       await unsavePost(user.uid, post.id);
     } catch (error) {
@@ -303,14 +336,12 @@ const SavedPosts = () => {
       return;
     }
 
-    // napravimo toast i sacuvamo id u closure-u (ne u ref)
     const toastId = toast(<UndoToast onUndo={onUndo} />, {
       autoClose: UNDO_MS,
       position: "top-center",
       pauseOnHover: false,
       pauseOnFocusLoss: false,
       onClose: () => {
-        // ako je undo vec uradjen, entry je obrisan i nema sta da radimo
         const entry = pendingUndoRef.current.get(post.id);
         if (!entry) return;
 
@@ -326,25 +357,21 @@ const SavedPosts = () => {
       const entry = pendingUndoRef.current.get(post.id);
       if (!entry) return;
 
-      // markiraj undo pre svega
       pendingUndoRef.current.set(post.id, { ...entry, didUndo: true });
 
-      // vrati u UI odmah
       if (mountedRef.current) {
         setSavedPosts((prev) => insertAt(prev, entry.index, entry.snapshot));
       }
 
-      // dismiss toast ODMAH (ovo si trazio)
       toast.dismiss(toastId);
 
-      // OTkljucaj ODMAH, da mozes opet save/unsave bez refresha
+      // otkljucaj odmah
       pendingUndoRef.current.delete(post.id);
 
       try {
         await savePost(user.uid, post.id, snapshotForSave);
         showInfoToast("Restored.");
       } catch (e) {
-        // rollback UI ako restore padne
         if (mountedRef.current) {
           setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
         }
