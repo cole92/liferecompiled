@@ -35,3 +35,6 @@ This index provides an overview of all major architectural, frontend, backend, a
 ---
 
 Happy coding! 🚀
+
+Copyright © 2026 Aleksandar Todorovic. All rights reserved.
+This repository is not licensed for reuse without explicit permission.

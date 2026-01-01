@@ -246,7 +246,7 @@ const CreatePost = () => {
           )}
         </div>
 
-        {/* Actions */}
+        {/* Akcije */}
         <button type="submit" className="btn btn-primary">
           Save Post
         </button>
