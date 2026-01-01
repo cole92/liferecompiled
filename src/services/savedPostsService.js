@@ -28,7 +28,7 @@ export function buildSavedQuery({ uid, afterDoc = null, pageSize = 10, sortDirec
   const parts = [orderBy("savedAt", sortDirection), limit(pageSize)];
 
   if (afterDoc) {
-    // Ako je prosledjen kursor → dodaj startAfter
+    // Ako je prosledjen kursor → onda dodaj startAfter
     return query(
       baseRef,
       orderBy("savedAt", sortDirection),
