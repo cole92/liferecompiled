@@ -146,13 +146,12 @@ const CreatePost = () => {
     setErrors({});
   };
 
-  const handleReset = () => {
-    setTitle("");
-    setDescripton("");
-    setContent("");
-    setTags([]);
-    setCategory("");
-    setErrors({});
+  const handleCancel = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   if (!user) return <Spinner message="Loading user info..." />;
@@ -254,7 +253,7 @@ const CreatePost = () => {
         <button
           type="button"
           className="btn btn-secondary ms-3"
-          onClick={handleReset}
+          onClick={handleCancel}
         >
           Cancel
         </button>
