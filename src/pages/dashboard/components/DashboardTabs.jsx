@@ -1,3 +1,5 @@
+import { useContext } from "react";
+import { AuthContext } from "../../../context/AuthContext";
 import PropTypes from "prop-types";
 import { NavLink } from "react-router-dom";
 
@@ -12,6 +14,8 @@ import { NavLink } from "react-router-dom";
  */
 
 const DashboardTabs = ({ trashCount = 0 }) => {
+  const { user } = useContext(AuthContext);
+
   // Tab navigacija za Dashboard sekcije
   return (
     <div className="flex space-x-4 border-b pb-2 mb-4">
@@ -47,6 +51,17 @@ const DashboardTabs = ({ trashCount = 0 }) => {
       >
         Trash {trashCount > 0 && `(${trashCount})`}
       </NavLink>
+
+      {user?.isAdmin && (
+        <NavLink
+          to="/dashboard/moderation"
+          className={({ isActive }) =>
+            isActive ? "font-bold border-b-2 border-blue-500" : ""
+          }
+        >
+          Moderation
+        </NavLink>
+      )}
     </div>
   );
 };

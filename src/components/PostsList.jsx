@@ -1,23 +1,38 @@
 import PropTypes from "prop-types";
-import PostCard from "./PostCard"; // Uvoz PostCard komponente
-import "../styles/PostsList.css"; // Stilovi za listu postova
+import PostCard from "./PostCard"; // Renderuje pojedinacnu post karticu
+import "../styles/PostsList.css"; // Stilovi specifični za grid/layout liste
 
 /**
  * @component PostsList
- * Prikazuje listu postova pomocu PostCard komponente.
- * Prima props: posts, isMyPost, showDeleteButton, onDelete i onLock.
+ *
+ * Wrapper koji renderuje mrezu PostCard kartica.
+ *
+ * - Ne sadrzi logiku fetch-a (cisto prezentacioni sloj)
+ * - Prihvata listu postova i prosledjuje ih dalje u PostCard
+ * - Podrzava razlicite rezime kroz prop-ove (MyPosts, Trash, Home feed)
+ * - `showCommentsThread` omogucava granularnu kontrolu prikaza komentara
+ *
+ * Props:
+ * - posts: niz post objekata koji su vec UI-safe (normalizovani + enriched author)
+ * - isMyPost: da li je lista u kontekstu korisnikovih sopstvenih postova
+ * - showDeleteButton: kontrolise prikaz Delete akcije (Dashboard/Trash)
+ * - onDelete: callback koji parent definise (UI or CF onCall)
+ * - onLock: callback za zakljucavanje posta (vidljivo samo autoru)
+ * - showCommentsThread: da li PostCard prikazuje Comments thread (Home=off, ostalo=on)
+ *
+ * @returns {JSX.Element}
  */
-
 const PostsList = ({
   posts,
   showDeleteButton = false,
   onDelete,
   isMyPost,
   onLock,
+  showCommentsThread = true,
 }) => {
   return (
     <div className="posts-list">
-      {/* Mapiramo kroz niz postova i prikazujemo PostCard komponentu za svaki */}
+      {/* Render UI-safe postova bez dodatne logike (cisti prikaz) */}
       {posts.map((post) => (
         <PostCard
           key={post.id}
@@ -26,29 +41,30 @@ const PostsList = ({
           showDeleteButton={showDeleteButton}
           onDelete={onDelete}
           onLock={onLock}
+          showCommentsThread={showCommentsThread}
         />
       ))}
     </div>
   );
 };
-// **PropTypes validacija - osiguravamo da posts uvek ima tacnu strukturu**
+
+// PropTypes – minimalna validacija za odrzavanje UI konzistentnosti
 PostsList.propTypes = {
   posts: PropTypes.arrayOf(
     PropTypes.shape({
-      id: PropTypes.string.isRequired, // Firebase ID posta
-      title: PropTypes.string.isRequired, // Naslov posta
-      description: PropTypes.string.isRequired, // Opis posta
-      createdAt: PropTypes.object.isRequired, // Firestore Timestamp
-      tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string })) // Svaki tag mora imati `text`
-        .isRequired,
+      id: PropTypes.string.isRequired, // Firestore ID
+      title: PropTypes.string.isRequired, // Minimalni naslov za prikaz
+      description: PropTypes.string, // UI opis; fallback resen u PostCard
+      createdAt: PropTypes.object, // Firestore Timestamp (vec normalizovan)
+      tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string })),
     })
   ).isRequired,
 
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
   isMyPost: PropTypes.bool,
-  onLock: PropTypes.func, // Callback za zakljucavanje posta (vidljivo samo autoru ako post nije zakljucan)
-
+  onLock: PropTypes.func,
+  showCommentsThread: PropTypes.bool,
 };
 
 export default PostsList;

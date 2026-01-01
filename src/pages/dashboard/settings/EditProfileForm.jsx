@@ -41,7 +41,6 @@ const EditProfileForm = ({ userData }) => {
   const [originalData, setOriginalData] = useState({
     name: "",
     bio: "",
-    status: "Active",
     profilePicture: "",
   });
 
@@ -49,7 +48,6 @@ const EditProfileForm = ({ userData }) => {
   const [formData, setFormData] = useState({
     name: "",
     bio: "",
-    status: "Active",
     profilePicture: "",
   });
 
@@ -64,7 +62,6 @@ const EditProfileForm = ({ userData }) => {
       const next = {
         name: userData.name || "",
         bio: userData.bio || "",
-        status: userData.status || "Active",
         profilePicture: userData.profilePicture || "",
       };
       setFormData(next);
@@ -77,7 +74,6 @@ const EditProfileForm = ({ userData }) => {
     const newErrors = {};
 
     const cleanName = sanitizeName(formData.name);
-    const allowedStatuses = ["Active", "Inactive"];
 
     if (!cleanName) {
       newErrors.name = "Name is required.";
@@ -94,10 +90,6 @@ const EditProfileForm = ({ userData }) => {
       newErrors.bio = "Bio must be 280 characters or less.";
     }
 
-    if (!allowedStatuses.includes(formData.status)) {
-      newErrors.status = "Invalid status";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -107,7 +99,6 @@ const EditProfileForm = ({ userData }) => {
     if (
       formData.name === originalData.name &&
       formData.bio === originalData.bio &&
-      formData.status === originalData.status &&
       formData.profilePicture === originalData.profilePicture
     ) {
       showWarningToast("No changes to save");
@@ -123,8 +114,6 @@ const EditProfileForm = ({ userData }) => {
       // Difujemo polja prema snapshotu, saljemo samo promenjena
       if (cleanName !== originalData.name) updatedData.name = cleanName;
       if (formData.bio !== originalData.bio) updatedData.bio = formData.bio;
-      if (formData.status !== originalData.status)
-        updatedData.status = formData.status;
       if (formData.profilePicture !== originalData.profilePicture) {
         updatedData.profilePicture = formData.profilePicture;
       }
@@ -144,7 +133,6 @@ const EditProfileForm = ({ userData }) => {
         const normalized = {
           name: updatedData.name ?? originalData.name,
           bio: updatedData.bio ?? originalData.bio,
-          status: updatedData.status ?? originalData.status,
           profilePicture:
             updatedData.profilePicture ?? originalData.profilePicture,
         };
@@ -173,7 +161,6 @@ const EditProfileForm = ({ userData }) => {
     setFormData({
       name: originalData.name,
       bio: originalData.bio,
-      status: originalData.status,
       profilePicture: originalData.profilePicture,
     });
 
@@ -183,19 +170,39 @@ const EditProfileForm = ({ userData }) => {
   };
 
   return (
-    <form className="space-y-6" aria-busy={isSaving}>
+    <form
+      className="space-y-6"
+      aria-busy={isSaving ? "true" : "false"}
+      noValidate
+    >
       {/* Profilna slika */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          id="profile-picture-label"
+          className="block text-sm font-medium text-gray-700 mb-2"
+        >
           Profile Picture
         </label>
+
         <img
           src={formData.profilePicture || DEFAULT_PROFILE_PICTURE}
-          alt="Profile"
+          alt={
+            formData.name
+              ? `${formData.name} profile picture`
+              : "Profile picture"
+          }
           className="rounded-full mb-3"
           style={{ width: "100px", height: "100px" }}
         />
+
+        {/* Status za upload (screen reader info) */}
+        <p id="profile-picture-status" className="sr-only" aria-live="polite">
+          {isUploading ? "Uploading profile picture." : "Upload idle."}
+        </p>
+
         <CloudinaryUpload
+          aria-labelledby="profile-picture-label"
+          aria-describedby="profile-picture-status"
           onUploadStart={() => setIsUploading(true)}
           onUploadComplete={(url) => {
             setIsUploading(false);
@@ -205,17 +212,19 @@ const EditProfileForm = ({ userData }) => {
         />
       </div>
 
-      {/* Ime */}
+      {/* Name */}
       <div>
         <label
-          htmlFor="name"
+          htmlFor="profile-name"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
           Name
         </label>
+
         <input
           type="text"
-          id="name"
+          id="profile-name"
+          name="name"
           className="w-full border border-gray-300 rounded px-3 py-2"
           value={formData.name}
           onChange={(e) => {
@@ -229,71 +238,68 @@ const EditProfileForm = ({ userData }) => {
             setTouchedName(true);
             validateForm();
           }}
-          aria-describedby={
-            touchedName && errors.name ? "name-error" : "name-help"
-          }
           maxLength={NAME_MAX}
+          aria-invalid={touchedName && Boolean(errors.name)}
+          aria-describedby="profile-name-help profile-name-error"
         />
 
-        {touchedName && errors.name ? (
-          // a11y: error poruka je povezana sa input-om preko aria-describedby
-          <p id="name-error" className="text-red-500 text-sm mt-1">
-            {errors.name}
-          </p>
-        ) : (
-          <p id="name-help" className="text-xs text-gray-500 mt-1">
-            Allowed: letters, spaces, hyphens (-), apostrophes (&apos;).{" "}
-            {NAME_MIN}-{NAME_MAX} chars.
-          </p>
-        )}
+        {/* Help je uvek tu */}
+        <p id="profile-name-help" className="text-xs text-gray-500 mt-1">
+          Allowed: letters, spaces, hyphens (-), apostrophes (&apos;).{" "}
+          {NAME_MIN}-{NAME_MAX} chars.
+        </p>
+
+        {/* Error je uvek tu (ali prazan kad nema errora) */}
+        <p
+          id="profile-name-error"
+          className="text-red-500 text-sm mt-1"
+          role="alert"
+          aria-live="polite"
+        >
+          {touchedName && errors.name ? errors.name : ""}
+        </p>
       </div>
 
       {/* Bio */}
       <div>
         <label
-          htmlFor="bio"
+          htmlFor="profile-bio"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
           Bio
         </label>
+
         <textarea
-          id="bio"
-          rows="3"
+          id="profile-bio"
+          name="bio"
+          rows={3}
           className="w-full border border-gray-300 rounded px-3 py-2"
           value={formData.bio}
           onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
           maxLength={280}
+          aria-invalid={Boolean(errors.bio)}
+          aria-describedby="profile-bio-counter profile-bio-error"
         />
-        <div className="text-sm mt-1 text-gray-500">
+
+        {/* Counter kao opis textarea */}
+        <div
+          id="profile-bio-counter"
+          className="text-sm mt-1 text-gray-500"
+          aria-live="polite"
+        >
           <span className={280 - formData.bio.length < 1 ? "text-red-500" : ""}>
             {280 - formData.bio.length} characters left
           </span>
         </div>
-        {errors.bio && (
-          <p className="text-red-500 text-sm mt-1">{errors.bio}</p>
-        )}
-      </div>
 
-      {/* Status */}
-      <div>
-        <label
-          htmlFor="status"
-          className="block text-sm font-medium text-gray-700 mb-1"
+        <p
+          id="profile-bio-error"
+          className="text-red-500 text-sm mt-1"
+          role="alert"
+          aria-live="polite"
         >
-          Status
-        </label>
-        <select
-          id="status"
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={formData.status}
-          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-        >
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-        </select>
-        {errors.status && (
-          <p className="text-red-500 text-sm mt-1">{errors.status}</p>
-        )}
+          {errors.bio ? errors.bio : ""}
+        </p>
       </div>
 
       {/* Footer akcije */}
@@ -313,12 +319,12 @@ const EditProfileForm = ({ userData }) => {
             onClick={handleSave}
             disabled={isSaving || isUploading}
             className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50 min-w-[9rem] whitespace-nowrap"
+            aria-disabled={isSaving || isUploading ? "true" : "false"}
           >
             Save Changes
           </button>
         </div>
 
-        {/* Back link */}
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -336,7 +342,6 @@ EditProfileForm.propTypes = {
     id: PropTypes.string.isRequired,
     name: PropTypes.string,
     bio: PropTypes.string,
-    status: PropTypes.string,
     profilePicture: PropTypes.string,
   }).isRequired,
 };

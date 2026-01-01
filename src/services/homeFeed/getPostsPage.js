@@ -14,34 +14,11 @@ import { enrichPostWithAuthor } from "../userService";
  * @helper getPostsPage
  * Fetch-uje jednu stranicu Home feed-a, normalizuje postove i obogacuje ih autorima.
  *
- * Namena:
- * - Spaja tri sloja: Query builder (buildHomeFeedQuery) + normalizaciju (normalizePostDoc)
- *   + obogacivanje autora (enrichPostWithAuthor).
- * - Vraca rezultat spreman za UI: lista postova + kursor + hasMore + dijagnosticki log (warnings).
- *
- * Ulazni parametri:
- * - afterDoc: opcioni kursor za paginaciju (startAfter)
- * - pageSize: trazena velicina stranice (klampuje se na dozvoljeni opseg)
- * - category: opcioni filter kategorije
- * - sortBy: smer sortiranja (newest/oldest), sanitizuje se u builderu
- *
- * Ocekivanja i fallback:
- * - normalizePostDoc moze vratiti null za nevalidne dokumente → oni se preskacu uz warning.
- * - enrichPostWithAuthor ne treba da baca (dizajnirano da vrati fallback autora).
- * - warnings niz se koristi za debug i logovanje (nije namenjen direktno UI-u).
- *
  * Rezultat:
  * - items: niz postova sa `author` poljem (fallback kada nema user-a)
  * - lastDoc: poslednji DocumentSnapshot u stranici (ili null)
- * - hasMore: da li postoji potencijalno jos dokumenata (na osnovu velicine stranice)
+ * - hasMore: da li postoji jos dokumenata (prefetch +1)
  * - warnings: string poruke o preskocenim/ fallback slucajevima
- *
- * @param {Object} opts
- * @param {DocumentSnapshot|null} [opts.afterDoc=null]
- * @param {number} [opts.pageSize]
- * @param {string} [opts.category]
- * @param {string} [opts.sortBy]
- * @returns {Promise<{items: Object[], lastDoc: DocumentSnapshot|null, hasMore: boolean, warnings: string[]}>}
  */
 export async function getPostsPage({
   afterDoc = null,
@@ -52,10 +29,13 @@ export async function getPostsPage({
   // Defanzivno klampovanje pageSize na globalne granice (feed constants)
   const safePageSize = clampPageSize(pageSize ?? PAGE_SIZE_DEFAULT);
 
+  // Prefetch +1 da bismo znali da li stvarno ima jos (bez dodatnog upita)
+  const requestedSize = safePageSize + 1;
+
   const q = buildHomeFeedQuery({
     db,
     afterDoc,
-    pageSize: safePageSize,
+    pageSize: requestedSize,
     category,
     sortBy,
   });
@@ -64,9 +44,12 @@ export async function getPostsPage({
 
   const warnings = [];
 
+  // Uzimamo samo "page" dokumente za prikaz
+  const pageDocs = snap.docs.slice(0, safePageSize);
+
   // Normalizacija dokumenata (i prikupljanje upozorenja za preskocene)
   const normalized = [];
-  for (const docSnap of snap.docs) {
+  for (const docSnap of pageDocs) {
     const post = normalizePostDoc(docSnap);
 
     if (!post) {
@@ -95,9 +78,11 @@ export async function getPostsPage({
     }
   }
 
-  // Kursor i informacija o jos stranica (na osnovu velicine stranice)
-  const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
-  const hasMore = snap.size === safePageSize;
+  // lastDoc mora da bude poslednji PRIKAZAN doc (ne +1)
+  const lastDoc = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
+
+  // hasMore = true samo ako smo dobili vise od safePageSize
+  const hasMore = snap.docs.length > safePageSize;
 
   return { items, lastDoc, hasMore, warnings };
 }

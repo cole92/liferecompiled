@@ -14,6 +14,7 @@ const {
 const {
   onDocumentCreated,
   onDocumentUpdated,
+  onDocumentDeleted,
 } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
@@ -30,6 +31,7 @@ try {
 
 // -------------------- INIT --------------------
 admin.initializeApp();
+const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 setGlobalOptions({ region: "europe-central2" });
 
 const db = admin.firestore();
@@ -54,14 +56,14 @@ async function bumpPermanentDeletesForUser(userId) {
         postsPerMonth: {},
         restoredPosts: 0,
         permanentlyDeletedPosts: 1,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     } else {
       await ref.set(
         {
-          permanentlyDeletedPosts: admin.firestore.FieldValue.increment(1),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          permanentlyDeletedPosts: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
@@ -107,20 +109,62 @@ async function deletePostCascadeInternal({ postId, uid }) {
   const postSnap = await postRef.get();
 
   if (!postSnap.exists) {
-    throw new Error(`Post ${postId} does not exist.`);
+    throw new HttpsError("not-found", `Post ${postId} does not exist.`);
   }
 
-  const postData = postSnap.data();
-  if (postData.userId !== uid) {
-    throw new Error("Permission denied: user is not the owner of the post.");
+  const postData = postSnap.data() || {};
+  const authorId = postData.userId;
+
+  if (!authorId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Post is missing author userId."
+    );
   }
 
-  // Fallback: FieldPath.documentId() može biti undefined u nekim setup-ima
+  // 1) Ucitamo user dokument da proverimo rolu
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+
+  const role = userSnap.exists ? userSnap.data().role : "user";
+  const isAuthor = authorId === uid;
+  const isAdmin = role === "admin";
+
+  // 2) Author ili admin mogu da prodju
+  if (!isAuthor && !isAdmin) {
+    throw new HttpsError(
+      "permission-denied",
+      "You are not allowed to delete this post."
+    );
+  }
+
+  // Fallback: FieldPath.documentId() moze biti undefined u nekim setup-ima
   const docIdField = admin.firestore.FieldPath?.documentId
     ? admin.firestore.FieldPath.documentId()
     : "__name__";
 
-  // komentari
+  // 3) Reakcije PRVO (da onDelete CF ima vece sanse da ucita post dok jos postoji)
+  let lastReaction = null;
+  do {
+    let q = db
+      .collection("reactions")
+      .where("postId", "==", postId)
+      .orderBy(docIdField)
+      .limit(500);
+
+    if (lastReaction) q = q.startAfter(lastReaction);
+
+    const snap = await q.get();
+    if (snap.empty) break;
+
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+
+    lastReaction = snap.docs[snap.docs.length - 1];
+  } while (true);
+
+  // 4) Komentari
   let lastComment = null;
   do {
     let q = db
@@ -141,45 +185,108 @@ async function deletePostCascadeInternal({ postId, uid }) {
     lastComment = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // reakcije
-  let last = null;
-  do {
-    let q = db
-      .collection("reactions")
-      .where("postId", "==", postId)
-      .orderBy(docIdField)
-      .limit(500);
-    if (last) q = q.startAfter(last);
-
-    const snap = await q.get();
-    if (snap.empty) break;
-
-    const batch = db.batch();
-    snap.docs.forEach((doc) => batch.delete(doc.ref));
-    await batch.commit();
-
-    last = snap.docs[snap.docs.length - 1];
-  } while (true);
-
-  // cloudinary slika (best-effort)
+  // 5) Cloudinary slika (best-effort)
   if (postData.imagePublicId) {
     try {
       await cloudinary.uploader.destroy(postData.imagePublicId);
     } catch (err) {
-      console.warn("[Cloudinary] delete error:", err);
+      console.warn("[Cloudinary] delete error:", err?.message);
     }
   }
 
-  // na kraju obrisi sam post
+  // 6) Na kraju obrisi sam post
   await postRef.delete();
+
+  // 7) Stat bump treba da ide AUTORU posta (ne adminu koji je kliknuo delete)
   try {
-    await bumpPermanentDeletesForUser(uid);
+    await bumpPermanentDeletesForUser(authorId);
   } catch (err) {
     console.error("[warn] post deleted, but stat bump failed", {
       postId,
-      userId: uid,
+      authorId,
+      requestorId: uid,
       message: err?.message,
     });
+  }
+}
+
+// -------------------- ReactionThresholds helper and fallback --------------------
+const REACTION_THRESHOLDS_FALLBACK = Object.freeze({
+  idea: 5,
+  hot: 10,
+  powerup: 30,
+});
+
+async function getReactionThresholds() {
+  const ref = db.collection("appSettings").doc("reactionThresholds");
+
+  // Validates one threshold value and falls back if invalid
+  const normalize = (value, key) => {
+    const fallback = REACTION_THRESHOLDS_FALLBACK[key];
+
+    // Must be a finite number
+    if (!Number.isFinite(value)) {
+      console.warn(
+        "[warn] reactionThreshold invalid (not finite), using fallback",
+        {
+          key,
+          value,
+          fallback,
+        }
+      );
+      return fallback;
+    }
+
+    // Must be > 0 to avoid always-true badge logic
+    if (value <= 0) {
+      console.warn("[warn] reactionThreshold invalid (<= 0), using fallback", {
+        key,
+        value,
+        fallback,
+      });
+      return fallback;
+    }
+
+    // Optional strictness: thresholds should be integers
+    if (!Number.isInteger(value)) {
+      console.warn(
+        "[warn] reactionThreshold invalid (not integer), using fallback",
+        {
+          key,
+          value,
+          fallback,
+        }
+      );
+      return fallback;
+    }
+
+    return value;
+  };
+
+  try {
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      console.warn("[warn] reactionThresholds doc missing, using fallback", {
+        fallback: REACTION_THRESHOLDS_FALLBACK,
+      });
+      return { ...REACTION_THRESHOLDS_FALLBACK };
+    }
+
+    const data = snap.data() || {};
+
+    return {
+      idea: normalize(data.idea, "idea"),
+      hot: normalize(data.hot, "hot"),
+      powerup: normalize(data.powerup, "powerup"),
+    };
+  } catch (err) {
+    console.error("[err] getReactionThresholds failed, using fallback", {
+      message: err?.message,
+      stack: err?.stack,
+      fallback: REACTION_THRESHOLDS_FALLBACK,
+    });
+    return { ...REACTION_THRESHOLDS_FALLBACK };
   }
 }
 
@@ -232,6 +339,7 @@ exports.softDeleteComment = onCall(async (req) => {
       "unauthenticated",
       "You must be logged in to delete a comment."
     );
+
   const { commentId } = req.data || {};
   if (!commentId)
     throw new HttpsError("invalid-argument", "Missing commentId.");
@@ -242,7 +350,18 @@ exports.softDeleteComment = onCall(async (req) => {
     throw new HttpsError("not-found", `Comment ${commentId} does not exist.`);
 
   const commentData = docSnap.data();
-  if (commentData.userID !== req.auth.uid) {
+  const uid = req.auth.uid;
+
+  // Author check
+  const isAuthor = commentData.userID === uid;
+
+  // Admin check
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  const role = userSnap.exists ? userSnap.data().role : "user";
+  const isAdmin = role === "admin";
+
+  if (!isAuthor && !isAdmin) {
     throw new HttpsError(
       "permission-denied",
       "You are not authorized to delete this comment."
@@ -251,7 +370,7 @@ exports.softDeleteComment = onCall(async (req) => {
 
   await docRef.update({
     deleted: true,
-    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    deletedAt: FieldValue.serverTimestamp(),
   });
 
   return { success: true };
@@ -283,10 +402,8 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
   }
 
   // Rate limit: max 3 komentara u 30 sekundi
-  const now = admin.firestore.Timestamp.now();
-  const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(
-    now.toMillis() - 30_000
-  );
+  const now = Timestamp.now();
+  const thirtySecondsAgo = Timestamp.fromMillis(now.toMillis() - 30_000);
 
   const recent = await db
     .collection("comments")
@@ -307,7 +424,7 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
     userID: req.auth.uid,
     content: trimmedContent,
     parentID: parentId ?? null,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
     likes: [],
   };
 
@@ -357,21 +474,21 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
             postsPerMonth: { [monthKey]: 1 },
             restoredPosts: 0,
             permanentlyDeletedPosts: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
         } else {
           // 1) Globalni inkrementi
           tx.update(statsRef, {
-            totalPosts: admin.firestore.FieldValue.increment(1),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            totalPosts: FieldValue.increment(1),
+            updatedAt: FieldValue.serverTimestamp(),
           });
           // 2) Siguran inkrement u mapi preko merge objekta
           tx.set(
             statsRef,
             {
               postsPerMonth: {
-                [monthKey]: admin.firestore.FieldValue.increment(1),
+                [monthKey]: FieldValue.increment(1),
               },
             },
             { merge: true }
@@ -382,8 +499,8 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
           type: "posts.onCreate",
           postId: event.params.postId,
           userId,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -437,15 +554,15 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
             postsPerMonth: {},
             restoredPosts: 1,
             permanentlyDeletedPosts: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
         } else {
           tx.set(
             statsRef,
             {
-              restoredPosts: admin.firestore.FieldValue.increment(1),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              restoredPosts: FieldValue.increment(1),
+              updatedAt: FieldValue.serverTimestamp(),
             },
             { merge: true }
           );
@@ -455,8 +572,8 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
           type: "posts.onUpdate.restore",
           postId: event.params.postId,
           userId,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiresAt: admin.firestore.Timestamp.fromDate(
+          processedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           ),
         });
@@ -478,7 +595,799 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
   }
 );
 
-// -------------------- SCHEDULER (v2) --------------------
+// -------------------- FIRESTORE TRIGGER: reactions.idea.onCreate (v2) --------------------
+exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
+  "reactions/{reactionId}",
+  async (event) => {
+    try {
+      const reactionId = event?.params?.reactionId;
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
+
+      if (!postId || reactionType !== "idea") return null;
+
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.idea.onCreate: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
+
+      const markerId = `reactions.idea.onCreate__${eventId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
+
+      // processedEvents TTL
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      const { idea: ideaThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        // A) Ledger: already counted?
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const alreadyCounted = ledgerData?.active === true;
+
+        if (alreadyCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onCreate",
+              status: "skipped",
+              reason: "already_counted",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // B) stale-create: reaction must still exist
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (!liveReactionSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "stale_create",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onCreate",
+              status: "skipped",
+              reason: "stale_create",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // C) post must exist
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onCreate",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData?.reactionCounts?.idea ?? 0;
+        const next = current + 1;
+
+        // ---------------- WRITES ----------------
+        tx.update(postRef, {
+          "reactionCounts.idea": next,
+          "badges.mostInspiring": next >= ideaThreshold,
+        });
+
+        // ledger becomes active (counted) -> remove TTL field
+        tx.set(
+          ledgerRef,
+          {
+            active: true,
+            expiresAt: FieldValue.delete(),
+            postId,
+            reactionType,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.idea.onCreate",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.idea.onCreate", {
+        eventId,
+        reactionId,
+        postId,
+      });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsIdeaOnCreateV2", {
+        eventId: event?.id ?? null,
+        reactionId: event?.params?.reactionId ?? null,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err;
+    }
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2 + ledger) --------------------
+exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
+  "reactions/{reactionId}",
+  async (event) => {
+    const reactionId = event?.params?.reactionId;
+
+    try {
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
+
+      // Guard: only idea + must have postId
+      if (!postId || reactionType !== "idea") return null;
+
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.idea.onDelete: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
+
+      const markerId = `reactions.idea.onDelete__${eventId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      // Ledger is keyed by reactionId (deterministic id) -> tracks whether it was counted
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
+
+      // processedEvents TTL
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      const { idea: ideaThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        // 1) stale_delete: if reaction doc exists again (user re-toggled ON), skip this delete
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (liveReactionSnap.exists) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onDelete",
+              status: "skipped",
+              reason: "stale_delete",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 2) Ledger gate: only decrement if it was previously counted
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const wasCounted = ledgerData.active === true;
+
+        if (!wasCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onDelete",
+              status: "skipped",
+              reason: "not_counted",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 3) Post must exist; if not, just flip ledger off and stop (with TTL)
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.idea.onDelete",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData?.reactionCounts?.idea ?? 0;
+        const next = Math.max(current - 1, 0);
+
+        // ---------------- WRITES ----------------
+        tx.update(postRef, {
+          "reactionCounts.idea": next,
+          "badges.mostInspiring": next >= ideaThreshold,
+        });
+
+        // ledger becomes inactive -> set TTL
+        tx.set(
+          ledgerRef,
+          {
+            active: false,
+            expiresAt: ledgerExpiresAt,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.idea.onDelete",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.idea.onDelete", {
+        eventId,
+        reactionId,
+        postId,
+      });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsIdeaOnDeleteV2", {
+        eventId: event?.id ?? null,
+        reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err;
+    }
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.hot.onCreate (v2) --------------------
+exports.reactionsHotOnCreateV2 = onDocumentCreated(
+  "reactions/{reactionId}",
+  async (event) => {
+    try {
+      const reactionId = event?.params?.reactionId;
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
+
+      if (!postId || reactionType !== "hot") return null;
+
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.hot.onCreate: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
+
+      const markerId = `reactions.hot.onCreate__${eventId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
+
+      // processedEvents TTL
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      const { hot: hotThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // ---------------- READS (all first) ----------------
+
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const alreadyCounted = ledgerData?.active === true;
+
+        if (alreadyCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onCreate",
+              status: "skipped",
+              reason: "already_counted",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (!liveReactionSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "stale_create",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onCreate",
+              status: "skipped",
+              reason: "stale_create",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onCreate",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData?.reactionCounts?.hot ?? 0;
+        const next = current + 1;
+
+        // ---------------- WRITES ----------------
+        tx.update(postRef, {
+          "reactionCounts.hot": next,
+          lastHotAt: FieldValue.serverTimestamp(),
+          "badges.trending": next >= hotThreshold,
+        });
+
+        // ledger becomes active -> remove TTL field
+        tx.set(
+          ledgerRef,
+          {
+            active: true,
+            expiresAt: FieldValue.delete(),
+            postId,
+            reactionType,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.hot.onCreate",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.hot.onCreate", {
+        eventId,
+        reactionId,
+        postId,
+      });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsHotOnCreateV2", {
+        eventId: event?.id ?? null,
+        reactionId: event?.params?.reactionId ?? null,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err;
+    }
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.hot.onDelete (v2) --------------------
+exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
+  "reactions/{reactionId}",
+  async (event) => {
+    try {
+      const reactionId = event?.params?.reactionId;
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactionType = data?.reactionType;
+
+      if (!postId || reactionType !== "hot") return null;
+
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.hot.onDelete: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
+
+      const markerId = `reactions.hot.onDelete__${eventId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
+
+      // processedEvents TTL
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      const { hot: hotThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // ---------------- READS (all first) ----------------
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        // stale-delete: if reaction exists again -> skip decrement
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (liveReactionSnap.exists) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onDelete",
+              status: "skipped",
+              reason: "stale_delete",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // ledger: only decrement if counted (and matches this post/type)
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+
+        const wasCounted = ledgerData?.active === true;
+
+        // optional sanity: avoid decrement if ledger belongs to other post/type
+        const ledgerPostId = ledgerData?.postId ?? null;
+        const ledgerType = ledgerData?.reactionType ?? null;
+        const ledgerMismatch =
+          (ledgerPostId && ledgerPostId !== postId) ||
+          (ledgerType && ledgerType !== reactionType);
+
+        if (!wasCounted || ledgerMismatch) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onDelete",
+              status: "skipped",
+              reason: !wasCounted ? "not_counted" : "ledger_mismatch",
+              postId,
+              reactionId,
+              reactionType,
+              ledgerPostId,
+              ledgerType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.hot.onDelete",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const current = postData?.reactionCounts?.hot ?? 0;
+        const next = Math.max(current - 1, 0);
+
+        const update = {
+          "reactionCounts.hot": next,
+        };
+
+        if (next < hotThreshold) {
+          update["badges.trending"] = false;
+        }
+
+        // ---------------- WRITES ----------------
+        tx.update(postRef, update);
+
+        // ledger becomes inactive -> set TTL
+        tx.set(
+          ledgerRef,
+          {
+            active: false,
+            expiresAt: ledgerExpiresAt,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.hot.onDelete",
+            status: "applied",
+            reason: null,
+            postId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.hot.onDelete", {
+        eventId,
+        reactionId,
+        postId,
+      });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsHotOnDeleteV2", {
+        eventId: event?.id ?? null,
+        reactionId: event?.params?.reactionId ?? null,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err;
+    }
+  }
+);
+
+// -------------------- SCHEDULER cleanupExpiredPosts (v2) --------------------
 exports.cleanupExpiredPostsV2 = onSchedule(
   {
     schedule: "every 24 hours",
@@ -487,8 +1396,8 @@ exports.cleanupExpiredPostsV2 = onSchedule(
     timeoutSeconds: 120,
   },
   async () => {
-    const now = admin.firestore.Timestamp.now();
-    const cutoff = admin.firestore.Timestamp.fromMillis(
+    const now = Timestamp.now();
+    const cutoff = Timestamp.fromMillis(
       now.toMillis() - 30 * 24 * 60 * 60 * 1000
     );
 
@@ -517,5 +1426,740 @@ exports.cleanupExpiredPostsV2 = onSchedule(
     }
 
     return null;
+  }
+);
+
+// -------------------- SCHEDULER expireTrendingPosts (v2) --------------------
+exports.expireTrendingPostsV2 = onSchedule(
+  {
+    schedule: "every 24 hours",
+    timeZone: "Europe/Belgrade",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+  },
+  async () => {
+    const DAYS = 7;
+    const cutoffDate = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
+    const cutoffTs = Timestamp.fromDate(cutoffDate);
+
+    let totalUpdated = 0;
+    let totalBatches = 0;
+
+    async function processQuery(baseQuery, reason) {
+      let query = baseQuery;
+
+      while (true) {
+        const snap = await query.get();
+        if (snap.empty) break;
+
+        const batch = db.batch();
+
+        snap.docs.forEach((doc) => {
+          batch.update(doc.ref, { "badges.trending": false });
+        });
+
+        await batch.commit();
+
+        totalUpdated += snap.size;
+        totalBatches += 1;
+
+        const lastDoc = snap.docs[snap.docs.length - 1];
+        query = baseQuery.startAfter(lastDoc);
+      }
+
+      console.log("[ok] expireTrendingPostsV2 batch run", {
+        reason,
+        updatedSoFar: totalUpdated,
+        batchesSoFar: totalBatches,
+      });
+    }
+
+    const expiredQuery = db
+      .collection("posts")
+      .where("badges.trending", "==", true)
+      .where("lastHotAt", "<", cutoffTs)
+      .orderBy("lastHotAt", "asc")
+      .limit(400);
+
+    const missingLastHotAtQuery = db
+      .collection("posts")
+      .where("badges.trending", "==", true)
+      .where("lastHotAt", "==", null)
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(400);
+
+    await processQuery(expiredQuery, "expired");
+    await processQuery(missingLastHotAtQuery, "missing_lastHotAt");
+
+    console.log("[ok] expireTrendingPostsV2 done", {
+      cutoff: cutoffDate.toISOString(),
+      totalUpdated,
+      totalBatches,
+    });
+
+    return null;
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.powerup.onCreate (v2) --------------------
+exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
+  "reactions/{reactionId}",
+  async (event) => {
+    const reactionId = event?.params?.reactionId;
+
+    try {
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactorId = data?.userId;
+      const reactionType = data?.reactionType;
+
+      if (reactionType !== "powerup") return null;
+
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.powerup.onCreate: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      const markerId = `reactions.powerup.onCreate__${eventId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      // processedEvents TTL
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      if (!postId || !reactorId) {
+        await markerRef.set(
+          {
+            type: "reactions.powerup.onCreate",
+            status: "skipped",
+            reason: "missing_fields",
+            postId: postId ?? null,
+            reactorId: reactorId ?? null,
+            authorId: null,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
+
+      // Ledger: source-of-truth da li je reaction vec uracunat
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
+
+      const { powerup: powerupThreshold } = await getReactionThresholds();
+
+      await db.runTransaction(async (tx) => {
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        // A) Ledger state (da li je vec uracunat)
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const alreadyCounted = ledgerData?.active === true;
+
+        if (alreadyCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "already_counted",
+              postId,
+              reactorId,
+              authorId: ledgerData?.authorId ?? null,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // B) Stale-create guard: reaction doc mora jos da postoji
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (!liveReactionSnap.exists) {
+          // Nista nije uracunato, ledger ostaje inactive + TTL
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "stale_create",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "stale_create",
+              postId,
+              reactorId,
+              authorId: null,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // C) Post mora da postoji
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactorId,
+              authorId: null,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const postData = postSnap.data() || {};
+        const authorId = postData?.userId ?? null;
+
+        if (!authorId) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "author_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "skipped",
+              reason: "author_missing",
+              postId,
+              reactorId,
+              authorId: null,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const isSelf = reactorId === authorId;
+
+        // userStats se cita samo ako nije self
+        const userStatsRef = db.collection("userStats").doc(authorId);
+        const userPublicRef = db.collection("users").doc(authorId);
+
+        let userStatsData = {};
+        if (!isSelf) {
+          const userStatsSnap = await tx.get(userStatsRef);
+          userStatsData = userStatsSnap.exists
+            ? userStatsSnap.data() || {}
+            : {};
+        }
+
+        // ---------------- WRITES ----------------
+
+        // Stamp authorId (safe update, ne moze resurrect)
+        tx.update(reactionRef, { authorId });
+
+        // Self-powerup: ne uracunava se + ledger inactive + TTL
+        if (isSelf) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              postId,
+              reactorId,
+              authorId,
+              reactionType,
+              lastEventId: eventId,
+              lastReason: "self_powerup_rejected",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onCreate",
+              status: "rejected",
+              reason: "self_powerup_rejected",
+              postId,
+              reactorId,
+              authorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 1) Post aggregate (+1)
+        tx.update(postRef, {
+          "reactionCounts.powerup": FieldValue.increment(1),
+        });
+
+        // 2) Author aggregate (+1) + badge threshold
+        const currentTotal = userStatsData?.powerupsTotal ?? 0;
+        const nextTotal = currentTotal + 1;
+
+        const alreadyTop = userStatsData?.badges?.topContributor === true;
+        const shouldSetTop =
+          !alreadyTop &&
+          currentTotal < powerupThreshold &&
+          nextTotal >= powerupThreshold;
+
+        const patch = { powerupsTotal: nextTotal };
+
+        if (shouldSetTop) {
+          patch.badges = {
+            ...(userStatsData?.badges || {}),
+            topContributor: true,
+          };
+        }
+
+        tx.set(userStatsRef, patch, { merge: true });
+
+        if (shouldSetTop) {
+          // NESTED (avoid literal key)
+          tx.set(
+            userPublicRef,
+            { badges: { topContributor: true } },
+            { merge: true }
+          );
+        }
+
+        // 3) Ledger: sad JE uracunato -> remove TTL field
+        tx.set(
+          ledgerRef,
+          {
+            active: true,
+            expiresAt: FieldValue.delete(),
+            postId,
+            reactorId,
+            authorId,
+            reactionType,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // Marker applied
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.powerup.onCreate",
+            status: "applied",
+            reason: null,
+            postId,
+            reactorId,
+            authorId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.powerup.onCreate", {
+        eventId,
+        reactionId,
+        postId,
+      });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsPowerupOnCreateV2", {
+        eventId: event?.id ?? null,
+        reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err;
+    }
+  }
+);
+
+// -------------------- FIRESTORE TRIGGER: reactions.powerup.onDelete (v2) --------------------
+exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
+  "reactions/{reactionId}",
+  async (event) => {
+    const reactionId = event?.params?.reactionId;
+
+    try {
+      if (!reactionId) return null;
+
+      const data = event.data?.data() || {};
+      const postId = data?.postId;
+      const reactorId = data?.userId;
+      const reactionType = data?.reactionType;
+
+      const stampedAuthorId = data?.authorId ?? null;
+
+      if (reactionType !== "powerup") return null;
+
+      const eventId = event?.id;
+      if (!eventId) {
+        console.warn("[warn] reactions.powerup.onDelete: missing event.id", {
+          reactionId,
+          postId,
+        });
+        return null;
+      }
+
+      const markerId = `reactions.powerup.onDelete__${eventId}`;
+      const markerRef = db.collection("processedEvents").doc(markerId);
+
+      // processedEvents TTL
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      // ledger TTL (only when active:false)
+      const ledgerExpiresAt = Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      );
+
+      if (!postId || !reactorId) {
+        await markerRef.set(
+          {
+            type: "reactions.powerup.onDelete",
+            status: "skipped",
+            reason: "missing_fields",
+            postId: postId ?? null,
+            reactorId: reactorId ?? null,
+            authorId: stampedAuthorId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+        return null;
+      }
+
+      const postRef = db.collection("posts").doc(postId);
+      const reactionRef = db.collection("reactions").doc(reactionId);
+      const ledgerRef = db.collection("reactionLedger").doc(reactionId);
+
+      await db.runTransaction(async (tx) => {
+        // ---------------- READS (all first) ----------------
+
+        // 0) Idempotency per event
+        const markerSnap = await tx.get(markerRef);
+        if (markerSnap.exists) return;
+
+        // 1) Stale-delete guard: if reaction exists again, skip decrement
+        const liveReactionSnap = await tx.get(reactionRef);
+        if (liveReactionSnap.exists) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: "stale_delete",
+              postId,
+              reactorId,
+              authorId: stampedAuthorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 2) Ledger: only decrement if it was counted
+        const ledgerSnap = await tx.get(ledgerRef);
+        const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+        const wasCounted = ledgerData?.active === true;
+
+        if (!wasCounted) {
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: "not_counted",
+              postId,
+              reactorId,
+              authorId: ledgerData?.authorId ?? stampedAuthorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // 3) Determine authorId (ledger > stamped > post.userId)
+        let authorId = ledgerData?.authorId ?? stampedAuthorId ?? null;
+
+        const postSnap = await tx.get(postRef);
+        const postExists = postSnap.exists;
+        const postData = postExists ? postSnap.data() || {} : null;
+
+        if (!authorId && postExists) authorId = postData?.userId ?? null;
+
+        // If we cannot resolve authorId, we still MUST turn ledger off (with TTL)
+        if (!authorId) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              lastEventId: eventId,
+              lastReason: postExists ? "author_missing" : "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: postExists ? "author_missing" : "post_missing",
+              postId,
+              reactorId,
+              authorId: null,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // Self guard (safety) -> ledger off with TTL
+        if (reactorId === authorId) {
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              lastEventId: eventId,
+              lastReason: "self_powerup_rejected",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "rejected",
+              reason: "self_powerup_rejected",
+              postId,
+              reactorId,
+              authorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        const userStatsRef = db.collection("userStats").doc(authorId);
+        const userStatsSnap = await tx.get(userStatsRef);
+        const userStatsData = userStatsSnap.exists
+          ? userStatsSnap.data() || {}
+          : {};
+
+        // ---------------- WRITES ----------------
+
+        // A) Decrement post aggregate only if post exists
+        if (postExists) {
+          const currentPostPowerups = postData?.reactionCounts?.powerup ?? 0;
+          const nextPostPowerups = Math.max(currentPostPowerups - 1, 0);
+
+          tx.update(postRef, { "reactionCounts.powerup": nextPostPowerups });
+        } else {
+          // post missing, but reaction was counted -> ledger must go off (with TTL)
+          tx.set(
+            ledgerRef,
+            {
+              active: false,
+              expiresAt: ledgerExpiresAt,
+              lastEventId: eventId,
+              lastReason: "post_missing",
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          tx.set(
+            markerRef,
+            {
+              type: "reactions.powerup.onDelete",
+              status: "skipped",
+              reason: "post_missing",
+              postId,
+              reactorId,
+              authorId,
+              reactionId,
+              reactionType,
+              eventId,
+              processedAt: FieldValue.serverTimestamp(),
+              expiresAt,
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        // B) Decrement author aggregate (clamp 0) - latch badges
+        const currentTotal = userStatsData?.powerupsTotal ?? 0;
+        const nextTotal = Math.max(currentTotal - 1, 0);
+        tx.set(userStatsRef, { powerupsTotal: nextTotal }, { merge: true });
+
+        // C) Ledger: no longer counted -> set TTL
+        tx.set(
+          ledgerRef,
+          {
+            active: false,
+            expiresAt: ledgerExpiresAt,
+            lastEventId: eventId,
+            lastReason: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // Marker applied
+        tx.set(
+          markerRef,
+          {
+            type: "reactions.powerup.onDelete",
+            status: "applied",
+            reason: null,
+            postId,
+            reactorId,
+            authorId,
+            reactionId,
+            reactionType,
+            eventId,
+            processedAt: FieldValue.serverTimestamp(),
+            expiresAt,
+          },
+          { merge: true }
+        );
+      });
+
+      console.log("[ok] reactions.powerup.onDelete", {
+        eventId,
+        reactionId,
+        postId,
+      });
+      return null;
+    } catch (err) {
+      console.error("[err] reactionsPowerupOnDeleteV2", {
+        eventId: event?.id ?? null,
+        reactionId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      throw err;
+    }
   }
 );

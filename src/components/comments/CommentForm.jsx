@@ -103,17 +103,20 @@ const CommentForm = ({
       className="mt-6"
     >
       <textarea
-        ref={textareaRef}
-        placeholder="Add comment..."
-        className="w-full border rounded-lg p-2 mb-2 focus:outline-none"
-        rows={3}
-        value={commentContent}
-        onChange={(e) => {
-          setCommentContent(e.target.value);
-          if (error) setError("");
-        }}
-        maxLength={500}
-      ></textarea>
+    id={`comment-${postId}${parentId ? `-${parentId}` : ""}`}
+    name="comment"
+    ref={textareaRef}
+    placeholder="Add comment..."
+    className="w-full border rounded-lg p-2 mb-2 focus:outline-none"
+    rows={3}
+    value={commentContent}
+    onChange={(e) => {
+      setCommentContent(e.target.value);
+      if (error) setError("");
+    }}
+    maxLength={500}
+    autoComplete="off"
+  />
       {(!isCommentValid || error) && (
         <p className="text-gray-500 text-sm mb-1">
           {error || "Comment cannot be empty."}

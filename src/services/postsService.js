@@ -6,35 +6,75 @@ import {
   orderBy,
   startAfter,
   limit,
+  startAt,
+  endAt,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
 /**
  * @helper buildPostsQuery
  *
- * Kreira Firestore upit za listanje postova korisnika sa podrskom za filtere i paginaciju.
+ * Gradi Firestore upit za MyPosts listu sa podrskom za filtere, paginaciju
+ * i opcioni server-side prefix search po naslovu (`title_lc`).
  *
- * - Obavezno filtrira po autoru (`userId`) i ignorise obrisane (`deleted:false`)
- * - Sortira po datumu kreiranja (najnoviji prvi)
- * - Filter "active" prikazuje samo otkljucane postove
- * - Filter "locked" prikazuje samo zakljucane postove
- * - `afterDoc` omogucava paginaciju (startAfter kursor)
- * - `pageSize` kontrolise limit (default 10)
+ * Rezimi rada:
+ * - Search mod (kada `q.trim().length > 0`):
+ *   - Filtrira po `userId` i `deleted:false`
+ *   - Sortira po `title_lc` (case-insensitive prefix search)
+ *   - Koristi `startAt(normalizedQ)` + `endAt(normalizedQ + "\uf8ff")`
+ *   - Ignorise dodatne filtere (`active` / `locked`) i uvek vraca sve neobrisane postove ciji naslov pocinje na `q`
+ *
+ * - Normal mod (kada je `q` prazan ili samo whitespace):
+ *   - Filtrira po `userId` i `deleted:false`
+ *   - Sortira po `createdAt` (desc) — najnoviji prvi
+ *   - Primjenjuje filtere:
+ *     - `filter === "active"`  → `locked:false`
+ *     - `filter === "locked"`  → `locked:true`
+ *
+ * Paginacija:
+ * - `afterDoc` (DocumentSnapshot) se koristi kao kursor preko `startAfter`
+ * - `pageSize` kontrolise `limit` (default 10)
  *
  * @param {Object} options
  * @param {string} options.userId - ID korisnika ciji se postovi prikazuju
- * @param {"all"|"active"|"locked"} options.filter - Aktivni filter
- * @param {DocumentSnapshot|null} [options.afterDoc=null] - Kursor za paginaciju
+ * @param {"all"|"active"|"locked"} options.filter - Aktivni filter u normal modu (ignorise se u search modu)
+ * @param {import("firebase/firestore").DocumentSnapshot|null} [options.afterDoc=null] - Kursor za paginaciju
  * @param {number} [options.pageSize=10] - Broj postova po strani
+ * @param {string} [options.q=""] - Tekst za server-side prefix search po `title_lc`
  *
- * @returns {query} Firestore Query objekat spreman za `getDocs` ili `onSnapshot`
+ * @returns {import("firebase/firestore").Query} Firestore Query spreman za `getDocs`
  */
+
 const buildPostsQuery = ({
   userId,
   filter,
   afterDoc = null,
   pageSize = 10,
+  q = "",
 }) => {
+  const collectionRef = collection(db, "posts");
+  const trimmedQ = q.trim();
+
+  if (trimmedQ.length > 0) {
+    const normalizedQ = trimmedQ.toLowerCase();
+
+    const constraints = [
+      where("userId", "==", userId),
+      where("deleted", "==", false),
+      orderBy("title_lc"),
+      startAt(normalizedQ),
+      endAt(normalizedQ + "\uf8ff"),
+    ];
+
+    if (afterDoc) {
+      constraints.push(startAfter(afterDoc));
+    }
+
+    constraints.push(limit(pageSize));
+
+    return query(collectionRef, ...constraints);
+  }
+
   // Osnovni uslovi: autor + neobrisani + sortiranje po datumu
   const constraints = [
     where("userId", "==", userId),
@@ -52,7 +92,7 @@ const buildPostsQuery = ({
   // Limitiraj broj rezultata
   constraints.push(limit(pageSize));
 
-  return query(collection(db, "posts"), ...constraints);
+  return query(collectionRef, ...constraints);
 };
 
 export default buildPostsQuery;

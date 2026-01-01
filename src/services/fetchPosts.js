@@ -9,6 +9,8 @@ import {
   where,
 } from "firebase/firestore";
 
+import { normalizePostDoc } from "../mappers/posts/normalizePostDoc";
+
 /**
  * Dohvata sve aktivne postove iz Firestore baze, sortirane po datumu kreiranja (najnoviji prvi).
  *
@@ -76,9 +78,7 @@ export const getPostById = async (postId) => {
 
     if (!snap.exists()) return null;
 
-    const post = { id: snap.id, ...snap.data() };
-
-    return post;
+    return normalizePostDoc(snap);
   } catch (error) {
     console.log("Error fetching post:", error);
     throw new Error("Failed to fetch post.");

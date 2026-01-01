@@ -1,16 +1,20 @@
 import { useContext, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
 
 import { AuthContext } from "../context/AuthContext";
 
-import { getPostById } from "../services/fetchPosts";
+import { httpsCallable } from "firebase/functions";
+import { doc, onSnapshot } from "firebase/firestore";
+import { functions, db } from "../firebase";
+
 import { getUserById } from "../services/userService";
 import { submitReport } from "../services/reportService";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { useCheckSavedStatus } from "../hooks/useCheckSavedStatus";
+import { normalizePostDoc } from "../mappers/posts/normalizePostDoc";
 
 import AuthorLink from "../components/AuthorLink";
 import ReactionSummary from "../components/reactions/ReactionSummary";
@@ -29,85 +33,112 @@ import {
   showSuccessToast,
 } from "../utils/toastUtils";
 
-/**
- * @component PostDetails
- * Prikazuje detalje blog posta na osnovu ID-ja iz URL-a.
- *
- * - Ucitava podatke o postu (getPostById) i autoru (getUserById) asinhrono
- * - Prikazuje naslov, sadrzaj, informacije o autoru, tagove, reakcije i komentare
- * - Koristi BadgeModal za prikaz PNG bedzeva i ShieldIcon za oznaku Top Contributor-a
- * - Omogucava snimanje/uklanjanje posta iz sacuvanih (saved posts)
- * - Reakcije i komentari su onemoguceni ako je post zakljucan
- * - Prikazuje bedzeve (Most Inspiring, Trending) i datum zakljucavanja ako je primenljivo
- *
- * @returns {JSX.Element} Komponenta sa detaljima posta ili fallback prikazom
- */
-
 const PostDetails = () => {
-  const { postId } = useParams(); // ID posta iz URL parametara
+  const { postId } = useParams();
+  const navigate = useNavigate();
 
-  // State za glavni prikaz posta i ucitavanje
   const [post, setPost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
 
-  // State za podatke o autoru
   const [author, setAuthor] = useState(null);
 
   const { user } = useContext(AuthContext);
   const currentUserId = user?.uid ?? null;
   const postAuthorId = post?.userId ?? null;
+  const isAdmin = user?.isAdmin === true;
+  const isAuthor =
+    currentUserId && postAuthorId && currentUserId === postAuthorId;
+  const canManagePost = isAuthor || isAdmin;
 
-  const lockedDate = post?.lockedAt?.toDate().toLocaleDateString();
+  const lockedDate = post?.lockedAt?.toDate?.()?.toLocaleDateString?.() ?? null;
 
-  // State za modale vezane za bedzeve
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
 
-  // Hook koji proverava da li je post sacuvan od strane trenutnog korisnika (Firestore)
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
-  // Dohvata podatke o postu pri prvom renderu ili promeni postId
+  // Post subscription: source of truth je posts/{postId}
+  // getPostById ostaje da bi zadrzao isti normalize/shape kao svuda
   useEffect(() => {
-    const fetchPost = async () => {
-      try {
-        const postData = await getPostById(postId);
+    setIsLoading(true);
+    let cancelled = false;
+
+    const postRef = doc(db, "posts", postId);
+
+    const unsub = onSnapshot(
+      postRef,
+      (snap) => {
+        if (cancelled) return;
+
+        if (!snap.exists()) {
+          setPost(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const postData = normalizePostDoc(snap);
+        if (!postData) {
+          setPost(null);
+          setIsLoading(false);
+          return;
+        }
+
         setPost(postData);
-      } catch (error) {
-        console.error("Error fetching post:", error);
-      } finally {
-        // Zatvaramo loading state bez obzira na uspeh/gresku
+        setIsLoading(false);
+      },
+      (error) => {
+        if (cancelled) return;
+        console.error("PostDetails onSnapshot error:", error);
         setIsLoading(false);
       }
+    );
+
+    return () => {
+      cancelled = true;
+      unsub();
     };
-
-    fetchPost();
   }, [postId]);
-
-  // Kada je post ucitan, dohvatamo podatke o autoru
+  // Author fetch: zavisi samo od userId (da ne refetchuje autora na svaku reakciju)
   useEffect(() => {
-    if (post?.userId) {
-      const fetchUser = async () => {
-        const data = await getUserById(post.userId);
-        setAuthor(data);
-      };
-      fetchUser();
-    }
-  }, [post]);
+    if (!post?.userId) return;
 
-  // Fallback prikaz dok traje ucitavanje ili ako post ne postoji
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await getUserById(post.userId);
+        if (!cancelled) setAuthor(data);
+      } catch (e) {
+        console.error("Error fetching author:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [post?.userId]);
+
   if (isLoading) return <Spinner />;
   if (!post) return <p>Post not found.</p>;
 
-  // Menja status sacuvanosti posta (toggle)
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
-    const newState = await toggleSavePost(user, post.id, isSaved);
+
+    const currentUpdated = post.updatedAt || post.createdAt;
+
+    const snapshot = {
+      postUpdatedAtAtSave: currentUpdated,
+      postTitleAtSave: post.title,
+    };
+
+    const newState = await toggleSavePost(user, post.id, isSaved, snapshot);
     setIsSaved(newState);
   };
 
-  // Otvara modal sa PNG bedzevima za post (sprečava bubbling ka parent elementima)
   const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
     setSelectedBadge(badgeKey);
@@ -150,6 +181,28 @@ const PostDetails = () => {
 
   const onCancelReport = () => setShowReportModal(false);
 
+  const handleAdminHardDelete = async () => {
+    if (!isAdmin || isDeletingPost) {
+      return;
+    }
+
+    try {
+      setIsDeletingPost(true);
+      const deletePost = httpsCallable(functions, "deletePostCascade");
+      await deletePost({ postId });
+      showSuccessToast("Post permanently deleted.");
+      setDeleteModalOpen(false);
+      navigate("/dashboard/moderation");
+    } catch (error) {
+      console.error("Delete error:", error);
+      showErrorToast("Failed to delete post.");
+    } finally {
+      setIsDeletingPost(false);
+    }
+  };
+
+  // Ova funkcija ti vise realno ne treba za reakcije kad imas onSnapshot,
+  // ali je ostavljam da ne diramo ostalu logiku (moze da posluzi za manuelni refresh ako zelis).
   return (
     <div
       className={`${
@@ -227,28 +280,36 @@ const PostDetails = () => {
             <span className="text-gray-600">📂 {post?.category}</span>
           </div>
 
-          {/* Sadrzaj posta */}
-          <div className="mt-6 text-gray-700 whitespace-pre-wrap leading-relaxed">
+          {/* Description (summary) */}
+          {post?.description && (
+           <p className="mt-5 text-gray-700 text-base leading-relaxed break-words overflow-x-hidden">
+              {post.description}
+            </p>
+          )}
+
+          {/* Content */}
+          <div className="mt-6 text-gray-800 whitespace-pre-wrap break-words leading-relaxed overflow-x-hidden">
             {post?.content}
           </div>
 
           {/* Tagovi */}
-          {post?.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-6">
-              {post.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
-                >
-                  #{tag.text}
-                </span>
-              ))}
-            </div>
-          )}
+          {post.tags.map((tag, index) => (
+            <span
+              key={`${tag.text}-${index}`}
+              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
+            >
+              #{tag.text}
+            </span>
+          ))}
 
           {/* Reakcije i dugme za snimanje */}
           <div className="mt-6 flex items-center justify-between border-t pt-4">
-            <ReactionSummary postId={post.id} locked={post.locked} />
+            <ReactionSummary
+              postId={post.id}
+              locked={post.locked}
+              reactionCounts={post.reactionCounts}
+            />
+
             <button
               onClick={handleSaveToggle}
               title={isSaved ? "Remove from saved" : "Save this post"}
@@ -271,6 +332,29 @@ const PostDetails = () => {
           >
             Report
           </button>
+
+          {/* Admin / author controls (WIP) */}
+          {canManagePost && (
+            <div className="mt-4 flex gap-2 border-b pb-4">
+              {/* Ovde ce kasnije ici i owner kontrole, ako ih budemo dodavali */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalOpen(true)}
+                  disabled={isDeletingPost}
+                  className={`px-3 py-1 text-sm rounded-md bg-red-600 text-white transition ${
+                    isDeletingPost
+                      ? "opacity-60 cursor-not-allowed"
+                      : "hover:bg-red-700"
+                  }`}
+                >
+                  {isDeletingPost
+                    ? "Deleting..."
+                    : "Delete permanently (admin)"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sekcija komentara */}
@@ -298,14 +382,33 @@ const PostDetails = () => {
         onClose={() => setShowTopContributorModal(false)}
         authorBadge="topContributor"
       />
+
       {/* Modal za potvrdu prijave */}
       <ConfirmModal
         isOpen={showReportModal}
         title="Are you sure you want to report this post?"
         message="This will notify moderators about this post."
-        confirmText={"Yes"}
+        confirmText="Yes"
         onCancel={onCancelReport}
         onConfirm={onConfirmReport}
+      />
+
+      {/* Modal za admin hard delete posta */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Post Permanently"
+        message="Are you sure you want to permanently delete this post? This action cannot be undone."
+        confirmText={isDeletingPost ? "Deleting..." : "Delete"}
+        confirmButtonClass={`bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200 ${
+          isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
+        }`}
+        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
+        onCancel={() => {
+          if (!isDeletingPost) {
+            setDeleteModalOpen(false);
+          }
+        }}
+        onConfirm={handleAdminHardDelete}
       />
     </div>
   );

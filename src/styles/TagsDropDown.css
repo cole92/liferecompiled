@@ -1,85 +1,73 @@
-/* ============================================================
-   Tags Input i Dropdown Meni - Flexbox sa centriranjem svih redova
-=============================================================== */
-
-/* Wrapper za celu komponentu (ReactTags + dropdown) */
 .tags-input-wrapper {
   position: relative;
   width: 100%;
 }
 
-/* Dropdown kontejner sa filtriranim tagovima */
 .dropdown-container {
-  position: absolute;                /* Pozicioniramo apsolutno unutar .tags-input-wrapper */
-  top: calc(100% + 20px);             /* Dropdown se pojavljuje 20px ispod input polja */
-  left: 12%;                        /* Podešeno poravnanje – prilagodi po potrebi */
-  width: 75%;                       /* Širina dropdowna – prilagodi prema dizajnu */
-  max-height: 300px;                /* Maksimalna visina dropdowna */
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  max-height: 300px;
   overflow-y: auto;
-  background-color: #fff;
+  background-color: #ffffff;
   border: 1px solid #ccc;
-  border-radius: 4px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
   z-index: 1000;
-  padding: 10px;                    /* Unutrašnji padding */
+  padding: 10px;
 }
 
-/* Pojedinačna kategorija unutar dropdowna */
 .dropdown-category {
-  margin-bottom: 15px;              /* Razmak između kategorija */
+  margin-bottom: 15px;
 }
 
-/* Naziv kategorije */
 .category-name {
-  font-size: 14px;
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #333;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #111827;
 }
 
-/* Kontejner za tag dugmad koristeći Flexbox */
 .tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  justify-content: center;          /* Svi redovi centrirani */
+  gap: 6px;
+  justify-content: center;
 }
 
-/* Stilovi za pojedinačno tag dugme */
 .tag-btn {
-  padding: 5px 10px;
+  padding: 6px 10px;
   font-size: 12px;
-  background-color: #f1f1f1;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
   cursor: pointer;
-  white-space: nowrap;              /* Sprečava prelamanje teksta */
+  white-space: nowrap;
   text-align: center;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.15s ease;
+  color: #111827;
 }
 
-/* Hover efekat za tag dugme */
 .tag-btn:hover {
-  background-color: #e7e7e7;
+  background-color: #e5e7eb;
 }
 
-/* Separator između kategorija */
 .divider {
   border: 0;
   height: 1px;
-  background-color: #ddd;
+  background-color: #e5e7eb;
   margin: 10px 0;
 }
 
-/* Responsive podešavanja za manje ekrane */
 @media (max-width: 768px) {
   .dropdown-container {
-    left: 5%;                     /* Prilagođeno pozicioniranje */
-    width: 90%;                   /* Dropdown zauzima većinu širine ekrana */
+    width: 100%;
+    left: 0;
   }
-  
+
   .tag-btn {
-    padding: 5px 8px;
+    padding: 6px 9px;
     font-size: 11px;
   }
 }

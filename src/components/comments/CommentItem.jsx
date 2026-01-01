@@ -91,12 +91,18 @@ const CommentItem = ({
   const { user: currentUserCtx } = useContext(AuthContext);
   const currentUser = currentUserCtx || auth.currentUser;
 
+  const currentUserId = currentUser?.uid ?? null;
+  const isAuthor = !!currentUserId && currentUserId === userId;
+  const isAdmin = currentUserCtx?.isAdmin === true;
+  const canManageComment = isAuthor || isAdmin;
+
   const isRoot = depth === 0;
   const hintShownRef = useRef(false);
 
   const isDeleted = deleted;
   const tsDate = timestamp?.toDate?.();
   const editedDate = editedAt?.toDate?.();
+  const editId = `comment-edit-${commentId}`;
 
   // Edit dozvoljen samo 10 minuta od kreiranja
   const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
@@ -278,14 +284,22 @@ const CommentItem = ({
             {user?.badges?.topContributor && (
               <div
                 title="Top Contributor · Code-powered"
+                role="button"
+                tabIndex={0}
+                aria-label="Show Top Contributor badge info"
                 className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (disableBadgeModal) return;
                   setShowTopContributorModal(true);
                 }}
-                role="button"
-                aria-label="Show Top Contributor badge info"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (disableBadgeModal) return;
+                    setShowTopContributorModal(true);
+                  }
+                }}
               >
                 <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
               </div>
@@ -319,6 +333,8 @@ const CommentItem = ({
             {isEditing ? (
               <div>
                 <textarea
+                  id={editId}
+                  name="editedComment"
                   value={editedContent}
                   onChange={(e) => setEditedContent(e.target.value)}
                   className="w-full p-2 border rounded mt-2"
@@ -393,27 +409,30 @@ const CommentItem = ({
                   locked={locked}
                 />
 
-                {/* Akcije autora */}
-                {auth.currentUser?.uid === userId && !locked && (
+                {/* Akcije autora / admina */}
+                {/* Edit: samo autor i samo dok post nije zakljucan */}
+                {isAuthor && !locked && !isEditing && canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!canEdit) {
+                        showInfoToast(
+                          "You can edit only within 10 minutes after posting"
+                        );
+                        return;
+                      }
+                      setIsEditing(true);
+                    }}
+                    className="hover:underline"
+                    aria-label="Edit comment"
+                  >
+                    Edit
+                  </button>
+                )}
+
+                {/* Delete: autor ili admin; admin moze cak i kada je post locked */}
+                {canManageComment && (
                   <>
-                    {!isEditing && canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!canEdit) {
-                            showInfoToast(
-                              "You can edit only within 10 minutes after posting"
-                            );
-                            return;
-                          }
-                          setIsEditing(true);
-                        }}
-                        className="hover:underline"
-                        aria-label="Edit comment"
-                      >
-                        Edit
-                      </button>
-                    )}
                     {!isDeleting ? (
                       <button
                         type="button"

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   collection,
   doc,
-  documentId,
   getCountFromServer,
   getDoc,
   getDocs,
@@ -26,38 +25,38 @@ import {
 /**
  * @component Profile
  *
- * Prikaz javnog ili sopstvenog profila korisnika uz osnovne metrike.
- *
- * - Dohvata user dokument iz Firestore na osnovu uid-a
- * - Prikazuje ime, email, status, datum kreiranja i bio
- * - Racuna broj postova i ukupan broj reakcija
- * - Prikazuje Top 3 posta korisnika po broju reakcija
- * - UX: tokom loading-a prikazuje skeleton za avatar, ime/email i bio
- * - Datum "Member since" formatiran preko dayjs (DD MMMM 'YYYY)
- *
- * @returns {JSX.Element}
+ * Public ili own profil korisnika uz metrike:
+ * - Users doc: ime, email, status, createdAt, bio, profilePicture, badges
+ * - Posts count: count aktivnih postova (deleted == false)
+ * - Reactions received: sabiranje iz posts.reactionCounts (authoritative backend)
+ * - Top 3 posts: sortiranje po ukupnim reakcijama iz posts.reactionCounts
  */
-
 const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [postCount, setPostsCount] = useState(null);
   const [isCounting, setIsCounting] = useState(false);
+
   const [reactionsCount, setReactionsCount] = useState(null);
   const [isCountingReactions, setIsCountingReactions] = useState(false);
+
   const [isLoadingTop3, setIsLoadingTop3] = useState(false);
   const [top3, setTop3] = useState([]);
   const [errorTop3, setErrorTop3] = useState(null);
 
-  // DEV-ONLY: hardcode badge za vizuelni test
-  const isTopContributor = true;
-
   const auth = getAuth();
   const ownUid = auth.currentUser?.uid || null;
+
   const { uid } = useParams();
   const targetUid = uid || ownUid;
 
-  // Dohvati user dokument
+  const getPostReactionsTotal = (postData) => {
+    const rc = postData?.reactionCounts || {};
+    return (rc.idea || 0) + (rc.hot || 0) + (rc.powerup || 0);
+  };
+
+  // Fetch user doc
   useEffect(() => {
     if (!targetUid) {
       setLoading(false);
@@ -72,10 +71,11 @@ const Profile = () => {
         if (docSnap.exists()) {
           setUserData({ ...docSnap.data(), id: docSnap.id });
         } else {
-          console.log("No such document!");
+          setUserData(null);
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
+        setUserData(null);
       } finally {
         setLoading(false);
       }
@@ -84,16 +84,19 @@ const Profile = () => {
     fetchUserData();
   }, [targetUid]);
 
-  // Broj aktivnih postova
+  // Count active posts
   useEffect(() => {
     let cancelled = false;
 
     async function fetchCount() {
       if (!targetUid) {
-        setPostsCount(0);
-        setIsCounting(false);
+        if (!cancelled) {
+          setPostsCount(0);
+          setIsCounting(false);
+        }
         return;
       }
+
       setIsCounting(true);
 
       try {
@@ -103,6 +106,7 @@ const Profile = () => {
           where("userId", "==", targetUid),
           where("deleted", "==", false)
         );
+
         const snap = await getCountFromServer(q);
 
         if (!cancelled) {
@@ -122,16 +126,19 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Ukupan broj reakcija na sve postove korisnika
+  // Total reactions received (from posts.reactionCounts)
   useEffect(() => {
     let cancelled = false;
 
     async function fetchReactionsReceived() {
       if (!targetUid) {
-        setIsCountingReactions(false);
-        setReactionsCount(0);
+        if (!cancelled) {
+          setReactionsCount(0);
+          setIsCountingReactions(false);
+        }
         return;
       }
+
       setIsCountingReactions(true);
 
       try {
@@ -140,28 +147,13 @@ const Profile = () => {
           where("userId", "==", targetUid),
           where("deleted", "==", false)
         );
+
         const postSnap = await getDocs(postQ);
-        const postIds = postSnap.docs.map((d) => d.id);
 
-        if (postIds.length === 0) {
-          if (!cancelled) setReactionsCount(0);
-          return;
-        }
+        const total = postSnap.docs.reduce((sum, d) => {
+          return sum + getPostReactionsTotal(d.data());
+        }, 0);
 
-        // Chunk pristup zbog Firestore limita (max 10 ID-ova u "in" query)
-        const chunkSize = 10;
-        let total = 0;
-
-        for (let i = 0; i < postIds.length; i += chunkSize) {
-          const chunk = postIds.slice(i, i + chunkSize);
-
-          const reactionsQ = query(
-            collection(db, "reactions"),
-            where("postId", "in", chunk)
-          );
-          const snap = await getCountFromServer(reactionsQ);
-          total += snap.data().count || 0;
-        }
         if (!cancelled) setReactionsCount(total);
       } catch (err) {
         console.error("Reactions count failed", err);
@@ -177,16 +169,19 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Top 3 posta po broju reakcija
+  // Top 3 posts (by total reactions from posts.reactionCounts)
   useEffect(() => {
     let cancelled = false;
 
     async function fetchTop3() {
       if (!targetUid) {
-        setIsLoadingTop3(false);
-        setTop3([]);
+        if (!cancelled) {
+          setTop3([]);
+          setIsLoadingTop3(false);
+        }
         return;
       }
+
       setIsLoadingTop3(true);
       setErrorTop3(null);
 
@@ -196,72 +191,44 @@ const Profile = () => {
           where("userId", "==", targetUid),
           where("deleted", "==", false)
         );
+
         const postSnap = await getDocs(postsQuery);
-        const postIds = postSnap.docs.map((doc) => doc.id);
 
-        if (postIds.length === 0) {
-          if (!cancelled) setTop3([]);
-          return;
-        }
+        const posts = postSnap.docs.map((d) => {
+          const data = d.data();
+          const reactionsTotal = getPostReactionsTotal(data);
 
-        // Racunaj broj reakcija za svaki post
-        const counts = {};
-        for (const postId of postIds) {
-          const reactionsQ = query(
-            collection(db, "reactions"),
-            where("postId", "==", postId)
-          );
-          const reactionsSnap = await getCountFromServer(reactionsQ);
-          counts[postId] = reactionsSnap.data().count || 0;
-        }
+          return {
+            id: d.id,
+            ...data,
+            reactionsCount: reactionsTotal,
+          };
+        });
 
-        // Odredi top 3 ID-a po count-u
-        const pairs = Object.entries(counts).map(([postId, count]) => ({
-          postId,
-          count,
-        }));
-        pairs.sort((a, b) => b.count - a.count);
+        posts.sort((a, b) => (b.reactionsCount || 0) - (a.reactionsCount || 0));
 
-        const top3Ids = pairs.slice(0, 3).map((p) => p.postId);
-
-        if (top3Ids.length === 0) {
-          if (!cancelled) setTop3([]);
-          return;
-        }
-
-        // Dohvati detalje za top 3 posta
-        const postq = query(
-          collection(db, "posts"),
-          where(documentId(), "in", top3Ids)
-        );
-        const postsSnap = await getDocs(postq);
-
-        const topPosts = postsSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-          reactionsCount: counts[d.id] ?? 0,
-        }));
-
-        // Ponovo sortiraj prema broju reakcija
-        topPosts.sort((a, b) => b.reactionsCount - a.reactionsCount);
-
-        setTop3(topPosts);
+        if (!cancelled) setTop3(posts.slice(0, 3));
       } catch (err) {
-        console.log(err);
-        setErrorTop3(err.message ?? "Top3 failed");
+        console.error(err);
+        if (!cancelled) setErrorTop3(err?.message ?? "Top3 failed");
       } finally {
-        setIsLoadingTop3(false);
+        if (!cancelled) setIsLoadingTop3(false);
       }
     }
 
     fetchTop3();
+    return () => {
+      cancelled = true;
+    };
   }, [targetUid]);
 
   if (!loading && !userData) return <p>No user data found!</p>;
 
+  const isTopContributor = !!userData?.badges?.topContributor;
+
   return (
     <div className="text-center mb-4">
-      {/* HEADER: avatar + badge / oznaka */}
+      {/* HEADER: avatar + badge */}
       <div className="relative inline-block">
         {loading ? (
           <SkeletonCircle size={150} />
@@ -276,13 +243,12 @@ const Profile = () => {
           />
         )}
 
-        {/* Badge i .code-powered tek kad imamo podatke (da ne "skace") */}
         {!loading && isTopContributor && (
           <>
             <ShieldIcon className="absolute -top-2 -right-2 w-6 h-6 text-purple-800" />
             <p
               className="mt-2 text-sm font-semibold text-purple-800 italic cursor-default select-none"
-              title="Built with code ? (Placeholder dok ne smislimo tekst!)"
+              title="Top Contributor"
             >
               .code-powered
             </p>
@@ -290,7 +256,7 @@ const Profile = () => {
         )}
       </div>
 
-      {/* OSNOVNI PODACI: ime/email levo, member since/status desno */}
+      {/* BASIC INFO */}
       <div className="row mb-4 mt-4">
         <div className="col-md-6 text-center text-md-start">
           {loading ? (
@@ -327,9 +293,6 @@ const Profile = () => {
                 {userData.createdAt
                   ? dayjs(userData.createdAt.toDate()).format("DD MMMM 'YYYY")
                   : "---"}
-              </p>
-              <p className="cursor-default select-none">
-                Status: {userData.status}
               </p>
             </>
           )}

@@ -19,13 +19,13 @@ import SavedPosts from "./pages/dashboard/components/saved/SavedPosts";
 import Stats from "./pages/dashboard/Stats";
 import Trash from "./pages/dashboard/Trash";
 import Settings from "./pages/dashboard/settings/Settings";
+import ModerationPage from "./pages/dashboard/moderation/ModerationPage";
 // Stilovi
 import "./App.css";
 
-
 function App() {
   return (
-    <Layout>    
+    <Layout>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
@@ -40,6 +40,7 @@ function App() {
             <Route path="trash" element={<Trash />} />
             <Route path="create" element={<CreatePost />} />
             <Route path="edit/:postId" element={<EditPost />} />
+            <Route path="moderation" element={<ModerationPage />} />
           </Route>
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
@@ -49,7 +50,7 @@ function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
       {/*  ToastContainer: Komponenta za prikaz globalnih toast poruka*/}
-      <ToastContainer pauseOnFocusLoss={false} />
+      <ToastContainer pauseOnFocusLoss={false} pauseOnHover={false} />
     </Layout>
   );
 }

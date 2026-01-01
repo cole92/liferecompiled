@@ -26,27 +26,39 @@ import { toggleSavePost } from "../utils/savedPostUtils";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import "../styles/PostCard.css";
+
 /**
  * @component PostCard
- * Vizuelna kartica za prikaz blog posta sa interakcijama, statusima i dodatnim UX slojevima.
  *
- * - Prikazuje naslov, opis, autora, datum, tagove, kategoriju
- * - Ukljucuje reakcije, komentare, zakljucavanje, bedzeve i modale
- * - Prilagodjava se prikazu: regularni prikaz vs Trash mod
- * - Reakcije su deaktivirane ako je post zakljucan
- * - Prikazuje klikabilne bedzeve (💡, 🔥) i edukativni modal za reakcije
+ * Vizuelna kartica za prikaz jednog posta sa interakcijama i state indikatorima.
  *
- * @param {Object} post - Objekat koji sadrzi informacije o postu
- * @param {boolean} [showDeleteButton=false] - Prikaz dugmeta za Delete (van Trash moda)
- * @param {Function} [onDelete] - Callback za brisanje posta
- * @param {Function} [onRestore] - Callback za vracanje posta iz Trash-a
- * @param {Function} [onDeletePermanently] - Callback za trajno brisanje posta
- * @param {boolean} [isTrashMode=false] - Da li je prikaz u Trash modu
- * @param {boolean} [isMyPost=false] - Da li post pripada trenutnom korisniku
+ * Namena:
+ * - Prikazuje naslov, autora, opis, tagove i kategoriju
+ * - Rukuje reakcijama, komentarima, sacuvanim statusom i lock/trash stanjima
+ * - Prati unified Trash UX (daysLeft badge, Restore / Delete Permanently)
+ * - Odrzava Trending / Most Inspiring bedzeve i Top Contributor modal
+ * - Kada je `post.locked === true` post je efektivno read-only za reakcije i komentare
+ *
+ * Layout varijante:
+ * - Regularni prikaz (Home, MyPosts, Saved) – kartica je klikabilna i vodi na `/post/:id`
+ * - Trash mod – kartica nije klikabilna, prikazuje TTL badge i Trash akcije
+ * - MyPosts – prikazuje Edit dugme + auto-lock countdown prvih 7 dana
+ *
+ * Kontrola komentara:
+ * - `showCommentsThread === false` gasi prikaz Comments thread-a bez menjanja same Comments logike
+ *
+ * @param {Object} post - UI-safe post objekat (normalizovan + enriched author)
+ * @param {boolean} [showDeleteButton=false] - Prikaz Delete dugmeta (Dashboard lista, ne Trash)
+ * @param {Function} [onDelete] - Handler za soft delete (prebacaj u Trash)
+ * @param {Function} [onRestore] - Handler za restore iz Trash-a
+ * @param {Function} [onDeletePermanently] - Handler za hard delete (Cloud Function cascade)
+ * @param {boolean} [isTrashMode=false] - Da li kartica radi u Trash kontekstu
+ * @param {boolean} [isMyPost=false] - Da li post pripada trenutnom user-u
  * @param {number} [daysLeft] - Broj dana do trajnog brisanja (Trash mod)
- * @param {Function} [onLock] - Callback za zakljucavanje posta
+ * @param {Function} [onLock] - Handler za manuelno zakljucavanje posta
+ * @param {boolean} [showCommentsThread=true] - Kontrola da li se prikazuje Comments thread
  *
- * @returns {JSX.Element} Komponenta kartice posta sa dodatnim UX slojevima
+ * @returns {JSX.Element}
  */
 
 const PostCard = ({
@@ -59,6 +71,7 @@ const PostCard = ({
   isMyPost = false,
   daysLeft,
   onLock,
+  showCommentsThread = true,
 }) => {
   const {
     title,
@@ -66,7 +79,6 @@ const PostCard = ({
     createdAt,
     deletedAt,
     updatedAt,
-    tags,
     author,
     category,
   } = post;
@@ -101,10 +113,11 @@ const PostCard = ({
   };
 
   /**
-   * Racuna broj dana preostao do automatskog zakljucavanja posta.
-   * Koristi se za prikaz preostalog vremena za editovanje.
-   * @param {Timestamp} createdAt - Vreme kreiranja posta
-   * @returns {number} Broj dana do isteka roka za izmenu
+   * Racuna koliko je dana ostalo do auto-lock praga (7 dana nakon kreiranja).
+   * Koristi se za prikaz countdown poruke pored Edit dugmeta na MyPosts.
+   *
+   * @param {Object} createdAt - Firestore Timestamp (ocekuje validan `toDate`)
+   * @returns {number} Broj dana do isteka roka za izmenu (0 ako je rok prosao)
    */
 
   const calculateDaysLeft = (createdAt) => {
@@ -117,7 +130,6 @@ const PostCard = ({
     return timeLeft > 0 ? Math.ceil(timeLeft / (1000 * 60 * 60 * 24)) : 0;
   };
 
-
   // Otvara modal sa PNG bedzevima za post (preventuje bubbling do PostCard)
   const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
@@ -129,7 +141,14 @@ const PostCard = ({
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
 
-    const newState = await toggleSavePost(user, post.id, isSaved);
+    const currentUpdated = updatedAt || createdAt;
+
+    const snapshot = {
+      postUpdatedAtAtSave: currentUpdated || null,
+      postTitleAtSave: title || "",
+    };
+
+    const newState = await toggleSavePost(user, post.id, isSaved, snapshot);
     setIsSaved(newState);
   };
 
@@ -313,17 +332,24 @@ const PostCard = ({
             </span>
           )}
           {/* Tagovi */}
-          <div className="post-tags">
-            {tags.map((tag, index) => (
-              <span key={index} className="post-tag">
-                #{tag.text}
-              </span>
-            ))}
-          </div>
+          {post.tags.map((tag, index) => (
+            <span
+              key={`${tag.text}-${index}`}
+              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
+            >
+              #{tag.text}
+            </span>
+          ))}
 
           {/* Reakcije (sakriva se u Trash modu) */}
           {!isTrashMode && (
-            <ReactionSummary postId={post.id} locked={post.locked} />
+            <ReactionSummary
+              postId={post.id}
+              locked={post.locked}
+              reactionCounts={
+                post.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
+              }
+            />
           )}
 
           {/* Kategorija */}
@@ -332,7 +358,7 @@ const PostCard = ({
           </span>
 
           {/* Komentari (sakriva se u Trash modu) */}
-          {!isTrashMode && (
+          {!isTrashMode && showCommentsThread && (
             <Comments
               postID={post.id}
               userId={auth.currentUser?.uid}
@@ -447,11 +473,17 @@ PostCard.propTypes = {
     // Komentari
     comments: PropTypes.arrayOf(
       PropTypes.shape({
-        text: PropTypes.string.isRequired,
+        text: PropTypes.string,
       })
-    ).isRequired,
-    // Reakcije
-    reactions: PropTypes.object,
+    ),
+
+    // Reakcije (backend agregati)
+    reactionCounts: PropTypes.shape({
+      idea: PropTypes.number,
+      hot: PropTypes.number,
+      powerup: PropTypes.number,
+    }),
+
     // Bedzevi posta
     badges: PropTypes.shape({
       mostInspiring: PropTypes.bool,
@@ -467,6 +499,7 @@ PostCard.propTypes = {
   onDeletePermanently: PropTypes.func,
   daysLeft: PropTypes.number,
   onLock: PropTypes.func,
+  showCommentsThread: PropTypes.bool,
 };
 
 export default PostCard;

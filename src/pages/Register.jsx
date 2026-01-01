@@ -5,7 +5,7 @@ import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import Spinner from "../components/Spinner";
-import {DEFAULT_PROFILE_PICTURE} from "../constants/defaults"
+import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
 const Register = () => {
   // State za cuvanje vrednosti input polja
@@ -26,10 +26,14 @@ const Register = () => {
 
   // Mapa friendly user Firebase gresaka
   const firebaseErrorMessages = {
-    "auth/email-already-in-use": "This email is already in use. Try logging in.",
-    "auth/too-many-requests": "Too many failed attempts. Please try again later.",
-    "auth/network-request-failed": "Network error. Please check your connection.",
-    "auth/operation-not-allowed": "Registration is currently disabled. Please contact support.",
+    "auth/email-already-in-use":
+      "This email is already in use. Try logging in.",
+    "auth/too-many-requests":
+      "Too many failed attempts. Please try again later.",
+    "auth/network-request-failed":
+      "Network error. Please check your connection.",
+    "auth/operation-not-allowed":
+      "Registration is currently disabled. Please contact support.",
   };
 
   // Funkcija za validaciju forme i procesiranje unosa
@@ -98,24 +102,21 @@ const Register = () => {
       });
 
       // Poruka o uspesnoj registraciji
-      toast.success("Registration successful! Redirecting to login...", {
-        autoClose: 2000,
+      toast.success("Registration successful! Redirecting...", {
+        autoClose: 1200,
       });
 
-      // Resetujemo formu nakon uspesne registracije
-      setFormData({
-        email: "",
-        password: "",
-        confirmPassword: "",
-      });
+      // Reset forme (opciono, ali ne mora jer ides na drugu stranu)
+      setFormData({ email: "", password: "", confirmPassword: "" });
 
       setTimeout(() => {
-        navigate("/login", { state: { email: formData.email } }); // Prosledjivanje registrovanog email-a kroz state
-      }, 2000); // Preusmeravanje posle 2 sekunde
+        navigate("/dashboard/settings"); // ili tvoja ruta za edit profil
+      }, 1200);
     } catch (error) {
       // Prikaz friendly user Firebase gresaka
       const message =
-        firebaseErrorMessages[error.code] || "An unexpected error occurred. Please try again.";
+        firebaseErrorMessages[error.code] ||
+        "An unexpected error occurred. Please try again.";
       toast.error(message);
     } finally {
       setLoading(false); // Sakrivamo spinner nakon procesa
@@ -125,72 +126,124 @@ const Register = () => {
   return (
     <div className="form-container">
       <h2 className="text-center mb-4">Register</h2>
-      {/* Forma za registraciju sa validacijom */}
-      <form onSubmit={handleSubmit} noValidate>
+
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        aria-busy={loading ? "true" : "false"}
+      >
         {/* Email */}
         <div className="mb-3">
-          <label htmlFor="email" className="form-label">
+          <label htmlFor="register-email" className="form-label">
             Email address
           </label>
+
           <input
             type="email"
-            className="form-control"
-            id="email"
+            className={`form-control ${errors.email ? "is-invalid" : ""}`}
+            id="register-email"
+            name="email"
             placeholder="name@example.com"
             value={formData.email}
             onChange={(e) => {
               setFormData({ ...formData, email: e.target.value });
-              if (errors.email) setErrors({ ...errors, email: "" }); // Automatski brisemo gresku pri pocetku kucanja
+              if (errors.email) setErrors({ ...errors, email: "" });
             }}
             autoComplete="email"
+            inputMode="email"
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={errors.email ? "register-email-error" : undefined}
+            required
           />
-          {errors.email && <p className="text-danger">{errors.email}</p>}
+
+          {errors.email && (
+            <p
+              id="register-email-error"
+              className="text-danger mt-1 mb-0"
+              role="alert"
+            >
+              {errors.email}
+            </p>
+          )}
         </div>
 
         {/* Password */}
         <div className="mb-3">
-          <label htmlFor="password" className="form-label">
+          <label htmlFor="register-password" className="form-label">
             Password
           </label>
+
           <input
             type="password"
-            className="form-control"
-            id="password"
+            className={`form-control ${errors.password ? "is-invalid" : ""}`}
+            id="register-password"
+            name="password"
             placeholder="Enter your password"
             value={formData.password}
             onChange={(e) => {
               setFormData({ ...formData, password: e.target.value });
-              if (errors.password) setErrors({ ...errors, password: "" }); // Automatski brisemo gresku pri pocetku kucanja
+              if (errors.password) setErrors({ ...errors, password: "" });
             }}
             autoComplete="new-password"
+            aria-invalid={Boolean(errors.password)}
+            aria-describedby={
+              errors.password ? "register-password-error" : undefined
+            }
+            required
           />
-          {errors.password && <p className="text-danger">{errors.password}</p>}
+
+          {errors.password && (
+            <p
+              id="register-password-error"
+              className="text-danger mt-1 mb-0"
+              role="alert"
+            >
+              {errors.password}
+            </p>
+          )}
         </div>
 
         {/* Confirm Password */}
         <div className="mb-3">
-          <label htmlFor="confirm-password" className="form-label">
+          <label htmlFor="register-confirm-password" className="form-label">
             Confirm Password
           </label>
+
           <input
             type="password"
-            className="form-control"
-            id="confirm-password"
+            className={`form-control ${
+              errors.confirmPassword ? "is-invalid" : ""
+            }`}
+            id="register-confirm-password"
+            name="confirmPassword"
             placeholder="Confirm your password"
             value={formData.confirmPassword}
             onChange={(e) => {
               setFormData({ ...formData, confirmPassword: e.target.value });
               if (errors.confirmPassword)
-                setErrors({ ...errors, confirmPassword: "" }); // Automatski brisemo gresku pri pocetku kucanja
+                setErrors({ ...errors, confirmPassword: "" });
             }}
             autoComplete="new-password"
+            aria-invalid={Boolean(errors.confirmPassword)}
+            aria-describedby={
+              errors.confirmPassword
+                ? "register-confirm-password-error"
+                : undefined
+            }
+            required
           />
+
           {errors.confirmPassword && (
-            <p className="text-danger">{errors.confirmPassword}</p>
+            <p
+              id="register-confirm-password-error"
+              className="text-danger mt-1 mb-0"
+              role="alert"
+            >
+              {errors.confirmPassword}
+            </p>
           )}
         </div>
 
-        {/* Submit dugme ili spinner */}
         {loading ? (
           <Spinner message="" />
         ) : (
@@ -202,5 +255,4 @@ const Register = () => {
     </div>
   );
 };
-
 export default Register;

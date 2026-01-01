@@ -12,34 +12,23 @@ import {
   limit,
   startAfter,
 } from "firebase/firestore";
+
 // Konfiguracija i kontekst
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../firebase";
-import { db } from "../../firebase";
+import { functions, db } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
+
 // Util funkcije i konstante
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { getDaysLeft } from "../../utils/dateUtils";
 import { motion, AnimatePresence } from "framer-motion";
+
 // Komponente
 import PostCard from "../../components/PostCard";
-
-// Dashboard komponente
 import EmptyState from "./components/EmptyState";
 import SkeletonCard from "../../components/ui/skeletonLoader/SkeletonCard";
-
-/**
- * Trash komponenta
- *
- * - Prikazuje sve korisnicke postove koji su oznaceni kao obrisani (`deleted === true`)
- * - Omogucava korisniku da postove vrati iz Trash-a putem potvrde (ConfirmModal)
- * - Real-time sinhronizacija sa Firestore-om kroz `onSnapshot`
- *
- * @component
- * @returns {JSX.Element} UI prikaz obrisanih postova sa opcijom za Restore
- */
 
 const Trash = () => {
   const { user } = useContext(AuthContext);
@@ -47,8 +36,10 @@ const Trash = () => {
 
   const [deletedPosts, setDeletedPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState(null);
+
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [postIdToDelete, setPostIdToDelete] = useState(null);
 
@@ -64,6 +55,7 @@ const Trash = () => {
         id: user.uid,
         name: user.name || "Anonymous",
         profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
+        badges: user.badges || {},
       }
     : null;
 
@@ -81,53 +73,65 @@ const Trash = () => {
 
       try {
         const postRef = collection(db, "posts");
+
+        // Prefetch +1 (eliminiše fake Load more kad ima tacno 10)
         const q = query(
           postRef,
           where("userId", "==", user.uid),
           where("deleted", "==", true),
           orderBy("deletedAt", "desc"),
-          limit(POST_PER_PAGE)
+          limit(POST_PER_PAGE + 1)
         );
+
         const snap = await getDocs(q);
+        if (canceled) return;
+
         if (snap.empty) {
           setDeletedPosts([]);
           setHasMore(false);
           return;
         }
-        if (canceled) return;
 
-        setLastDoc(snap.docs[snap.docs.length - 1]);
-        setHasMore(snap.size === POST_PER_PAGE);
+        const docs = snap.docs;
+        const pageDocs = docs.slice(0, POST_PER_PAGE);
 
-        const posts = snap.docs.map((doc) => {
-          const data = doc.data();
+        if (pageDocs.length === 0) {
+          setDeletedPosts([]);
+          setHasMore(false);
+          return;
+        }
 
+        setLastDoc(pageDocs[pageDocs.length - 1]);
+        setHasMore(docs.length > POST_PER_PAGE);
+
+        const posts = pageDocs.map((d) => {
+          const data = d.data();
           return {
-            id: doc.id,
+            id: d.id,
             ...data,
             author,
             comments: data.comments || [],
           };
         });
+
         setDeletedPosts(posts);
       } catch (error) {
         console.error("Error fetching posts:", error);
-        if (!canceled)
+        if (!canceled) {
           showErrorToast("Failed to load your posts. Please try again.");
+        }
       } finally {
         if (!canceled) setIsLoading(false);
       }
     };
 
-    if (user?.uid) {
-      fetchFirstPage();
-    }
+    fetchFirstPage();
 
     return () => {
       canceled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.uid]);
 
   const handleLoadMore = async () => {
     if (!user || !hasMore || isLoadingMore || !lastDoc) return;
@@ -135,14 +139,17 @@ const Trash = () => {
 
     try {
       const postRef = collection(db, "posts");
+
+      // Prefetch +1
       const q = query(
         postRef,
         where("userId", "==", user.uid),
         where("deleted", "==", true),
         orderBy("deletedAt", "desc"),
         startAfter(lastDoc),
-        limit(POST_PER_PAGE)
+        limit(POST_PER_PAGE + 1)
       );
+
       const snap = await getDocs(q);
 
       if (snap.empty) {
@@ -150,14 +157,21 @@ const Trash = () => {
         return;
       }
 
-      setLastDoc(snap.docs[snap.docs.length - 1]);
-      setHasMore(snap.size === POST_PER_PAGE);
+      const docs = snap.docs;
+      const pageDocs = docs.slice(0, POST_PER_PAGE);
 
-      const newPosts = snap.docs.map((doc) => {
-        const data = doc.data();
+      if (pageDocs.length === 0) {
+        setHasMore(false);
+        return;
+      }
 
+      setLastDoc(pageDocs[pageDocs.length - 1]);
+      setHasMore(docs.length > POST_PER_PAGE);
+
+      const newPosts = pageDocs.map((d) => {
+        const data = d.data();
         return {
-          id: doc.id,
+          id: d.id,
           ...data,
           author,
           comments: data.comments || [],
@@ -177,8 +191,19 @@ const Trash = () => {
     }
   };
 
-  // Vraca post iz Trash-a tako sto resetuje `deleted` i `deletedAt` polja
+  // Optimistic helper: remove from UI immediately
+  const removeFromUI = (postId) => {
+    setDeletedPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
+
+  // Restore: optimistic remove + rollback on failure
   const handleRestore = async (postId) => {
+    if (!postId) return;
+
+    // optimistic
+    const snapshot = deletedPosts.find((p) => p.id === postId) || null;
+    removeFromUI(postId);
+
     try {
       const postRef = doc(db, "posts", postId);
       await updateDoc(postRef, {
@@ -188,12 +213,28 @@ const Trash = () => {
       showSuccessToast("Post restored successfully!");
     } catch (err) {
       console.error("Error restoring post:", err);
+
+      // rollback
+      if (snapshot) {
+        setDeletedPosts((prev) => {
+          const map = new Map(prev.map((p) => [p.id, p]));
+          map.set(snapshot.id, snapshot);
+          return Array.from(map.values());
+        });
+      }
+
       showErrorToast("Failed to restore post.");
     }
   };
-  // Poziva Cloud Function `deletePostCascade` za trajno brisanje posta
+
+  // Permanent delete: optimistic remove + rollback on failure
   const handleDeletePermanent = async () => {
     if (!postIdToDelete) return;
+
+    const snapshot = deletedPosts.find((p) => p.id === postIdToDelete) || null;
+
+    // optimistic
+    removeFromUI(postIdToDelete);
 
     try {
       const deletePost = httpsCallable(functions, "deletePostCascade");
@@ -201,6 +242,16 @@ const Trash = () => {
       showSuccessToast("Post permanently deleted.");
     } catch (error) {
       console.error("Delete error:", error);
+
+      // rollback
+      if (snapshot) {
+        setDeletedPosts((prev) => {
+          const map = new Map(prev.map((p) => [p.id, p]));
+          map.set(snapshot.id, snapshot);
+          return Array.from(map.values());
+        });
+      }
+
       showErrorToast("Failed to delete post.");
     } finally {
       setDeleteModalOpen(false);
@@ -208,7 +259,7 @@ const Trash = () => {
     }
   };
 
-  // Ako je aktivan filter (npr. "0-10"), prikazujemo samo postove ciji broj dana do brisanja upada u taj raspon
+  // Filter by days left
   const filteredPosts = filterRange
     ? deletedPosts.filter((post) => {
         const days = getDaysLeft(post.deletedAt);
@@ -219,14 +270,47 @@ const Trash = () => {
       })
     : deletedPosts;
 
-  // UI prikaz: loading, empty state ili lista obrisanih postova
+  // Auto-fill: ako si ispraznio stranu (restore/delete), a ima jos, povuci sledece
+  useEffect(() => {
+    if (isLoading) return;
+    if (isLoadingMore) return;
+    if (!hasMore) return;
+    if (!lastDoc) return;
+
+    // Ako filterRange postoji, moguce je da je filteredPosts=0 ali deletedPosts>0 (nije "prazna strana")
+    if (filterRange) {
+      if (deletedPosts.length > 0) return;
+    } else {
+      if (filteredPosts.length > 0) return;
+    }
+
+    handleLoadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    lastDoc,
+    deletedPosts.length,
+    filteredPosts.length,
+    filterRange,
+  ]);
+
+  // EmptyState poruka (ne lazemo kad filter napravi 0)
+  const shouldShowEmpty =
+    !isLoading &&
+    ((filterRange && deletedPosts.length === 0 && !hasMore) ||
+      (!filterRange && filteredPosts.length === 0 && !hasMore));
+
+  const emptyMessage =
+    filterRange && deletedPosts.length > 0
+      ? "No posts match this filter."
+      : "You haven't deleted any posts yet.";
+
   return (
     <div>
-      {/* Empty state */}
-      {!isLoading && filteredPosts.length === 0 && (
-        <EmptyState message="You haven't deleted any posts yet." />
-      )}
-      {/* Loading state */}
+      {shouldShowEmpty && <EmptyState message={emptyMessage} />}
+
       {isLoading && (
         <div className="grid gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
@@ -245,9 +329,8 @@ const Trash = () => {
       {!isLoading && filteredPosts.length > 0 && (
         <div className="grid gap-4">
           <AnimatePresence>
-            {/* Prikaz liste obrisanih postova sa opcijama za Restore i Delete */}
             {filteredPosts.map((post) => {
-              const daysLeft = post.deletedAt // Izracunavamo koliko dana je ostalo do isteka roka za restore
+              const daysLeft = post.deletedAt
                 ? getDaysLeft(post.deletedAt)
                 : null;
 
@@ -276,7 +359,7 @@ const Trash = () => {
               );
             })}
           </AnimatePresence>
-          {/* Dugme "Load more" */}
+
           {hasMore && (
             <button
               onClick={handleLoadMore}
@@ -288,7 +371,6 @@ const Trash = () => {
             </button>
           )}
 
-          {/* Poruka "You reached the end" */}
           {!hasMore && filteredPosts.length > 0 && (
             <p
               className="mt-4 text-sm text-gray-500 text-center"
@@ -299,7 +381,7 @@ const Trash = () => {
           )}
         </div>
       )}
-      {/* Modal koji potvrdjuje da korisnik zeli da restore-uje post */}
+
       <ConfirmModal
         isOpen={restoreModalOpen}
         title="Restore Post"
@@ -307,14 +389,17 @@ const Trash = () => {
         confirmText="Restore"
         confirmButtonClass="bg-green-500 hover:bg-green-600 hover:scale-105 transition duration-200"
         cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
-        onCancel={() => setRestoreModalOpen(false)}
+        onCancel={() => {
+          setRestoreModalOpen(false);
+          setSelectedPostId(null);
+        }}
         onConfirm={() => {
           handleRestore(selectedPostId);
           setRestoreModalOpen(false);
           setSelectedPostId(null);
         }}
       />
-      {/* Modal koji potvrdjuje trajno brisanje posta */}
+
       <ConfirmModal
         isOpen={deleteModalOpen}
         title="Delete Post Permanently"
@@ -322,7 +407,10 @@ const Trash = () => {
         confirmText="Delete"
         confirmButtonClass="bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200"
         cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
-        onCancel={() => setDeleteModalOpen(false)}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setPostIdToDelete(null);
+        }}
         onConfirm={handleDeletePermanent}
       />
     </div>

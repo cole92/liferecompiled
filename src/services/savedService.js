@@ -12,11 +12,12 @@ import { serverTimestamp } from "firebase/firestore";
  * @param {string} postId - ID posta koji se cuva
  */
 
-export const savePost = async (userId, postId) => {
+export const savePost = async (userId, postId, snapshot = {}) => {
     const ref = doc(db, "users", userId, "savedPosts", postId);
 
     await setDoc(ref, {
         savedAt: serverTimestamp(),
+        ...snapshot
     });
 };
 

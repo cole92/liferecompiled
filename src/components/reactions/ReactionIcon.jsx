@@ -1,32 +1,18 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
 import { FaRegLightbulb, FaFire, FaBolt } from "react-icons/fa";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 
 import {
   doc,
-  setDoc,
-  getDocs,
-  query,
-  collection,
-  where,
-  deleteDoc,
+  getDoc,
+  runTransaction,
+  serverTimestamp,
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 import { auth, db } from "../../firebase";
-
 import { showInfoToast } from "../../utils/toastUtils";
-
-/**
- * @component ReactionIcon
- * Prikazuje dugme za reakciju (💡 idea, 🔥 hot, ⚡ powerup) sa brojacem i klik interakcijom.
- *
- * @param {("idea"|"hot"|"powerup")} type - Tip reakcije (odredjuje ikonicu).
- * @param {string} postId - ID posta na koji se reakcija odnosi.
- * @param {boolean} [locked] - Ako je post zakljucan, onemogucava klik na reakciju.
- *
- * @returns {JSX.Element} Reakciono dugme sa ikonicom i brojem.
- */
 
 const iconMap = {
   idea: FaRegLightbulb,
@@ -34,128 +20,194 @@ const iconMap = {
   powerup: FaBolt,
 };
 
-const ReactionIcon = ({ type, postId, locked }) => {
+// Deterministic reaction doc id: postId__userId__reactionType
+const buildReactionId = (postId, userId, type) =>
+  `${postId}__${userId}__${type}`;
+
+const reactionLabels = {
+  idea: "💡 Idea — This post inspired you.",
+  hot: "🔥 Hot — This post is popular or trending.",
+  powerup: "⚡ Powerup — Show support for the author.",
+};
+
+const reactionMessages = {
+  idea: "💡 Inspired by this post? Great minds think alike!",
+  hot: "🔥 Marked as Hot — this post is on fire!",
+  powerup: "⚡ You just boosted the author's motivation!",
+};
+
+const reactionRemovalMessages = {
+  idea: "💡 Not feeling inspired anymore? :( ",
+  hot: "🔥 Cooled off a bit, huh?",
+  powerup: "⚡ Took back your Powerup — oh wow, thanks a lot. 🙃",
+};
+
+const COOLDOWN_MS = 200;
+
+const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
   const Icon = iconMap[type];
-  const [count, setCount] = useState(0);
+
+  const [uid, setUid] = useState(auth.currentUser?.uid ?? null);
   const [isActive, setIsActive] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isToggling, setIsToggling] = useState(false);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
+
+  // Optimistic count delta (instant UI feedback)
+  const [optimisticDelta, setOptimisticDelta] = useState(0);
+
+  const cooldownTimerRef = useRef(null);
+
+  // Keep uid reactive (login/logout)
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+    });
+    return () => unsub();
+  }, []);
+
+  const startCooldown = useCallback(() => {
+    setIsCoolingDown(true);
+
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+
+    cooldownTimerRef.current = setTimeout(() => {
+      setIsCoolingDown(false);
+      cooldownTimerRef.current = null;
+    }, COOLDOWN_MS);
+  }, []);
 
   useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, []);
+
+  // Reset optimistic delta once the parent delivers a new authoritative count
+  useEffect(() => {
+    setOptimisticDelta(0);
+  }, [count]);
+
+  // isActive state via deterministic reaction doc
+  const fetchIsActive = useCallback(async () => {
     if (!postId || !type) return;
 
-    const fetchReactions = async () => {
-      const q = query(
-        collection(db, "reactions"),
-        where("postId", "==", postId),
-        where("reactionType", "==", type)
-      );
+    if (!uid) {
+      setIsActive(false);
+      return;
+    }
 
-      const snapshot = await getDocs(q);
-      let currentCount = 0;
-      let userHasReacted = false;
+    try {
+      const reactionId = buildReactionId(postId, uid, type);
+      const reactionRef = doc(db, "reactions", reactionId);
+      const snap = await getDoc(reactionRef);
+      setIsActive(snap.exists());
+    } catch (err) {
+      console.error("[ReactionIcon] fetchIsActive failed:", err?.message);
+      setIsActive(false);
+    }
+  }, [postId, type, uid]);
 
-      // Broji reakcije i proverava da li je trenutni korisnik reagovao
-      snapshot.forEach((doc) => {
-        currentCount++;
-        if (doc.data().userId === auth.currentUser?.uid) {
-          userHasReacted = true;
-        }
-      });
-
-      setCount(currentCount);
-      setIsActive(userHasReacted);
-      setIsLoading(false);
-    };
-
-    fetchReactions();
-  }, [postId, type]);
+  useEffect(() => {
+    fetchIsActive();
+  }, [fetchIsActive]);
 
   const handleClick = async (e) => {
     e.stopPropagation();
 
-    if (!auth.currentUser) {
+    if (!uid) {
       showInfoToast("Please login to react 😊");
       return;
     }
 
-    if (locked) return;
+    if (!postId || !type) return;
+    if (locked || isToggling || isCoolingDown) return;
 
-    const userId = auth.currentUser.uid;
+    const reactionId = buildReactionId(postId, uid, type);
+    const reactionRef = doc(db, "reactions", reactionId);
 
-    // Proverava da li korisnik vec ima istu reakciju
-    const q = query(
-      collection(db, "reactions"),
-      where("postId", "==", postId),
-      where("userId", "==", userId),
-      where("reactionType", "==", type)
-    );
+    setIsToggling(true);
 
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      // Ako postoji, brise reakciju
-      await deleteDoc(doc(db, "reactions", snapshot.docs[0].id));
-      setIsActive(false);
-      setCount((prev) => prev - 1);
-      showInfoToast(reactionRemovalMessages[type]);
-    } else {
-      // Ako ne postoji, dodaje novu reakciju
-      const newRef = doc(collection(db, "reactions"));
-      await setDoc(newRef, {
-        postId,
-        userId,
-        reactionType: type,
-        createdAt: new Date(),
+    // For safe rollback on error
+    const prevIsActive = isActive;
+
+    try {
+      const nextIsActive = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(reactionRef);
+
+        if (snap.exists()) {
+          tx.delete(reactionRef);
+          return false;
+        }
+
+        tx.set(reactionRef, {
+          postId,
+          userId: uid,
+          reactionType: type,
+          createdAt: serverTimestamp(),
+        });
+
+        return true;
       });
-      setIsActive(true);
-      setCount((prev) => prev + 1);
 
-      showInfoToast(reactionMessages[type]);
+      // Update active state
+      setIsActive(nextIsActive);
+
+      // Optimistic count bump (instant)
+      setOptimisticDelta((d) => d + (nextIsActive ? 1 : -1));
+
+      showInfoToast(
+        nextIsActive ? reactionMessages[type] : reactionRemovalMessages[type]
+      );
+
+      // Refetch only when toggle succeeded (PostDetails can pull new aggregates)
+      if (typeof onAfterToggle === "function") {
+        onAfterToggle();
+      } else {
+        // If no parent refetch, at least resync my active state
+        fetchIsActive();
+      }
+    } catch (err) {
+      console.error("[ReactionIcon] toggle failed:", err?.message);
+      showInfoToast("Something went wrong. Please try again.");
+
+      // Roll back optimistic state
+      setIsActive(prevIsActive);
+      // If we optimistically moved, undo it (based on prev->intended)
+      // If prev was false and we tried to set true -> undo +1
+      // If prev was true and we tried to set false -> undo -1
+      setOptimisticDelta((d) => d + (prevIsActive ? 1 : -1));
+
+      // Resync from Firestore to be sure
+      fetchIsActive();
+    } finally {
+      setIsToggling(false);
+      startCooldown();
     }
   };
 
-  // Tekstualni opisi za tooltip prikaz ispod svake reakcije
-  const reactionLabels = {
-    idea: "💡 Idea — This post inspired you.",
-    hot: "🔥 Hot — This post is popular or trending.",
-    powerup: "⚡ Powerup — Show support for the author.",
-  };
+  const tooltipId = `tooltip-${type}-${postId}`;
+  const disabled = locked || isToggling || isCoolingDown;
 
-  const reactionMessages = {
-    idea: "💡 Inspired by this post? Great minds think alike!",
-    hot: "🔥 Marked as Hot — this post is on fire!",
-    powerup: "⚡ You just boosted the author's motivation!",
-  };
-
-  const reactionRemovalMessages = {
-    idea: "💡 Not feeling inspired anymore? :( ",
-    hot: "🔥  Cooled off a bit, huh?",
-    powerup: "⚡ Took back your Powerup — oh wow, thanks a lot. 🙃",
-  };
+  const displayCount = Math.max(0, count + optimisticDelta);
 
   return (
     <>
-      {/* Dugme za reakciju sa tooltipom; koristi `react-tooltip@v5` */}
       <button
         onClick={handleClick}
-        className={`reaction-button ${isActive ? "active" : ""}`}
-        data-tooltip-id={`tooltip-${type}-${postId}`}
+        disabled={disabled}
+        aria-disabled={disabled}
+        aria-pressed={isActive}
+        className={`reaction-button ${isActive ? "active" : ""} ${
+          disabled ? "opacity-60 cursor-not-allowed" : ""
+        }`}
+        data-tooltip-id={tooltipId}
         data-tooltip-content={reactionLabels[type]}
       >
         <Icon />
-        <span style={{ marginLeft: "4px" }}>
-          {isLoading ? (
-            // minimalni inline spinner
-            <span
-              className="inline-block h-3.5 w-3.5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin align-[-2px]"
-              aria-label="Loading"
-              title="Loading"
-            />
-          ) : (
-            count
-          )}
-        </span>
+        <span style={{ marginLeft: "4px" }}>{displayCount}</span>
       </button>
-      <ReactTooltip id={`tooltip-${type}-${postId}`} position="" />
+
+      <ReactTooltip id={tooltipId} />
     </>
   );
 };
@@ -164,6 +216,12 @@ ReactionIcon.propTypes = {
   type: PropTypes.oneOf(["idea", "hot", "powerup"]).isRequired,
   postId: PropTypes.string.isRequired,
   locked: PropTypes.bool,
+
+  // Count dolazi iz post.reactionCounts (backend authoritative)
+  count: PropTypes.number.isRequired,
+
+  // PostDetails moze proslediti refetch
+  onAfterToggle: PropTypes.func,
 };
 
 export default ReactionIcon;

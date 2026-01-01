@@ -4,30 +4,9 @@ import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories";
 
 /**
- * @component SearchAndFilterBar
- *
- * Kombinovani kontroler za:
- * - search input (lokalna kontrola + emit globalne promene)
- * - sort dropdown (sa ogranicenjima u single-category modu)
- * - category filter panel (v1: samo 1 kategorija aktivna istovremeno)
- *
- * Kljucno ponasanje:
- * - Kada je aktivna samo jedna kategorija → "oldest" sort je zakljucan
- * - Lokalna stanja (searchTerm, sortBy) se sinkronizuju sa globalnim
- * - Filter panel koristi framer-motion animacije i a11y atribute
- *
- * Lokalne granice:
- * - selectedCategories.length === 1 → single-category v1 mode
- *
- * @param {Function} onSearchChange
- * @param {Function} onSortChange
- * @param {Function} onFilterChange
- * @param {Function} onResetFilters
- * @param {string[]} selectedCategories
- * @param {"newest"|"oldest"} sortBy
- * @returns {JSX.Element}
+ * v1 rule: samo 1 kategorija aktivna
+ * UX rule: klik na drugu kategoriju prebaci selekciju (nema "zakljucavanja")
  */
-
 const SearchAndFilterBar = ({
   onSearchChange,
   onSortChange,
@@ -35,16 +14,16 @@ const SearchAndFilterBar = ({
   onResetFilters,
   selectedCategories,
   sortBy,
+  showSearch = true,
 }) => {
   const [localSearchTerm, setLocalSearchTerm] = useState("");
   const [localSortBy, setLocalSortBy] = useState("newest");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // Single-category v1 rule: tacno jedna kategorija aktivna
   const hasActiveCategory =
     Array.isArray(selectedCategories) && selectedCategories.length === 1;
 
-  // Ako postoji aktivna kategorija → najstariji sort je zabranjen
+  // Lock oldest sort in single-category mode
   useEffect(() => {
     if (hasActiveCategory && localSortBy === "oldest") {
       setLocalSortBy("newest");
@@ -52,7 +31,7 @@ const SearchAndFilterBar = ({
     }
   }, [hasActiveCategory, localSortBy, onSortChange]);
 
-  // Sinkronizacija lokalnog dropdown-a sa globalnim sortBy
+  // Sync local sort with global
   useEffect(() => {
     if (sortBy === "oldest" || sortBy === "newest") {
       setLocalSortBy(sortBy);
@@ -61,11 +40,8 @@ const SearchAndFilterBar = ({
     }
   }, [sortBy]);
 
-  const toggleFilterPanel = () => {
-    setIsFilterOpen((prev) => !prev);
-  };
+  const toggleFilterPanel = () => setIsFilterOpen((prev) => !prev);
 
-  // Framer-motion varijante za panel
   const filterPanelVariants = {
     hidden: { opacity: 0, x: 50 },
     visible: {
@@ -80,33 +56,40 @@ const SearchAndFilterBar = ({
     },
   };
 
-  // Menjanje kategorija uz v1 ogranicenje (ostale kategorije disabled)
+  /**
+   * v1 single-category toggle:
+   * - ako kliknes aktivnu -> ukloni je ([])
+   * - ako kliknes neku drugu -> zameni ([value])
+   */
   const handleCategoryChange = (event) => {
-    const { value, checked } = event.target;
-    const newCategories = checked
-      ? [...selectedCategories, value]
-      : selectedCategories.filter((category) => category !== value);
+    const { value } = event.target;
 
-    onFilterChange(newCategories);
+    const isActive = selectedCategories.includes(value);
+
+    // toggle off
+    if (isActive) {
+      onFilterChange([]);
+      return;
+    }
+
+    // switch to new single category
+    onFilterChange([value]);
   };
 
-  // Lokalni search → propagacija ka globalnom state-u
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setLocalSearchTerm(value);
     onSearchChange(value);
   };
 
-  // Lokalni sort → sa guard-om za single-category mod
   const handleSortChange = (e) => {
     const value = e.target.value;
-    if (hasActiveCategory && value === "oldest") return; // onemoguci zabranjeni izbor
+    if (hasActiveCategory && value === "oldest") return;
 
     setLocalSortBy(value);
     onSortChange(value);
   };
 
-  // Lokalni CLEAR resetuje globalne filtere + lokalni UI state
   const handleLocalClear = () => {
     onResetFilters();
     setLocalSearchTerm("");
@@ -116,29 +99,33 @@ const SearchAndFilterBar = ({
   return (
     <div>
       <div className="p-4">
-        {/* Sticky gornja traka: Search + Sort + Filter dugme */}
         <div className="flex items-center gap-4 bg-white p-4 z-10 rounded-lg shadow-md sticky top-0">
-          <input
-            type="text"
-            placeholder="Search posts..."
-            value={localSearchTerm}
-            onChange={handleSearchChange}
-            className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          {showSearch && (
+            <input
+              id="home-search"
+              name="homeSearch"
+              type="text"
+              placeholder="Search posts..."
+              value={localSearchTerm}
+              onChange={handleSearchChange}
+              autoComplete="off"
+              className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          )}
 
           <select
+            id="home-sort"
+            name="homeSort"
             value={localSortBy}
             onChange={handleSortChange}
             className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="newest">Newest First</option>
-            {/* Sort "oldest" se zakljucava u single-category modu */}
             <option value="oldest" disabled={hasActiveCategory}>
               Oldest First
             </option>
           </select>
 
-          {/* Dugme za otvaranje filter panela (+ badge kada je nesto aktivno) */}
           <button
             onClick={toggleFilterPanel}
             aria-expanded={isFilterOpen}
@@ -148,12 +135,10 @@ const SearchAndFilterBar = ({
             }`}
           >
             Filters
-            {selectedCategories.length > 0 &&
-              ` (${selectedCategories.length})`}
+            {selectedCategories.length > 0 && ` (${selectedCategories.length})`}
           </button>
         </div>
 
-        {/* Slide-in filter panel (framer-motion) */}
         <AnimatePresence>
           {isFilterOpen && (
             <motion.div
@@ -173,38 +158,38 @@ const SearchAndFilterBar = ({
               <div className="mt-2">
                 {validCategories.map((categoryItem) => {
                   const isActive = selectedCategories.includes(categoryItem);
-                  const isDisabled = hasActiveCategory && !isActive;
+
+                  const checkboxId = `filter-category-${categoryItem
+                    .toLowerCase()
+                    .replace(/\s+/g, "-")}`;
 
                   return (
-                    <label
+                    <div
                       key={categoryItem}
-                      className={`flex items-center space-x-2 ${
-                        isDisabled ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
+                      className="flex items-center space-x-2"
                     >
                       <input
+                        id={checkboxId}
+                        name="categoryFilter"
                         type="checkbox"
                         value={categoryItem}
                         checked={isActive}
                         onChange={handleCategoryChange}
-                        disabled={isDisabled}
                       />
-                      <span>{categoryItem}</span>
-                    </label>
+                      <label htmlFor={checkboxId}>{categoryItem}</label>
+                    </div>
                   );
                 })}
 
-                {/* UI hint za single-category ogranicenje */}
                 {hasActiveCategory && (
                   <p className="mt-2 text-sm text-gray-500 italic text-center">
-                    Single category mode (v1): while a category is active, other
-                    categories and the &quot;Oldest&quot; sort option are disabled. Clear
-                    the filter to change selection.
+                    Single category mode (v1): selecting another category will
+                    switch the active one. &quot;Oldest&quot; sort remains
+                    disabled while a category is active.
                   </p>
                 )}
               </div>
 
-              {/* CLEAR dugme */}
               <button
                 onClick={handleLocalClear}
                 className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
@@ -212,7 +197,6 @@ const SearchAndFilterBar = ({
                 Clear
               </button>
 
-              {/* CLOSE dugme */}
               <div>
                 <button
                   onClick={toggleFilterPanel}
@@ -235,7 +219,8 @@ SearchAndFilterBar.propTypes = {
   onFilterChange: PropTypes.func.isRequired,
   onResetFilters: PropTypes.func.isRequired,
   selectedCategories: PropTypes.arrayOf(PropTypes.string).isRequired,
-  sortBy: PropTypes.oneOf(["newest", "oldest"]).isRequired,
+  sortBy: PropTypes.string,
+  showSearch: PropTypes.bool,
 };
 
 export default SearchAndFilterBar;
