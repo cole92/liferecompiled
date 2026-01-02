@@ -1,47 +1,209 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ✅ Proverava da li je korisnik vlasnik roditelja komentara
-    function isOwnerOfParent(parentID) {
-      return get(/databases/$(database)/documents/comments/$(parentID)).data.userID == request.auth.uid;
+    /* ---------- Helpers ---------- */
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Pravila za postove
+    // Admin based on users/{uid}.role == 'admin' (set manually)
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Comment owner patch: comments use userID (keep compatibility with userId)
+    function isCommentOwner() {
+      return isSignedIn() && (
+        request.auth.uid == resource.data.userID
+        || request.auth.uid == resource.data.userId
+      );
+    }
+
+    function isOwnerOfParent(parentId) {
+  return isSignedIn()
+    && exists(/databases/$(database)/documents/comments/$(parentId))
+    && (
+      get(/databases/$(database)/documents/comments/$(parentId)).data.userID == request.auth.uid
+      || get(/databases/$(database)/documents/comments/$(parentId)).data.userId == request.auth.uid
+    );
+}
+
+    // Support both parentID and parentId (MVP patch-safe)
+    function parentIdOf(data) {
+      return data.keys().hasAny(['parentID']) ? data.parentID
+        : (data.keys().hasAny(['parentId']) ? data.parentId : null);
+    }
+
+    /* ---------- Posts ---------- */
     match /posts/{postId} {
-      allow read: if true; // Svako može čitati postove (ulogovani i gosti)
-      allow write: if request.auth != null; // Samo ulogovani mogu kreirati/editovati
+      allow read: if resource.data.deleted != true
+        || (isSignedIn() && request.auth.uid == resource.data.userId)
+        || isAdmin();
+
+      // Prevent impersonation on create
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Owner only; also block changing userId
+      allow update: if isSignedIn()
+        && request.auth.uid == resource.data.userId
+        && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isSignedIn()
+        && request.auth.uid == resource.data.userId;
     }
 
-    // Pravila za korisničke profile
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
-    }
-
-    // Pravila za reakcije
-    match /reactions/{reactionId} {
+    /* ---------- Tags (read-only) ---------- */
+    match /tags/{tagId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if false;
     }
 
-    // Pravila za komentare
-    match /comments/{commentId} {
-      allow read: if true; // Svi mogu čitati komentare
-      allow create: if request.auth != null; // Samo prijavljeni korisnici mogu dodavati komentare
+    /* ---------- Users (public GET, no LIST; role hard-locked) ---------- */
+    match /users/{userId} {
+      allow get: if true;
+      allow list: if false;
 
-      // Dozvoli brisanje ako je:
-      // - korisnik autor komentara
-      // - ili je korisnik autor roditelja tog komentara
-      allow delete: if request.auth != null && (
-        request.auth.uid == resource.data.userID ||
-        (resource.data.parentID != null && isOwnerOfParent(resource.data.parentID))
+      // Create: owner only; client cannot set role key
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && !request.resource.data.keys().hasAny(['role']);
+
+      // Update: owner only; role can never change
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['role']);
+
+      allow delete: if false;
+
+      match /savedPosts/{postId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    /* ---------- Reactions (deterministic reactionId) ---------- */
+    function isValidReactionType(t) {
+      return t in ['idea', 'hot', 'powerup'];
+    }
+
+    function expectedReactionId(postId, uid, reactionType) {
+      return postId + "__" + uid + "__" + reactionType;
+    }
+
+    function isDeterministicReactionIdForUid(reactionId, uid) {
+      return reactionId.matches('^.+__' + uid + '__(idea|hot|powerup)$');
+    }
+
+    match /reactions/{reactionId} {
+      allow get: if isSignedIn()
+        && isDeterministicReactionIdForUid(reactionId, request.auth.uid);
+
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.postId is string
+        && request.resource.data.reactionType is string
+        && isValidReactionType(request.resource.data.reactionType)
+        && reactionId == expectedReactionId(
+             request.resource.data.postId,
+             request.auth.uid,
+             request.resource.data.reactionType
+           )
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
+        && request.resource.data.keys().hasOnly([
+             'postId', 'userId', 'reactionType', 'createdAt'
+           ]);
+
+      allow update: if false;
+
+      allow delete: if isSignedIn()
+        && isDeterministicReactionIdForUid(reactionId, request.auth.uid);
+    }
+
+    /* ---------- UserStats (read-only) ---------- */
+    match /userStats/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    /* ---------- ProcessedEvents ---------- */
+    match /processedEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    /* ---------- Reports ---------- */
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+
+      allow create: if isSignedIn()
+        && request.resource.data.reportedBy == request.auth.uid
+        && (request.resource.data.type is string)
+        && (request.resource.data.type in ['post','comment'])
+        && (request.resource.data.targetId is string)
+        && (
+          (request.resource.data.createdAt is timestamp)
+          || (request.resource.data.createdAt == request.time)
+        )
+        && request.resource.data.keys().hasOnly([
+          'type','targetId','reportedBy','createdAt'
+        ]);
+
+      allow update: if isSignedIn()
+        && resource.data.reportedBy == request.auth.uid
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.targetId == resource.data.targetId
+        && request.resource.data.reportedBy == resource.data.reportedBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly([
+          'type','targetId','reportedBy','createdAt'
+        ]);
+
+      allow delete: if isAdmin();
+    }
+
+    /* ---------- Comments (userID) ---------- */
+    match /comments/{commentId} {
+      allow read: if true;
+
+      // Prevent impersonation on create
+      allow create: if isSignedIn()
+        && request.resource.data.content is string
+        && request.resource.data.content.size() <= 500
+        && request.resource.data.userID == request.auth.uid;
+
+      allow update: if isSignedIn() && (
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['likes'])
+        || (
+          isCommentOwner()
+          && request.resource.data.diff(resource.data).changedKeys()
+             .hasOnly(['content', 'editedAt'])
+        )
+        || (
+          isCommentOwner()
+          && request.resource.data.diff(resource.data).changedKeys()
+             .hasOnly(['deleted', 'deletedAt'])
+          && request.resource.data.deleted == true
+        )
+        || isAdmin()
       );
 
-      allow update: if request.auth != null && request.auth.uid == resource.data.userID;
+      allow delete: if isSignedIn() && (
+        isCommentOwner()
+        || (
+          parentIdOf(resource.data) != null
+          && isOwnerOfParent(parentIdOf(resource.data))
+        )
+        || isAdmin()
+      );
+    }
+
+    /* ---------- Default deny (fail-closed) ---------- */
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
