@@ -25,7 +25,6 @@ import Avatar from "./common/Avatar";
 import { toggleSavePost } from "../utils/savedPostUtils";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
-import "../styles/PostCard.css";
 
 /**
  * @component PostCard
@@ -155,15 +154,10 @@ const PostCard = ({
   return (
     <>
       <div
-        className={`post-card ${
+        className={`relative w-full cursor-pointer overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-sm transition-transform duration-200 hover:scale-[1.01] hover:shadow-md ${
           post.badges?.trending ? "border-2 border-red-500" : ""
         }`}
         onClick={handleClick}
-        style={{
-          cursor: "pointer",
-          overflow: "hidden",
-          position: "relative",
-        }}
       >
         {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal (pasivni prikaz ako je post zakljucan) */}
         <div className="absolute top-2 right-10 z-10 flex flex-col gap-1">
@@ -286,7 +280,9 @@ const PostCard = ({
           )}
 
           {/* Naslov i opis */}
-          <h2 className="post-title">{title}</h2>
+          <h2 className="mb-2 text-lg font-semibold leading-snug text-zinc-100">
+            {title}
+          </h2>
 
           {/* Dugme za snimanje posta toggle */}
           <button
@@ -314,18 +310,18 @@ const PostCard = ({
                 : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left to restore`}
             </span>
           )}
-          <p className="post-description">{description}</p>
+          <p className="mt-2 text-sm text-zinc-300">{description}</p>
 
           {/* Datum kreiranja ili izmene (sakriven u trash modu) */}
           {!isTrashMode && (
-            <span className="post-date">
+            <span className="mt-3 block text-xs text-zinc-400">
               {updatedAt
                 ? `Last edited on: ${updatedAt.toDate().toLocaleDateString()}`
                 : `Posted on: ${createdAt.toDate().toLocaleDateString()}`}
             </span>
           )}
           {isTrashMode && deletedAt && (
-            <span className="post-date text-xs text-gray-500">
+            <span className="mt-3 block text-xs text-zinc-400">
               {updatedAt
                 ? `Last edited on: ${updatedAt.toDate().toLocaleDateString()}`
                 : `Posted on: ${createdAt.toDate().toLocaleDateString()}`}
@@ -387,10 +383,10 @@ const PostCard = ({
 
           {/* Upozorenje ako je rok za izmenu istekao — prikazuje se samo autoru */}
           {isAutoLocked && isMyPost && (
-            <div className="alert alert-warning mt-3">
-              <strong>Note:</strong> Editing is disabled. This post was locked
-              after 7 days.
-            </div>
+           <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+  <strong>Note:</strong> Editing is disabled. This post was locked after 7 days.
+</div>
+
           )}
 
           {/* Dugmad dostupna samo u Trash prikazu */}

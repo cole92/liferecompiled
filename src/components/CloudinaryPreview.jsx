@@ -18,7 +18,7 @@ const CloudinaryPreview = () => {
     .image("cld-sample-4") // Slika iz Media Library
     .resize(fill().width(300).height(300)); // Transformacija slike
   return (
-    <div className="container mt-4 text-center">
+    <div className="mx-auto mt-4 w-full max-w-3xl px-4 text-center">
       <h2>Test Cloudinary Image</h2>
       {/* Prikaz slike koriscenjem AdvancedImage komponente */}
       <AdvancedImage cldImg={img} />

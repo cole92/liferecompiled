@@ -1,6 +1,5 @@
 import PropTypes from "prop-types";
 import PostCard from "./PostCard"; // Renderuje pojedinacnu post karticu
-import "../styles/PostsList.css"; // Stilovi specifični za grid/layout liste
 
 /**
  * @component PostsList
@@ -31,7 +30,7 @@ const PostsList = ({
   showCommentsThread = true,
 }) => {
   return (
-    <div className="posts-list">
+   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
       {/* Render UI-safe postova bez dodatne logike (cisti prikaz) */}
       {posts.map((post) => (
         <PostCard

@@ -20,8 +20,7 @@ import Stats from "./pages/dashboard/Stats";
 import Trash from "./pages/dashboard/Trash";
 import Settings from "./pages/dashboard/settings/Settings";
 import ModerationPage from "./pages/dashboard/moderation/ModerationPage";
-// Stilovi
-import "./App.css";
+
 
 function App() {
   return (

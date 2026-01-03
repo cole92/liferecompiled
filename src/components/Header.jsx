@@ -51,7 +51,6 @@ const Header = () => {
     sortBy,
   } = useSearch();
 
-  // Varijante animacije za Search/Filter bar (ulaz i izlaz)
   const searchBarVariants = {
     hidden: { opacity: 0, y: -15 },
     visible: {
@@ -61,84 +60,95 @@ const Header = () => {
     },
   };
 
-  // Dok se proverava autentikacija (inicijalni load), prikazuje se spinner
   if (isCheckingAuth) {
     return (
-      <div>
-        <h1>
-          Checking authentication <Spinner message="" />
-        </h1>
+      <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2 text-sm text-zinc-200">
+          <span>Checking authentication</span>
+          <Spinner message="" />
+        </div>
       </div>
     );
   }
 
+  const authBtnBase =
+    "inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
   return (
-    <header className="d-flex flex-column p-2 bg-light">
-      <div className="d-flex justify-content-between align-items-center">
-        {/* Logo + naziv brenda (link ka Home) */}
-        <NavLink
-          to="/"
-          className="navbar-brand text-dark text-decoration-none fs-4"
-        >
-          <span className="font-bold text-blue-600">{"<LR/>"} </span>
-          <span className="font-semibold">
-            Life
-            <span className="text-blue-600"> Recompiled</span>
-          </span>
-        </NavLink>
-
-        {/* Navigacioni deo zavisi od statusa korisnika */}
-        {user ? (
-          <AvatarDropdown
-            user={user}
-            logout={logout}
-            isLoggingOut={isLoggingOut}
-          />
-        ) : (
-          <>
-            {!isLogin && (
-              <NavLink to="/login" className="btn btn-outline-primary me-2">
-                Login
-              </NavLink>
-            )}
-            {!isRegister && (
-              <NavLink to="/register" className="btn btn-outline-success">
-                Register
-              </NavLink>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Search/Filter bar se prikazuje samo na Home stranici */}
-      {pathname === "/" && (
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          exit="hidden"
-          variants={searchBarVariants}
-        >
-          <SearchAndFilterBar
-            onSearchChange={setSearchTerm}
-            onSortChange={setSortBy}
-            onFilterChange={setSelectedCategories}
-            onResetFilters={handleResetFilters}
-            selectedCategories={selectedCategories}
-            sortBy={sortBy}
-            showSearch={false}
-          />
-        </motion.div>
-      )}
-
-      {/* Create dugme: kontrolisano preko canShowCreateButton */}
-      <div>
-        {canShowCreateButton && (
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-            onClick={() => navigate("/dashboard/create")}
+    <header className="w-full">
+      <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-3">
+          <NavLink
+            to="/"
+            className="flex items-center gap-2 text-zinc-100 no-underline"
+            aria-label="Go to Home"
           >
-            Create New Post
-          </button>
+            <span className="font-bold text-blue-400">{"<LR/>"}</span>
+            <span className="font-semibold">
+              Life <span className="text-blue-400">Recompiled</span>
+            </span>
+          </NavLink>
+
+          <div className="flex items-center gap-2">
+            {user ? (
+              <AvatarDropdown
+                user={user}
+                logout={logout}
+                isLoggingOut={isLoggingOut}
+              />
+            ) : (
+              <>
+                {!isLogin && (
+                  <NavLink
+                    to="/login"
+                    className={`${authBtnBase} border border-blue-500/40 bg-transparent text-blue-200 hover:bg-blue-500/10`}
+                  >
+                    Login
+                  </NavLink>
+                )}
+                {!isRegister && (
+                  <NavLink
+                    to="/register"
+                    className={`${authBtnBase} border border-emerald-500/40 bg-transparent text-emerald-200 hover:bg-emerald-500/10`}
+                  >
+                    Register
+                  </NavLink>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {pathname === "/" && (
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            variants={searchBarVariants}
+            className="mt-3"
+          >
+            <SearchAndFilterBar
+              onSearchChange={setSearchTerm}
+              onSortChange={setSortBy}
+              onFilterChange={setSelectedCategories}
+              onResetFilters={handleResetFilters}
+              selectedCategories={selectedCategories}
+              sortBy={sortBy}
+              showSearch={false}
+            />
+          </motion.div>
+        )}
+
+        {canShowCreateButton && (
+          <div className="mt-3">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              onClick={() => navigate("/dashboard/create")}
+            >
+              Create New Post
+            </button>
+          </div>
         )}
       </div>
     </header>

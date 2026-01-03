@@ -4,9 +4,6 @@ import { WithContext as ReactTags } from "react-tag-input";
 import { predefinedTags } from "../constants/tags";
 import { categorizedTags } from "../constants/tags";
 
-import "../styles/TagsDropDown.css";
-import "../styles/TagsInput.css";
-
 const TagsInput = ({ tags, setTags }) => {
   const [error, setError] = useState(null);
   const [inputValue, setInputValue] = useState("");
@@ -103,20 +100,28 @@ const TagsInput = ({ tags, setTags }) => {
 
   const renderFilteredTags = () => {
     const filtered = filterTags(inputValue);
-    if (filtered.length === 0) return <p>No matching tags found</p>;
+    if (filtered.length === 0) {
+      return (
+        <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-lg">
+          <p className="text-sm text-zinc-400">No matching tags found</p>
+        </div>
+      );
+    }
 
     return (
-      <div className="dropdown-container">
-        {filtered.map(({ name, tags: list }) => (
-          <div key={name} className="dropdown-category">
-            <h5 className="category-name">{name}</h5>
+      <div className="absolute left-0 top-full z-50 mt-2 w-full max-h-72 overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-lg">
+        {filtered.map(({ name, tags: list }, idx) => (
+          <div key={name} className={idx === 0 ? "" : "mt-4"}>
+            <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              {name}
+            </h5>
 
-            <div className="tags-container">
+            <div className="flex flex-wrap gap-2">
               {list.slice(0, 50).map((tag) => (
                 <button
                   type="button"
                   key={`${name}-${tag}`}
-                  className="tag-btn"
+                  className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                   onClick={() => handleAddition({ id: tag, text: tag })}
                 >
                   {tag}
@@ -124,44 +129,55 @@ const TagsInput = ({ tags, setTags }) => {
               ))}
             </div>
 
-            <hr className="divider" />
+            <div className="mt-4 h-px w-full bg-zinc-800" />
           </div>
         ))}
       </div>
     );
   };
 
+  const tagButtonBase =
+    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
   return (
-    <div className="mb-3">
-      <label htmlFor="tags" className="form-label">
+    <div className="space-y-2">
+      <label htmlFor="tags" className="block text-sm font-medium text-zinc-200">
         Tags
       </label>
 
       {/* Predefined tags */}
-      <div className="mb-2">
-        {predefinedTags.map((tag) => (
-          <button
-            key={tag}
-            type="button"
-            className={`btn btn-outline-primary btn-sm me-2 mb-2 ${
-              tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
-                ? "active"
-                : ""
-            }`}
-            onClick={() => handleAddition({ id: tag, text: tag })}
-            disabled={isTagDisabled(tag)}
-          >
-            {tag}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        {predefinedTags.map((tag) => {
+          const isActive = tags.some(
+            (t) => t.text.toLowerCase() === tag.toLowerCase()
+          );
+          const disabled = isTagDisabled(tag);
+
+          return (
+            <button
+              key={tag}
+              type="button"
+              className={`${tagButtonBase} ${
+                isActive
+                  ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-500"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
+              } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+              onClick={() => handleAddition({ id: tag, text: tag })}
+              disabled={disabled}
+              aria-pressed={isActive}
+            >
+              {tag}
+            </button>
+          );
+        })}
       </div>
 
-      <small className="form-text text-light">
+      <p className="text-xs text-zinc-400">
         Add up to 5 tags to describe your post.
-      </small>
+      </p>
 
       <div
-        className="tags-input-wrapper"
+        className="relative"
         ref={containerRef}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.preventDefault();
@@ -178,18 +194,28 @@ const TagsInput = ({ tags, setTags }) => {
           handleInputChange={handleInputChange}
           inputFieldPosition="bottom"
           placeholder="Start typing to search for tags"
+          classNames={{
+            tags: "space-y-2",
+            selected: "flex flex-wrap gap-2",
+            tag: "inline-flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-100",
+            remove:
+              "inline-flex h-5 w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+            tagInput: "w-full",
+            tagInputField:
+              "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+          }}
         />
 
         {inputValue && renderFilteredTags()}
       </div>
 
       {!error ? (
-        <small className="form-text text-light">
+        <p className="text-xs text-zinc-400">
           Allowed characters: letters, numbers, spaces, dots, underscores, plus
           (+), hyphens (-), hashtags (#).
-        </small>
+        </p>
       ) : (
-        <div className="invalid-feedback d-block">{error}</div>
+        <p className="text-sm text-red-400">{error}</p>
       )}
     </div>
   );

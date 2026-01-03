@@ -6,38 +6,27 @@ import { useState, useEffect } from "react";
 import Spinner from "../components/Spinner";
 
 const Login = () => {
-  // State za cuvanje unetih vrednosti
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  // State za cuvanje gresaka
   const [errors, setErrors] = useState({});
-
-  // State za spiner (Pracenje da li je registracija u toku)
   const [loading, setLoading] = useState(false);
 
-  // Kreiranje navigate funkcije
   const navigate = useNavigate();
-  // Kreiranje loaction funkcije
   const location = useLocation();
 
-  // Automatsko popunjavanje email-a iz state-a
-  // useEffect prati da li je email prosledjen iz Register strane
-  // Ako jeste, postavlja ga u formu i resetuje state kako bi se izbegla ponovna upotreba
   useEffect(() => {
     if (location.state?.email) {
       setFormData((prevState) => ({
         ...prevState,
         email: location.state.email,
       }));
-      // Resetujemo state nakon preuzimanja email-a
       navigate("/login", { replace: true });
     }
   }, [location.state, navigate]);
 
-  // Mapa friendly user Firebase gresaka
   const firebaseErrorMessages = {
     "auth/user-not-found": "Invalid email or password. Please try again.",
     "auth/invalid-credential": "Invalid email or password. Please try again.",
@@ -49,134 +38,150 @@ const Login = () => {
       "Your account has been disabled. Please contact support.",
   };
 
-  // Funkcija za obradu prijave
   const handleLogin = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
-    // Provera da li su input polja prazna
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.password) newErrors.password = "Password is required";
 
-    // Provera formata email-a
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (formData.email && !emailRegex.test(formData.email)) {
       newErrors.email = "Invalid email format";
     }
 
-    // Ako postoje greske, prekidamo procesiranje
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    // Ako nema gresaka, zapocinjemo proces logovanja
-    setLoading(true); // Aktiviraj spinner
+    setLoading(true);
     try {
-      // Pokusaj prijave korisnka
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      // Poruka o uspesnoj prijavi
+
       toast.success("Login successful! Redirecting to dashboard...", {
         autoClose: 2000,
       });
-      // Preusmeravanje na dashboard
+
       setTimeout(() => {
         navigate("/");
       }, 500);
     } catch (error) {
-      // Prikaz friendly user Firebase gresaka
       const message =
         firebaseErrorMessages[error.code] ||
         "An unexpected error occurred. Please try again.";
       toast.error(message);
     } finally {
-      // Uklanjamo spiner
       setLoading(false);
     }
   };
 
+  const inputBase =
+    "w-full rounded-lg border bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+  const inputOk = "border-zinc-700";
+  const inputErr = "border-red-500";
+
   return (
-    <div className="form-container">
-      <h2 className="text-center mb-4">Log In</h2>
+    <div className="mx-auto w-full max-w-md px-4 py-10">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-6 shadow-sm">
+        <h2 className="text-center text-2xl font-semibold text-zinc-100">
+          Log In
+        </h2>
+        <p className="mt-1 text-center text-sm text-zinc-400">
+          Enter your credentials to continue.
+        </p>
 
-      <form
-        onSubmit={handleLogin}
-        noValidate
-        aria-busy={loading ? "true" : "false"}
-      >
-        {/* Email */}
-        <div className="mb-3">
-          <label htmlFor="email" className="form-label">
-            Email address
-          </label>
-
-          <input
-            type="email"
-            className={`form-control ${errors.email ? "is-invalid" : ""}`}
-            id="email"
-            name="email"
-            placeholder="name@example.com"
-            autoComplete="email"
-            inputMode="email"
-            value={formData.email}
-            onChange={(e) => {
-              setFormData({ ...formData, email: e.target.value });
-              if (errors.email) setErrors({ ...errors, email: "" });
-            }}
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            required
-          />
-
-          {errors.email && (
-            <p id="email-error" className="text-danger mt-1 mb-0" role="alert">
-              {errors.email}
-            </p>
-          )}
-        </div>
-
-        {/* Password */}
-        <div className="mb-3">
-          <label htmlFor="password" className="form-label">
-            Password
-          </label>
-
-          <input
-            type="password"
-            className={`form-control ${errors.password ? "is-invalid" : ""}`}
-            id="password"
-            name="password"
-            placeholder="Enter your password"
-            autoComplete="current-password"
-            value={formData.password}
-            onChange={(e) => {
-              setFormData({ ...formData, password: e.target.value });
-              if (errors.password) setErrors({ ...errors, password: "" });
-            }}
-            aria-invalid={Boolean(errors.password)}
-            aria-describedby={errors.password ? "password-error" : undefined}
-            required
-          />
-
-          {errors.password && (
-            <p
-              id="password-error"
-              className="text-danger mt-1 mb-0"
-              role="alert"
+        <form
+          onSubmit={handleLogin}
+          noValidate
+          aria-busy={loading ? "true" : "false"}
+          className="mt-6 space-y-4"
+        >
+          {/* Email */}
+          <div className="space-y-2">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-zinc-200"
             >
-              {errors.password}
-            </p>
-          )}
-        </div>
+              Email address
+            </label>
 
-        {loading ? (
-          <Spinner message="" />
-        ) : (
-          <button type="submit" className="btn btn-primary w-100">
-            Login
-          </button>
-        )}
-      </form>
+            <input
+              type="email"
+              className={`${inputBase} ${errors.email ? inputErr : inputOk}`}
+              id="email"
+              name="email"
+              placeholder="name@example.com"
+              autoComplete="email"
+              inputMode="email"
+              value={formData.email}
+              onChange={(e) => {
+                setFormData({ ...formData, email: e.target.value });
+                if (errors.email) setErrors({ ...errors, email: "" });
+              }}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              required
+            />
+
+            {errors.email && (
+              <p id="email-error" className="text-sm text-red-400" role="alert">
+                {errors.email}
+              </p>
+            )}
+          </div>
+
+          {/* Password */}
+          <div className="space-y-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-zinc-200"
+            >
+              Password
+            </label>
+
+            <input
+              type="password"
+              className={`${inputBase} ${errors.password ? inputErr : inputOk}`}
+              id="password"
+              name="password"
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              value={formData.password}
+              onChange={(e) => {
+                setFormData({ ...formData, password: e.target.value });
+                if (errors.password) setErrors({ ...errors, password: "" });
+              }}
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "password-error" : undefined}
+              required
+            />
+
+            {errors.password && (
+              <p
+                id="password-error"
+                className="text-sm text-red-400"
+                role="alert"
+              >
+                {errors.password}
+              </p>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-2">
+              <Spinner message="" />
+            </div>
+          ) : (
+            <button
+              type="submit"
+              className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            >
+              Login
+            </button>
+          )}
+        </form>
+      </div>
     </div>
   );
 };

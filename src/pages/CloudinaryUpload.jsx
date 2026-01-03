@@ -52,7 +52,6 @@ const CloudinaryUpload = ({
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
 
-    // user canceled picker
     if (!file) {
       setSrStatus("No file selected.");
       setUiStatus("idle");
@@ -128,8 +127,6 @@ const CloudinaryUpload = ({
       console.error("Error uploading file:", error);
     } finally {
       setIsLoading(false);
-
-      // Important: allow re-selecting the same file again
       resetNativeInput();
     }
   };
@@ -145,20 +142,21 @@ const CloudinaryUpload = ({
 
   return (
     <div className="mt-2">
-      {/* Label: internal label, or external via ariaLabelledby */}
       {!ariaLabelledby && (
-        <label className="form-label" id={`${inputId}-label`}>
+        <label
+          className="block text-sm font-medium text-zinc-200"
+          id={`${inputId}-label`}
+        >
           {label}
         </label>
       )}
 
       {description && (
-        <p id={`${inputId}-desc`} className="form-text">
+        <p id={`${inputId}-desc`} className="mt-1 text-sm text-zinc-400">
           {description}
         </p>
       )}
 
-      {/* Hidden native input (removes "No file chosen") */}
       <input
         ref={inputRef}
         id={inputId}
@@ -174,10 +172,10 @@ const CloudinaryUpload = ({
       />
 
       {/* Custom chooser row */}
-      <div className="d-flex align-items-center gap-2 my-2">
+      <div className="my-2 flex items-center gap-2">
         <button
           type="button"
-          className="btn btn-outline-secondary"
+          className="inline-flex items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
           onClick={handleChooseClick}
           disabled={disabled || isLoading}
           aria-disabled={disabled || isLoading ? "true" : "false"}
@@ -185,9 +183,9 @@ const CloudinaryUpload = ({
           {isLoading ? "Uploading..." : "Choose file"}
         </button>
 
-        <div className="flex-grow-1">
+        <div className="min-w-0 flex-1">
           <div
-            className="small text-muted text-truncate"
+            className="truncate text-sm text-zinc-400"
             style={{ maxWidth: "320px" }}
             title={selectedName || ""}
           >
@@ -199,12 +197,12 @@ const CloudinaryUpload = ({
       {/* Visible status (UX) */}
       <p
         id={`${inputId}-ui-status`}
-        className={`small mb-1 ${
+        className={`mb-1 text-sm ${
           uiStatus === "error"
-            ? "text-danger"
+            ? "text-red-400"
             : uiStatus === "uploaded"
-            ? "text-success"
-            : "text-muted"
+            ? "text-emerald-400"
+            : "text-zinc-400"
         }`}
         aria-live="polite"
       >

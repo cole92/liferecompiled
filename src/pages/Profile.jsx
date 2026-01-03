@@ -257,8 +257,8 @@ const Profile = () => {
       </div>
 
       {/* BASIC INFO */}
-      <div className="row mb-4 mt-4">
-        <div className="col-md-6 text-center text-md-start">
+      <div className="mt-4 mb-4 flex flex-col gap-4 md:flex-row md:items-start">
+        <div className="w-full text-center md:w-1/2 md:text-left">
           {loading ? (
             <>
               <div className="mt-2">
@@ -276,7 +276,7 @@ const Profile = () => {
           )}
         </div>
 
-        <div className="col-md-6 text-center text-md-end">
+         <div className="w-full text-center md:w-1/2 md:text-right">
           {loading ? (
             <>
               <div className="mt-2">
