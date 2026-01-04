@@ -143,16 +143,13 @@ const CloudinaryUpload = ({
   return (
     <div className="mt-2">
       {!ariaLabelledby && (
-        <label
-          className="block text-sm font-medium text-zinc-200"
-          id={`${inputId}-label`}
-        >
+        <label className="ui-label" id={`${inputId}-label`}>
           {label}
         </label>
       )}
 
       {description && (
-        <p id={`${inputId}-desc`} className="mt-1 text-sm text-zinc-400">
+        <p id={`${inputId}-desc`}className="ui-help">
           {description}
         </p>
       )}
@@ -171,11 +168,11 @@ const CloudinaryUpload = ({
         aria-describedby={describedBy}
       />
 
-      {/* Custom chooser row */}
+      {/* Custom chooser area */}
       <div className="my-2 flex items-center gap-2">
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+          className="ui-button-secondary"
           onClick={handleChooseClick}
           disabled={disabled || isLoading}
           aria-disabled={disabled || isLoading ? "true" : "false"}
@@ -185,8 +182,7 @@ const CloudinaryUpload = ({
 
         <div className="min-w-0 flex-1">
           <div
-            className="truncate text-sm text-zinc-400"
-            style={{ maxWidth: "320px" }}
+            className="truncate text-sm text-zinc-400 max-w-[320px]"
             title={selectedName || ""}
           >
             {selectedName ? truncateName(selectedName) : "No file selected"}
@@ -194,7 +190,6 @@ const CloudinaryUpload = ({
         </div>
       </div>
 
-      {/* Visible status (UX) */}
       <p
         id={`${inputId}-ui-status`}
         className={`mb-1 text-sm ${
@@ -209,7 +204,6 @@ const CloudinaryUpload = ({
         {uiStatusText}
       </p>
 
-      {/* Screen reader status */}
       <p id={`${inputId}-status`} className="sr-only" aria-live="polite">
         {srStatus}
       </p>

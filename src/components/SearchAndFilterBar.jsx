@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories";
 
 /**
- * v1 rule: samo 1 kategorija aktivna
- * UX rule: klik na drugu kategoriju prebaci selekciju (nema "zakljucavanja")
+ * v1 rule: only 1 category active
+ * UX rule: click on another category switches selection (no locking)
  */
 const SearchAndFilterBar = ({
   onSearchChange,
@@ -19,6 +19,18 @@ const SearchAndFilterBar = ({
   const [localSearchTerm, setLocalSearchTerm] = useState("");
   const [localSortBy, setLocalSortBy] = useState("newest");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const sync = () => setIsDesktop(mq.matches);
+    sync();
+
+    mq.addEventListener?.("change", sync) ?? mq.addListener(sync);
+    return () =>
+      mq.removeEventListener?.("change", sync) ?? mq.removeListener(sync);
+  }, []);
 
   const hasActiveCategory =
     Array.isArray(selectedCategories) && selectedCategories.length === 1;
@@ -40,39 +52,41 @@ const SearchAndFilterBar = ({
     }
   }, [sortBy]);
 
+  const closeFilters = useCallback(() => setIsFilterOpen(false), []);
   const toggleFilterPanel = () => setIsFilterOpen((prev) => !prev);
 
-  const filterPanelVariants = {
-    hidden: { opacity: 0, x: 50 },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: { duration: 0.5, ease: "easeInOut" },
-    },
-    exit: {
-      opacity: 0,
-      x: 50,
-      transition: { duration: 0.5, ease: "easeInOut" },
-    },
-  };
+  // ESC to close + body scroll lock (UX standard for modal)
+  useEffect(() => {
+    if (!isFilterOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") closeFilters();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isFilterOpen, closeFilters]);
 
   /**
    * v1 single-category toggle:
-   * - ako kliknes aktivnu -> ukloni je ([])
-   * - ako kliknes neku drugu -> zameni ([value])
+   * - if you click active -> remove ([])
+   * - if you click another -> replace ([value])
    */
   const handleCategoryChange = (event) => {
     const { value } = event.target;
-
     const isActive = selectedCategories.includes(value);
 
-    // toggle off
     if (isActive) {
       onFilterChange([]);
       return;
     }
 
-    // switch to new single category
     onFilterChange([value]);
   };
 
@@ -96,119 +110,227 @@ const SearchAndFilterBar = ({
     setLocalSortBy("newest");
   };
 
+  // Animations:
+  // - Backdrop fades in/out
+  // - Mobile: bottom sheet (y)
+  // - Desktop: right drawer (x)
+  const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+    exit: { opacity: 0 },
+  };
+
+  const panelVariantsMobile = {
+    hidden: { opacity: 1, y: 24 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.25, ease: "easeOut" },
+    },
+    exit: {
+      opacity: 1,
+      y: 24,
+      transition: { duration: 0.2, ease: "easeIn" },
+    },
+  };
+
+  const panelVariantsDesktop = {
+    hidden: { opacity: 1, x: 24 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.25, ease: "easeOut" },
+    },
+    exit: {
+      opacity: 1,
+      x: 24,
+      transition: { duration: 0.2, ease: "easeIn" },
+    },
+  };
+
+  const activeCount = selectedCategories?.length || 0;
+
   return (
-    <div>
-      <div className="p-4">
-        <div className="flex items-center gap-4 bg-white p-4 z-10 rounded-lg shadow-md sticky top-0">
+    <div className="w-full">
+      {/* Top bar */}
+      <div className="ui-card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           {showSearch && (
-            <input
-              id="home-search"
-              name="homeSearch"
-              type="text"
-              placeholder="Search posts..."
-              value={localSearchTerm}
-              onChange={handleSearchChange}
-              autoComplete="off"
-              className="flex-grow p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="flex-1">
+              <label htmlFor="home-search" className="sr-only">
+                Search posts
+              </label>
+              <input
+                id="home-search"
+                name="homeSearch"
+                type="text"
+                placeholder="Search posts..."
+                value={localSearchTerm}
+                onChange={handleSearchChange}
+                autoComplete="off"
+                className="ui-input"
+              />
+            </div>
           )}
 
-          <select
-            id="home-sort"
-            name="homeSort"
-            value={localSortBy}
-            onChange={handleSortChange}
-            className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="newest">Newest First</option>
-            <option value="oldest" disabled={hasActiveCategory}>
-              Oldest First
-            </option>
-          </select>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="sm:w-[220px]">
+              <label htmlFor="home-sort" className="sr-only">
+                Sort posts
+              </label>
+              <select
+                id="home-sort"
+                name="homeSort"
+                value={localSortBy}
+                onChange={handleSortChange}
+                className="ui-input"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest" disabled={hasActiveCategory}>
+                  Oldest First
+                </option>
+              </select>
+            </div>
 
-          <button
-            onClick={toggleFilterPanel}
-            aria-expanded={isFilterOpen}
-            aria-controls="filters-panel"
-            className={`p-2 rounded-lg text-white ${
-              selectedCategories.length > 0 ? "bg-blue-600" : "bg-blue-500"
-            }`}
-          >
-            Filters
-            {selectedCategories.length > 0 && ` (${selectedCategories.length})`}
-          </button>
+            <button
+              type="button"
+              onClick={toggleFilterPanel}
+              aria-expanded={isFilterOpen}
+              aria-controls="filters-panel"
+              className="ui-button-secondary"
+            >
+              Filters
+              {activeCount > 0 && (
+                <span className="ml-1 inline-flex items-center rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">
+                  {activeCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        <AnimatePresence>
-          {isFilterOpen && (
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={filterPanelVariants}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg p-4"
-              role="dialog"
-              id="filters-panel"
-              aria-modal="true"
-            >
-              <h2 className="text-lg font-bold">Filter Options</h2>
-
-              <h3 className="text-md font-semibold mt-4">Categories</h3>
-              <div className="mt-2">
-                {validCategories.map((categoryItem) => {
-                  const isActive = selectedCategories.includes(categoryItem);
-
-                  const checkboxId = `filter-category-${categoryItem
-                    .toLowerCase()
-                    .replace(/\s+/g, "-")}`;
-
-                  return (
-                    <div
-                      key={categoryItem}
-                      className="flex items-center space-x-2"
-                    >
-                      <input
-                        id={checkboxId}
-                        name="categoryFilter"
-                        type="checkbox"
-                        value={categoryItem}
-                        checked={isActive}
-                        onChange={handleCategoryChange}
-                      />
-                      <label htmlFor={checkboxId}>{categoryItem}</label>
-                    </div>
-                  );
-                })}
-
-                {hasActiveCategory && (
-                  <p className="mt-2 text-sm text-gray-500 italic text-center">
-                    Single category mode (v1): selecting another category will
-                    switch the active one. &quot;Oldest&quot; sort remains
-                    disabled while a category is active.
-                  </p>
-                )}
-              </div>
-
-              <button
-                onClick={handleLocalClear}
-                className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-              >
-                Clear
-              </button>
-
-              <div>
-                <button
-                  onClick={toggleFilterPanel}
-                  className="mt-4 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                >
-                  Close
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {hasActiveCategory && (
+          <p className="mt-3 text-sm text-zinc-300">
+            Single category mode (v1): selecting another category switches the
+            active one. Oldest sort remains disabled while a category is active.
+          </p>
+        )}
       </div>
+
+      {/* Overlay filter panel */}
+      <AnimatePresence>
+        {isFilterOpen && (
+          <motion.div
+            className="fixed inset-0 z-50"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            {/* Backdrop */}
+            <motion.button
+              type="button"
+              aria-label="Close filters"
+              className="absolute inset-0 h-full w-full bg-black/60"
+              variants={backdropVariants}
+              onClick={closeFilters}
+            />
+
+            {/* Panel container */}
+            <div className="absolute inset-0 flex items-end sm:items-stretch sm:justify-end">
+              {/* Mobile: bottom-sheet */}
+              <motion.div
+                id="filters-panel"
+                role="dialog"
+                aria-modal="true"
+                className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur sm:rounded-none sm:border-l sm:border-t-0 sm:w-[380px] sm:h-full"
+                variants={isDesktop ? panelVariantsDesktop : panelVariantsMobile}
+
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+
+
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-lg font-semibold text-zinc-100">
+                    Filter Options
+                  </h2>
+
+                  <button
+                    type="button"
+                    className="ui-button-outline"
+                    onClick={closeFilters}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold text-zinc-200">
+                    Categories
+                  </h3>
+
+                  <div className="mt-3 max-h-[55vh] overflow-auto pr-1 sm:max-h-[calc(100vh-220px)]">
+                    <div className="space-y-2">
+                      {validCategories.map((categoryItem) => {
+                        const isActive =
+                          selectedCategories.includes(categoryItem);
+
+                        const checkboxId = `filter-category-${categoryItem
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")}`;
+
+                        return (
+                          <label
+                            key={categoryItem}
+                            htmlFor={checkboxId}
+                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 hover:bg-zinc-900/40"
+                          >
+                            <input
+                              id={checkboxId}
+                              name="categoryFilter"
+                              type="checkbox"
+                              value={categoryItem}
+                              checked={isActive}
+                              onChange={handleCategoryChange}
+                              className="h-4 w-4 accent-sky-400"
+                            />
+                            <span className="text-sm text-zinc-100">
+                              {categoryItem}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleLocalClear}
+                      className="ui-button-secondary"
+                    >
+                      Clear
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={closeFilters}
+                      className="ui-button-primary"
+                    >
+                      Apply
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-xs text-zinc-400">
+                    Tip: Click outside this panel or press ESC to close.
+                  </p>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

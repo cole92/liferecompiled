@@ -30,9 +30,7 @@ const Layout = ({ children }) => {
         <main id="main-content" className="flex-1 overflow-auto">
           <div
             className={
-              isDashboard
-                ? "w-full px-4 py-6 sm:px-6 lg:px-8"
-                : "mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8"
+              isDashboard ? "ui-shell max-w-none py-6" : "ui-shell py-6"
             }
           >
             {children}

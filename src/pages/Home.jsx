@@ -145,7 +145,6 @@ const Home = () => {
         <SkeletonCard />
       ) : showNoResults ? (
         <>
-          {/* Home v1 prosledjuje prazan searchTerm jer nema tekstualni search na Home feed-u */}
           <NoResultsMessage
             posts={finalPosts}
             searchTerm=""
@@ -156,14 +155,12 @@ const Home = () => {
         <>
           <PostsList posts={finalPosts} showCommentsThread={false} />
 
-          {/* Mini skeleton pri Load more */}
           {isLoadingMore && (
             <div className="mt-4">
               <SkeletonCard />
             </div>
           )}
 
-          {/* Load more / end helper */}
           {hasMore ? (
             <div className="mt-6 flex justify-center">
               <button
@@ -171,16 +168,13 @@ const Home = () => {
                 onClick={handleLoadMore}
                 disabled={isLoadingMore || isLoading || !hasMore}
                 aria-busy={isLoadingMore}
-                className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+                className="ui-button-primary py-2.5"
               >
                 {isLoadingMore ? "Loading..." : "Load more"}
               </button>
             </div>
           ) : (
-            <p
-              className="mt-6 text-center text-gray-400 text-sm"
-              aria-live="polite"
-            >
+            <p className="ui-help text-center mt-6" aria-live="polite">
               You reached the end.
             </p>
           )}

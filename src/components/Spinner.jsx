@@ -2,20 +2,27 @@ import PropTypes from "prop-types";
 
 const Spinner = ({ message = "Loading...", className = "", style = {} }) => {
   return (
-    <div className="center-spinner">
-      <div className={`spinner-border ${className}`} role="status" style={style}>
-        <span className="visually-hidden">Loading...</span>
+    <div className="flex flex-col items-center justify-center">
+      <div
+        role="status"
+        aria-live="polite"
+        className={`h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-sky-400 ${className}`}
+        style={style}
+      >
+        <span className="sr-only">Loading...</span>
       </div>
-      {message && <p className="text-center mt-3">{message}</p>}
+
+      {message && (
+        <p className="mt-3 text-center text-sm text-zinc-300">{message}</p>
+      )}
     </div>
   );
 };
 
-// PropTypes validacija
 Spinner.propTypes = {
   message: PropTypes.string,
-  className: PropTypes.string, // Dodali smo podrsku za dodatne klase
-  style: PropTypes.object, // Dodali smo podrsku za inline stilove
+  className: PropTypes.string,
+  style: PropTypes.object,
 };
 
 export default Spinner;

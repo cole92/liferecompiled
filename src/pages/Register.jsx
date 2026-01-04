@@ -104,18 +104,19 @@ const Register = () => {
     }
   };
 
-  const inputBase =
-    "w-full rounded-lg border bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
-  const inputOk = "border-zinc-700";
-  const inputErr = "border-red-500";
+  const inputBase = "ui-input";
+  // error: keep red border, disable ring to avoid layered outline
+  const inputErr =
+    "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-offset-0";
+  const inputOk = "";
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-10">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-6 shadow-sm">
-        <h2 className="text-center text-2xl font-semibold text-zinc-100">
+    <div className="mx-auto flex min-h-[70vh] w-full max-w-lg items-center px-4 py-10">
+      <div className="ui-card w-full p-6 sm:p-8">
+        <h2 className="text-center text-3xl font-semibold text-zinc-100">
           Register
         </h2>
-        <p className="mt-1 text-center text-sm text-zinc-400">
+        <p className="mt-1 text-center text-sm text-zinc-300">
           Create your account to start posting.
         </p>
 
@@ -127,10 +128,7 @@ const Register = () => {
         >
           {/* Email */}
           <div className="space-y-2">
-            <label
-              htmlFor="register-email"
-              className="block text-sm font-medium text-zinc-200"
-            >
+            <label htmlFor="register-email" className="ui-label">
               Email address
             </label>
 
@@ -155,11 +153,7 @@ const Register = () => {
             />
 
             {errors.email && (
-              <p
-                id="register-email-error"
-                className="text-sm text-red-400"
-                role="alert"
-              >
+              <p id="register-email-error" className="ui-error" role="alert">
                 {errors.email}
               </p>
             )}
@@ -167,10 +161,7 @@ const Register = () => {
 
           {/* Password */}
           <div className="space-y-2">
-            <label
-              htmlFor="register-password"
-              className="block text-sm font-medium text-zinc-200"
-            >
+            <label htmlFor="register-password" className="ui-label">
               Password
             </label>
 
@@ -194,11 +185,7 @@ const Register = () => {
             />
 
             {errors.password && (
-              <p
-                id="register-password-error"
-                className="text-sm text-red-400"
-                role="alert"
-              >
+              <p id="register-password-error" className="ui-error" role="alert">
                 {errors.password}
               </p>
             )}
@@ -206,10 +193,7 @@ const Register = () => {
 
           {/* Confirm Password */}
           <div className="space-y-2">
-            <label
-              htmlFor="register-confirm-password"
-              className="block text-sm font-medium text-zinc-200"
-            >
+            <label htmlFor="register-confirm-password" className="ui-label">
               Confirm Password
             </label>
 
@@ -240,7 +224,7 @@ const Register = () => {
             {errors.confirmPassword && (
               <p
                 id="register-confirm-password-error"
-                className="text-sm text-red-400"
+                className="ui-error"
                 role="alert"
               >
                 {errors.confirmPassword}
@@ -253,10 +237,7 @@ const Register = () => {
               <Spinner message="" />
             </div>
           ) : (
-            <button
-              type="submit"
-              className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-            >
+            <button type="submit" className="ui-button-primary w-full py-2.5">
               Register
             </button>
           )}

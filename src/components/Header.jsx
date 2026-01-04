@@ -71,12 +71,11 @@ const Header = () => {
     );
   }
 
-  const authBtnBase =
-    "inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+  const authBtnBase = "ui-button-outline";
 
   return (
     <header className="w-full">
-      <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
+      <div className="ui-shell py-3">
         <div className="flex items-center justify-between gap-3">
           <NavLink
             to="/"
@@ -101,15 +100,16 @@ const Header = () => {
                 {!isLogin && (
                   <NavLink
                     to="/login"
-                    className={`${authBtnBase} border border-blue-500/40 bg-transparent text-blue-200 hover:bg-blue-500/10`}
+                    className={`${authBtnBase} border-blue-500/40 text-blue-200 hover:bg-blue-500/10`}
                   >
                     Login
                   </NavLink>
                 )}
+
                 {!isRegister && (
                   <NavLink
                     to="/register"
-                    className={`${authBtnBase} border border-emerald-500/40 bg-transparent text-emerald-200 hover:bg-emerald-500/10`}
+                    className={`${authBtnBase} border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10`}
                   >
                     Register
                   </NavLink>
@@ -143,7 +143,7 @@ const Header = () => {
           <div className="mt-3">
             <button
               type="button"
-              className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              className="ui-button-primary"
               onClick={() => navigate("/dashboard/create")}
             >
               Create New Post
