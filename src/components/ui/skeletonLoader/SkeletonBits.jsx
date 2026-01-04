@@ -18,7 +18,7 @@ export function SkeletonLine({ w = "w-40", h = "h-4", as = "div" }) {
   const Tag = as;
   return (
     <Tag
-      className={`bg-gray-200/80 rounded ${w} ${h} animate-pulse ${
+      className={`bg-zinc-800/70 rounded ${w} ${h} animate-pulse ${
         as === "span" ? "inline-block align-middle" : ""
       }`}
     />
@@ -30,7 +30,7 @@ export function SkeletonLine({ w = "w-40", h = "h-4", as = "div" }) {
  *
  * Skeleton placeholder za kruzne elemente (npr. avatar).
  *
- * - Veličina definisana prop-om `size`
+ * - Velicina definisana prop-om `size`
  * - Koristi animate-pulse za efekat disanja
  *
  * @param {number} size - velicina kruga u px (default 80)
@@ -39,7 +39,7 @@ export function SkeletonLine({ w = "w-40", h = "h-4", as = "div" }) {
 export function SkeletonCircle({ size = 80 }) {
   return (
     <div
-      className="bg-gray-200/80 rounded-full animate-pulse"
+      className="bg-zinc-800/70 rounded-full animate-pulse"
       style={{ width: size, height: size }}
     />
   );
