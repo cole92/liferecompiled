@@ -102,6 +102,7 @@ const PostDetails = () => {
       unsub();
     };
   }, [postId]);
+
   // Author fetch: zavisi samo od userId (da ne refetchuje autora na svaku reakciju)
   useEffect(() => {
     if (!post?.userId) return;
@@ -211,16 +212,18 @@ const PostDetails = () => {
           : ""
       }`}
     >
-      <div className="max-w-5xl mx-auto my-8 space-y-8">
+      <div className="ui-shell max-w-5xl my-8 space-y-8">
         {/* --- POST HEADER --- */}
         <div
-          className={`bg-white rounded-xl shadow-md p-6 ${
-            post.badges?.trending ? "border-2 border-red-500" : ""
+          className={`ui-card p-6 ${
+            post.badges?.trending
+              ? "ring-2 ring-rose-500/60 border-rose-500/40"
+              : ""
           }`}
         >
           {/* Naslov i statusne oznake */}
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-            <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
+            <h1 className="text-3xl font-bold text-zinc-100">{post.title}</h1>
 
             {/* Bedzevi i status zakljucavanja */}
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
@@ -239,7 +242,7 @@ const PostDetails = () => {
               {post.locked && lockedDate && (
                 <span
                   title="This post is locked and cannot be edited or commented"
-                  className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full inline-flex items-center gap-1"
+                  className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
                 >
                   <FiLock className="text-sm" />
                   Locked: {lockedDate}
@@ -249,7 +252,7 @@ const PostDetails = () => {
           </div>
 
           {/* Autor i meta podaci */}
-          <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-gray-500 border-b pb-4">
+          <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-zinc-400 border-b border-zinc-800 pb-4">
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Avatar
@@ -268,7 +271,7 @@ const PostDetails = () => {
                       setShowTopContributorModal(true);
                     }}
                   >
-                    <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
                   </div>
                 )}
               </div>
@@ -277,33 +280,35 @@ const PostDetails = () => {
             <span className="mx-1">·</span>
             <span>{post?.createdAt?.toDate().toLocaleString()}</span>
             <span className="mx-1">·</span>
-            <span className="text-gray-600">📂 {post?.category}</span>
+            <span className="text-zinc-300">📂 {post?.category}</span>
           </div>
 
           {/* Description (summary) */}
           {post?.description && (
-           <p className="mt-5 text-gray-700 text-base leading-relaxed break-words overflow-x-hidden">
+            <p className="mt-5 text-zinc-200 text-base leading-relaxed break-words overflow-x-hidden">
               {post.description}
             </p>
           )}
 
           {/* Content */}
-          <div className="mt-6 text-gray-800 whitespace-pre-wrap break-words leading-relaxed overflow-x-hidden">
+          <div className="mt-6 text-zinc-200 whitespace-pre-wrap break-words leading-relaxed overflow-x-hidden">
             {post?.content}
           </div>
 
           {/* Tagovi */}
-          {post.tags.map((tag, index) => (
-            <span
-              key={`${tag.text}-${index}`}
-              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
-            >
-              #{tag.text}
-            </span>
-          ))}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {post.tags.map((tag, index) => (
+              <span
+                key={`${tag.text}-${index}`}
+                className="inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-200"
+              >
+                #{tag.text}
+              </span>
+            ))}
+          </div>
 
           {/* Reakcije i dugme za snimanje */}
-          <div className="mt-6 flex items-center justify-between border-t pt-4">
+          <div className="mt-6 flex items-center justify-between border-t border-zinc-800 pt-4">
             <ReactionSummary
               postId={post.id}
               locked={post.locked}
@@ -313,12 +318,12 @@ const PostDetails = () => {
             <button
               onClick={handleSaveToggle}
               title={isSaved ? "Remove from saved" : "Save this post"}
-              className="hover:scale-110 transition"
+              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
               {isSaved ? (
-                <BsBookmarkFill className="text-slate-950" />
+                <BsBookmarkFill className="text-sky-200" />
               ) : (
-                <BsBookmark className="text-gray-400" />
+                <BsBookmark className="text-zinc-400" />
               )}
             </button>
           </div>
@@ -327,7 +332,7 @@ const PostDetails = () => {
           <button
             type="button"
             onClick={onReportClick}
-            className="hover:underline"
+            className="mt-3 inline-flex text-sm text-blue-400 hover:text-blue-300 hover:underline"
             aria-label="Report post"
           >
             Report
@@ -335,17 +340,15 @@ const PostDetails = () => {
 
           {/* Admin / author controls (WIP) */}
           {canManagePost && (
-            <div className="mt-4 flex gap-2 border-b pb-4">
+            <div className="mt-4 flex gap-2 border-b border-zinc-800 pb-4">
               {/* Ovde ce kasnije ici i owner kontrole, ako ih budemo dodavali */}
               {isAdmin && (
                 <button
                   type="button"
                   onClick={() => setDeleteModalOpen(true)}
                   disabled={isDeletingPost}
-                  className={`px-3 py-1 text-sm rounded-md bg-red-600 text-white transition ${
-                    isDeletingPost
-                      ? "opacity-60 cursor-not-allowed"
-                      : "hover:bg-red-700"
+                  className={`ui-button bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                    isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                 >
                   {isDeletingPost
@@ -399,10 +402,10 @@ const PostDetails = () => {
         title="Delete Post Permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
         confirmText={isDeletingPost ? "Deleting..." : "Delete"}
-        confirmButtonClass={`bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200 ${
+        confirmButtonClass={`ui-button bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
         }`}
-        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
+        cancelButtonClass="ui-button-secondary"
         onCancel={() => {
           if (!isDeletingPost) {
             setDeleteModalOpen(false);
