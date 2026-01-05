@@ -65,7 +65,7 @@ const EditProfileForm = ({ userData }) => {
         profilePicture: userData.profilePicture || "",
       };
       setFormData(next);
-      setOriginalData(next); // cuvamo snapshot posle ucitavanja
+      setOriginalData(next);
     }
   }, [userData]);
 
@@ -95,7 +95,6 @@ const EditProfileForm = ({ userData }) => {
   };
 
   const handleSave = async () => {
-    // Early return: nema razlike u odnosu na poslednje snimljeno stanje
     if (
       formData.name === originalData.name &&
       formData.bio === originalData.bio &&
@@ -111,14 +110,12 @@ const EditProfileForm = ({ userData }) => {
       const updatedData = {};
       const cleanName = sanitizeName(formData.name);
 
-      // Difujemo polja prema snapshotu, saljemo samo promenjena
       if (cleanName !== originalData.name) updatedData.name = cleanName;
       if (formData.bio !== originalData.bio) updatedData.bio = formData.bio;
       if (formData.profilePicture !== originalData.profilePicture) {
         updatedData.profilePicture = formData.profilePicture;
       }
 
-      // Ako posle sanitizacije zapravo nema diffa
       if (Object.keys(updatedData).length === 0) {
         showInfoToast("No changes to save");
         setIsSaving(false);
@@ -129,7 +126,6 @@ const EditProfileForm = ({ userData }) => {
         const docRef = doc(db, "users", userData.id);
         await updateDoc(docRef, updatedData);
 
-        // Posle uspeha: normalizuj i osvezi snapshot da sledeci klik ne ponavlja save
         const normalized = {
           name: updatedData.name ?? originalData.name,
           bio: updatedData.bio ?? originalData.bio,
@@ -157,7 +153,6 @@ const EditProfileForm = ({ userData }) => {
   };
 
   const handleCancel = () => {
-    // Reset na poslednje snimljeno (originalData), ne na stari props
     setFormData({
       name: originalData.name,
       bio: originalData.bio,
@@ -169,6 +164,13 @@ const EditProfileForm = ({ userData }) => {
     setIsSaving(false);
   };
 
+  const labelClass = "block text-sm font-medium text-zinc-200 mb-1";
+  const inputBase =
+    "w-full rounded-lg border border-zinc-800 bg-zinc-950/30 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+  const helpText = "text-xs text-zinc-400 mt-1";
+  const errorText = "text-rose-400 text-sm mt-1";
+
   return (
     <form
       className="space-y-6"
@@ -177,10 +179,7 @@ const EditProfileForm = ({ userData }) => {
     >
       {/* Profilna slika */}
       <div>
-        <label
-          id="profile-picture-label"
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
+        <label id="profile-picture-label" className={labelClass}>
           Profile Picture
         </label>
 
@@ -191,11 +190,9 @@ const EditProfileForm = ({ userData }) => {
               ? `${formData.name} profile picture`
               : "Profile picture"
           }
-          className="rounded-full mb-3"
-          style={{ width: "100px", height: "100px" }}
+          className="w-24 h-24 rounded-full object-cover border border-zinc-800 mb-3"
         />
 
-        {/* Status za upload (screen reader info) */}
         <p id="profile-picture-status" className="sr-only" aria-live="polite">
           {isUploading ? "Uploading profile picture." : "Upload idle."}
         </p>
@@ -214,10 +211,7 @@ const EditProfileForm = ({ userData }) => {
 
       {/* Name */}
       <div>
-        <label
-          htmlFor="profile-name"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
+        <label htmlFor="profile-name" className={labelClass}>
           Name
         </label>
 
@@ -225,7 +219,7 @@ const EditProfileForm = ({ userData }) => {
           type="text"
           id="profile-name"
           name="name"
-          className="w-full border border-gray-300 rounded px-3 py-2"
+          className={inputBase}
           value={formData.name}
           onChange={(e) => {
             const value = e.target.value;
@@ -243,16 +237,14 @@ const EditProfileForm = ({ userData }) => {
           aria-describedby="profile-name-help profile-name-error"
         />
 
-        {/* Help je uvek tu */}
-        <p id="profile-name-help" className="text-xs text-gray-500 mt-1">
+        <p id="profile-name-help" className={helpText}>
           Allowed: letters, spaces, hyphens (-), apostrophes (&apos;).{" "}
           {NAME_MIN}-{NAME_MAX} chars.
         </p>
 
-        {/* Error je uvek tu (ali prazan kad nema errora) */}
         <p
           id="profile-name-error"
-          className="text-red-500 text-sm mt-1"
+          className={errorText}
           role="alert"
           aria-live="polite"
         >
@@ -262,10 +254,7 @@ const EditProfileForm = ({ userData }) => {
 
       {/* Bio */}
       <div>
-        <label
-          htmlFor="profile-bio"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
+        <label htmlFor="profile-bio" className={labelClass}>
           Bio
         </label>
 
@@ -273,7 +262,7 @@ const EditProfileForm = ({ userData }) => {
           id="profile-bio"
           name="bio"
           rows={3}
-          className="w-full border border-gray-300 rounded px-3 py-2"
+          className={inputBase}
           value={formData.bio}
           onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
           maxLength={280}
@@ -281,20 +270,21 @@ const EditProfileForm = ({ userData }) => {
           aria-describedby="profile-bio-counter profile-bio-error"
         />
 
-        {/* Counter kao opis textarea */}
         <div
           id="profile-bio-counter"
-          className="text-sm mt-1 text-gray-500"
+          className="text-sm mt-1 text-zinc-400"
           aria-live="polite"
         >
-          <span className={280 - formData.bio.length < 1 ? "text-red-500" : ""}>
+          <span
+            className={280 - formData.bio.length < 1 ? "text-rose-400" : ""}
+          >
             {280 - formData.bio.length} characters left
           </span>
         </div>
 
         <p
           id="profile-bio-error"
-          className="text-red-500 text-sm mt-1"
+          className={errorText}
           role="alert"
           aria-live="polite"
         >
@@ -309,7 +299,7 @@ const EditProfileForm = ({ userData }) => {
             type="button"
             onClick={handleCancel}
             disabled={isSaving}
-            className="border border-gray-300 text-gray-700 px-4 py-2 rounded disabled:opacity-50"
+            className="ui-button-secondary disabled:opacity-50"
           >
             Reset
           </button>
@@ -318,7 +308,7 @@ const EditProfileForm = ({ userData }) => {
             type="button"
             onClick={handleSave}
             disabled={isSaving || isUploading}
-            className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50 min-w-[9rem] whitespace-nowrap"
+            className="ui-button-primary disabled:opacity-50 min-w-[9rem] whitespace-nowrap"
             aria-disabled={isSaving || isUploading ? "true" : "false"}
           >
             Save Changes
@@ -328,7 +318,7 @@ const EditProfileForm = ({ userData }) => {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="text-sm text-gray-500 hover:text-gray-700 underline"
+          className="text-sm text-zinc-400 hover:text-zinc-200 underline"
         >
           ← Back to previous page
         </button>

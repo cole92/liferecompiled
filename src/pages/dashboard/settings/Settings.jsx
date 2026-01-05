@@ -2,9 +2,8 @@ import { getDoc, doc } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { getAuth } from "firebase/auth";
 import { AuthContext } from "../../../context/AuthContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import EditProfileForm from "./EditProfileForm";
-import { useContext } from "react";
 import {
   SkeletonLine,
   SkeletonCircle,
@@ -49,7 +48,8 @@ const Settings = () => {
         const snap = await getDoc(docRef);
 
         if (!canceled) {
-          setUserData(snap.exists ? { id: snap.id, ...snap.data() } : null);
+          // Firestore v9: exists() je metoda (nije property)
+          setUserData(snap.exists() ? { id: snap.id, ...snap.data() } : null);
         }
       } catch (error) {
         if (!canceled) console.error("Error fetching user data:", error);
@@ -68,23 +68,28 @@ const Settings = () => {
   if (isCheckingAuth) return null;
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded">
-      <h2 className="text-2xl font-bold mb-6">Edit Profile</h2>
+    <div className="ui-shell max-w-2xl my-8">
+      <div className="ui-card p-6 sm:p-8">
+        <h2 className="text-xl font-semibold text-zinc-100 mb-6">
+          Edit Profile
+        </h2>
 
-      {/* Forma za izmenu korisnickih podataka */}
-      {isLoading && (
-        <div className="mx-auto mt-2 space-y-2 max-w-xl">
-          <SkeletonCircle size={150} />
-          <SkeletonLine w="w-full" h="h-4" />
-          <SkeletonLine w="w-5/6" h="h-4" />
-          <SkeletonLine w="w-2/3" h="h-4" />
-        </div>
-      )}
-      {userData && <EditProfileForm userData={userData} />}
+        {/* Forma za izmenu korisnickih podataka */}
+        {isLoading && (
+          <div className="mx-auto mt-2 space-y-2 max-w-xl">
+            <SkeletonCircle size={150} />
+            <SkeletonLine w="w-full" h="h-4" />
+            <SkeletonLine w="w-5/6" h="h-4" />
+            <SkeletonLine w="w-2/3" h="h-4" />
+          </div>
+        )}
 
-      {!isLoading && !userData && (
-        <p className="text-gray-600">No user data found.</p>
-      )}
+        {userData && <EditProfileForm userData={userData} />}
+
+        {!isLoading && !userData && (
+          <p className="text-zinc-400">No user data found.</p>
+        )}
+      </div>
     </div>
   );
 };

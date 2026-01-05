@@ -19,6 +19,8 @@ import { useNavigate } from "react-router-dom";
 function TopPostCard({ post }) {
   const navigate = useNavigate();
 
+  const goToPost = () => navigate(`/post/${post.id}`);
+
   // Preview teksta (description → content fallback, skracivanje na 120 karaktera)
   const previewText = useMemo(() => {
     const desc = post?.description?.trim();
@@ -43,36 +45,43 @@ function TopPostCard({ post }) {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => navigate(`/post/${post.id}`)}
-      onKeyDown={(e) =>
-        (e.key === "Enter" || e.key === " ") && navigate(`/post/${post.id}`)
-      }
-      className="bg-white shadow rounded p-4 hover:shadow-md transition cursor-pointer"
+      onClick={goToPost}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") goToPost();
+        if (e.key === " ") {
+          e.preventDefault();
+          goToPost();
+        }
+      }}
+      className="ui-card p-4 cursor-pointer transition duration-200 hover:bg-zinc-900/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
     >
       {/* Naslov */}
-      <h3 className="text-lg font-bold line-clamp-2">
+      <h3 className="text-lg font-semibold text-zinc-100 line-clamp-2">
         {post?.title ?? "Untitled"}
       </h3>
 
       {/* Preview teksta */}
-      <p className="text-sm text-gray-600 mt-1 line-clamp-3 break-words">
+      <p className="mt-1 text-sm text-zinc-300 line-clamp-3 break-words">
         {previewText}
       </p>
 
       {/* Kategorija i tagovi */}
-      <div className="mt-2 text-xs text-gray-500 space-x-2">
-        <span className="inline-block rounded bg-gray-100 px-2 py-0.5 mr-2">
+      <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
+        <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5">
           {post?.category?.trim() || "Uncategorized"}
         </span>
+
         {tagList && (
-          <span className="inline-block rounded bg-gray-100 px-2 py-0.5">
+          <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5">
             {tagList}
           </span>
         )}
       </div>
 
       {/* Reakcije */}
-      <p className="text-sm mt-3 font-medium">👍 {post?.reactionsCount ?? 0}</p>
+      <p className="mt-3 text-sm font-medium text-zinc-200">
+        👍 {post?.reactionsCount ?? 0}
+      </p>
     </div>
   );
 }

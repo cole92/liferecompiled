@@ -12,6 +12,7 @@ import dayjs from "dayjs";
  * @param {boolean} props.active - Da li je tooltip trenutno aktivan
  * @param {Array} props.payload - Podaci koje prosleđuje Recharts
  * @param {string} props.label - Labela meseca (npr. "2024-06")
+ * @param {string} props.mostActiveMonth - Mesec koji je najaktivniji (npr. "2024-06")
  *
  * @returns {JSX.Element|null} Prikaz tooltips ili `null` ako nije aktivan
  */
@@ -20,18 +21,19 @@ const CustomTooltip = ({ active, payload, label, mostActiveMonth }) => {
   if (!active || !payload || !payload.length) return null;
 
   const rawMonth = label;
-  const formatted = dayjs(`${rawMonth}-01`).format("MMMM YYYY"); // Pretvaranje "2024-06" u "June 2024"
+  const formatted = dayjs(`${rawMonth}-01`).format("MMMM YYYY");
   const count = payload[0].value;
 
   return (
-    <div className="bg-white text-black px-3 py-2 rounded shadow-md text-sm">
-      <strong>{formatted}</strong>
-      <div>
+    <div className="ui-card p-3 text-sm border border-zinc-800 bg-zinc-950/90 backdrop-blur">
+      <div className="font-semibold text-zinc-100">{formatted}</div>
+
+      <div className="mt-1 text-zinc-200">
         {count} post{count > 1 ? "s" : ""}
       </div>
 
       {label === mostActiveMonth && (
-        <div className="mt-1 text-yellow-600 font-semibold">
+        <div className="mt-2 text-xs font-semibold text-amber-200">
           This was your most active month!
         </div>
       )}

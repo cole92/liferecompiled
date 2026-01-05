@@ -19,19 +19,6 @@ import SavedPostCard from "./SavedPostCard";
 import EmptyState from "../EmptyState";
 import SkeletonCard from "../../../../components/ui/skeletonLoader/SkeletonCard";
 
-/**
- * @component SavedPosts
- *
- * Lista sacuvanih postova korisnika sa paginacijom i Undo za "unsave".
- *
- * - Paginacija: users/{uid}/savedPosts (order by savedAt desc, startAfter, limit)
- * - Resilient fetch: Promise.allSettled preskace nevalidne reference (privatno/obrisano)
- * - Enrichment: dohvat posta + autor meta (enrichPostWithAuthor)
- * - Optimistic "unsave": odmah uklanja iz liste + odmah brise u Firestore
- * - Undo: radi savePost rollback u okviru toast prozora
- *
- * @returns {JSX.Element}
- */
 const SavedPosts = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
   const { savedSortDirection } = useOutletContext();
@@ -99,7 +86,6 @@ const SavedPosts = () => {
       setIsLoading(true);
 
       try {
-        // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
         const q = buildSavedQuery({
           uid: user.uid,
           pageSize: POST_PER_PAGE + 1,
@@ -186,7 +172,6 @@ const SavedPosts = () => {
     setIsLoadingMore(true);
 
     try {
-      // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
       const q = buildSavedQuery({
         uid: user.uid,
         afterDoc: lastDoc,
@@ -262,8 +247,6 @@ const SavedPosts = () => {
     }
   };
 
-  // Auto-load sledece strane ako je stranica "ispraznjena" (npr. user unsave-uje sve sa prve strane),
-  // a cursor kaze da postoji jos.
   useEffect(() => {
     if (isLoading) return;
     if (isLoadingMore) return;
@@ -277,10 +260,12 @@ const SavedPosts = () => {
 
   if (isCheckingAuth || isLoading) {
     return (
-      <div className="grid gap-4" role="status" aria-live="polite">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
+      <div className="ui-shell max-w-5xl my-8">
+        <div className="grid gap-4" role="status" aria-live="polite">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -288,18 +273,33 @@ const SavedPosts = () => {
   const UndoToast = ({ onUndo }) => (
     <div className="flex items-center gap-3">
       <span>Removed from saved.</span>
-      <button type="button" onClick={onUndo} className="underline">
+      <button
+        type="button"
+        onClick={onUndo}
+        className="underline text-sky-300 hover:text-sky-200"
+      >
         Undo
       </button>
     </div>
   );
   UndoToast.propTypes = { onUndo: PropTypes.func.isRequired };
 
-  if (!user) return <p>Please log in to view saved posts.</p>;
+  if (!user) {
+    return (
+      <div className="ui-shell max-w-5xl my-8">
+        <div className="ui-card p-6">
+          <p className="text-zinc-300">Please log in to view saved posts.</p>
+        </div>
+      </div>
+    );
+  }
 
-  // EmptyState prikazi samo kad stvarno NEMA vise
   if (savedPosts.length === 0 && !hasMore) {
-    return <EmptyState message="You haven't saved any posts yet." />;
+    return (
+      <div className="ui-shell max-w-5xl my-8">
+        <EmptyState message="You haven't saved any posts yet." />
+      </div>
+    );
   }
 
   const handleUnsave = async (post) => {
@@ -309,7 +309,6 @@ const SavedPosts = () => {
     const index = savedPosts.findIndex((p) => p.id === post.id);
     if (index === -1) return;
 
-    // optimistic UI
     setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
 
     const snapshotForSave = {
@@ -317,7 +316,6 @@ const SavedPosts = () => {
       postUpdatedAtAtSave: post?.updatedAt || post?.createdAt || null,
     };
 
-    // lock odmah
     pendingUndoRef.current.set(post.id, {
       snapshot: post,
       index,
@@ -365,7 +363,6 @@ const SavedPosts = () => {
 
       toast.dismiss(toastId);
 
-      // otkljucaj odmah
       pendingUndoRef.current.delete(post.id);
 
       try {
@@ -382,44 +379,53 @@ const SavedPosts = () => {
   };
 
   return (
-    <div>
-      <h1>Saved Posts</h1>
+    <div className="ui-shell max-w-5xl my-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-zinc-100">Saved Posts</h1>
+      </div>
 
-      {savedPosts.map((post) => {
-        const isPending = pendingUndoRef.current.has(post.id);
-        return (
-          <div key={post.id}>
-            <SavedPostCard
-              post={post}
-              onUnsave={handleUnsave}
-              isPendingUndo={isPending}
-            />
-          </div>
-        );
-      })}
+      <div className="space-y-4">
+        {savedPosts.map((post) => {
+          const isPending = pendingUndoRef.current.has(post.id);
+          return (
+            <div key={post.id}>
+              <SavedPostCard
+                post={post}
+                onUnsave={handleUnsave}
+                isPendingUndo={isPending}
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {isLoadingMore && (
-        <div className="mt-2 space-y-2" role="status" aria-live="polite">
+        <div className="space-y-3" role="status" aria-live="polite">
           <SkeletonCard />
           <SkeletonCard />
         </div>
       )}
 
       {hasMore && (
-        <button
-          type="button"
-          onClick={handleLoadMore}
-          disabled={isLoadingMore || !hasMore}
-          aria-busy={isLoadingMore}
-          aria-disabled={isLoadingMore || !hasMore}
-        >
-          {isLoadingMore ? "Loading..." : "Load more"}
-        </button>
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore || !hasMore}
+            aria-busy={isLoadingMore}
+            aria-disabled={isLoadingMore || !hasMore}
+            className={`ui-button-primary ${
+              isLoadingMore ? "opacity-60 cursor-not-allowed" : ""
+            }`}
+          >
+            {isLoadingMore ? "Loading..." : "Load more"}
+          </button>
+        </div>
       )}
 
       {!hasMore && savedPosts.length > 0 && (
         <p
-          className="mt-4 text-sm text-gray-500 text-center"
+          className="mt-2 text-sm text-zinc-400 text-center"
           aria-live="polite"
         >
           You reached the end.
