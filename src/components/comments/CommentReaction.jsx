@@ -16,17 +16,6 @@ import { showInfoToast } from "../../utils/toastUtils";
 /**
  * @component CommentReaction
  * Komponenta za prikaz i upravljanje lajkovima na komentaru.
- *
- * - Real-time sync sa Firestore `likes` poljem
- * - Prikazuje do 3 najnovija korisnika koji su lajkovali komentar
- * - Klik na lajk dugme dodaje/uklanja korisnika iz Firestore niza
- * - Otvara modal sa celokupnom listom korisnika koji su lajkovali
- *
- * @param {string} commentId - ID komentara nad kojim se vrsi akcija
- * @param {string} currentUserId - ID trenutno prijavljenog korisnika
- * @param {boolean} [locked=false] - Onemogucava lajk interakciju ako je komentar zakljucan
- *
- * @returns {JSX.Element} Interfejs za reakcije na komentar
  */
 
 const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
@@ -129,34 +118,52 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
         : `${likeCount} people liked this`;
   }
 
+  const likeBtnDisabled = locked;
+
   return (
-    <div>
-      {/* Glavna sekcija: dugme za lajk + tekst */}
-      <div className="flex items-center space-x-2">
-        <button onClick={handleLike} className="flex items-center space-x-1">
-          {liked ? <FaHeart className="text-red-500" /> : <FaRegHeart />}
+    <div className="inline-flex items-center gap-2">
+      {/* Dugme za like */}
+      <button
+        type="button"
+        onClick={handleLike}
+        disabled={likeBtnDisabled}
+        aria-disabled={likeBtnDisabled}
+        className={`inline-flex items-center gap-1 rounded-md p-1 transition
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
+          ${
+            likeBtnDisabled
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:bg-zinc-900/40"
+          }`}
+        title={locked ? "Reactions are locked" : liked ? "Unlike" : "Like"}
+      >
+        {liked ? (
+          <FaHeart className="text-rose-500" />
+        ) : (
+          <FaRegHeart className="text-zinc-300" />
+        )}
+      </button>
+
+      {/* Poruka ako nema lajkova */}
+      {likeCount === 0 && (
+        <p className="text-sm text-zinc-500 italic">
+          No one has liked this comment yet.
+        </p>
+      )}
+
+      {/* Otvori modal ako postoji makar jedan lajk */}
+      {likeCount > 0 && (
+        <button
+          type="button"
+          onClick={handleOpenLikesModal}
+          className="text-sm text-zinc-300 hover:text-zinc-100 hover:underline"
+          title={likeText}
+        >
+          {likeText}
         </button>
+      )}
 
-        {/* Poruka ako nema lajkova */}
-        {likeCount === 0 && (
-          <p className="text-sm text-gray-500 italic">
-            No one has liked this comment yet.
-          </p>
-        )}
-
-        {/* Otvori modal ako postoji makar jedan lajk */}
-        {likeCount > 0 && (
-          <button
-            onClick={handleOpenLikesModal}
-            className="text-sm text-gray-700 hover:underline cursor-pointer"
-            title={likeText}
-          >
-            {likeText}
-          </button>
-        )}
-      </div>
-
-      {/* Modal sa listom korisnika (portal modal) */}
+      {/* Modal sa listom korisnika */}
       <LikesModal
         isOpen={showLikesModal}
         onClose={() => {
@@ -174,7 +181,6 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   );
 };
 
-// PropTypes
 CommentReaction.propTypes = {
   commentId: PropTypes.string.isRequired,
   currentUserId: PropTypes.string,

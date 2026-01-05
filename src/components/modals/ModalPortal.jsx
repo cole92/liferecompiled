@@ -1,73 +1,57 @@
-import { createPortal } from "react-dom";
 import { useEffect } from "react";
+import ReactDOM from "react-dom";
 import PropTypes from "prop-types";
 
-/**
- * @component ModalPortal
- * Omotac za sve modalne prozore — renderuje sadrzaj izvan glavnog DOM stabla preko React Portala.
- *
- * - Zakljucava skrolovanje tela dok je modal otvoren
- * - Zatvara se na ESC taster
- * - Klik van modala (na overlay) takodje zatvara modal
- * - Renderuje se unutar #modal-root elementa (ili kao fallback u document.body)
- *
- * @param {boolean} isOpen - Da li je modal trenutno prikazan
- * @param {Function} onClose - Funkcija koja zatvara modal
- * @param {ReactNode} children - Sadrzaj koji ce biti prikazan unutar modala
- *
- * @returns {JSX.Element|null} Portal sa modalom ili null ako nije prikazan
- */
-
-export default function ModalPortal({
-  isOpen,
-  onClose,
-  children,
-  backdropClassName = "bg-black/80",
-  contentClassName = "bg-amber-100 border-[3px] border-amber-700 rounded-xl shadow-xl p-6 max-w-xl w-full",
-}) {
-  // Zakljucava skrol tela dok je modal otvoren
+const ModalPortal = ({ isOpen, onClose, locked = false, children }) => {
   useEffect(() => {
     if (!isOpen) return;
-    const original = document.body.style.overflow;
+
+    const onKeyDown = (e) => {
+      if (locked) return;
+      if (e.key === "Escape") onClose?.();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => (document.body.style.overflow = original);
-  }, [isOpen]);
 
-  // Zatvara modal kada korisnik pritisne ESC
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, onClose, locked]);
 
-  // Ako modal nije otvoren — ne renderujemo nista
   if (!isOpen) return null;
 
-  // Portal render modala unutar #modal-root
-  return createPortal(
+  return ReactDOM.createPortal(
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center ${backdropClassName}`}
-      onClick={(e) => {
-        e.stopPropagation()
-        onClose()
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
     >
-      <div
-        className={contentClassName}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
+      {/* Overlay */}
+      <button
+        type="button"
+        aria-label="Close modal"
+        className="absolute inset-0 bg-black/60"
+        onClick={() => {
+          if (!locked) onClose?.();
+        }}
+      />
+
+      {/* Panel */}
+      <div className="relative w-full max-w-lg ui-card p-6">{children}</div>
     </div>,
-    document.getElementById("modal-root") || document.body
+    document.body
   );
-}
+};
 
 ModalPortal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
+  onClose: PropTypes.func,
+  locked: PropTypes.bool,
   children: PropTypes.node.isRequired,
-  backdropClassName: PropTypes.string,   
-  contentClassName: PropTypes.string,    
 };
+
+export default ModalPortal;

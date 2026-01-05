@@ -100,7 +100,7 @@ const Comments = ({
         ).map((comment, idx) => (
           <div
             key={comment.id}
-            className={idx === 0 ? "" : "border-t border-gray-200 pt-4"}
+            className={idx === 0 ? "" : "border-t border-zinc-800 pt-4"}
           >
             {/* Blaga leva vodilja za nit */}
             <div className="pl-2 md:pl-3">
@@ -129,7 +129,7 @@ const Comments = ({
           <div className="text-center mt-4">
             <button
               onClick={() => setVisibleCount((prev) => prev + 10)}
-              className="text-sm text-blue-600 hover:underline"
+              className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
             >
               See more comments
             </button>
@@ -138,7 +138,7 @@ const Comments = ({
 
         {/* Zakljucano — info */}
         {locked && mainComments.length === 0 && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-zinc-400">
             Comments are locked for this post.
           </p>
         )}

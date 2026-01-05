@@ -1,27 +1,6 @@
 import PropTypes from "prop-types";
 import ModalPortal from "./ModalPortal";
 
-/**
- * @component ConfirmModal
- * Modal za potvrdu kriticnih akcija (brisanje, zakljucavanje itd.).
- *
- * - Prikazuje naslov, poruku, i dva dugmeta: Cancel i Confirm
- * - Poziva odgovarajuce callback funkcije (onConfirm, onCancel)
- * - Koristi ModalPortal za prikaz izvan DOM stabla
- * - ESC i klik van prozora zatvaraju modal automatski
- *
- * @param {boolean} isOpen - Da li je modal trenutno otvoren
- * @param {string} title - Naslov koji se prikazuje u modalu
- * @param {string} message - Poruka koja objasnjava akciju
- * @param {Function} onConfirm - Callback koji se poziva pri potvrdi
- * @param {Function} onCancel - Callback koji se poziva pri zatvaranju
- * @param {string} [confirmText="Delete"] - Tekst koji se prikazuje na dugmetu potvrde
- * @param {string} [confirmButtonClass] - Optional custom klase za Confirm dugme
- * @param {string} [cancelButtonClass] - Optional custom klase za Cancel dugme
- *
- * @returns {JSX.Element} Modal sa konfirmacionim akcijama
- */
-
 const ConfirmModal = ({
   isOpen,
   title,
@@ -31,18 +10,21 @@ const ConfirmModal = ({
   confirmText = "Delete",
   confirmButtonClass,
   cancelButtonClass,
-}) => (
-  <ModalPortal isOpen={isOpen} onClose={onCancel}>
-    <div className="ui-card p-5">
-      {/* Naslov modala */}
-      <h2 className="text-lg text-zinc-100 font-semibold mb-2">{title}</h2>
+}) => {
+  const handleConfirm = async () => {
+    // Important: wait confirm (async safe), then close
+    await Promise.resolve(onConfirm());
+    onCancel();
+  };
 
-      {/* Poruka modala */}
+  return (
+    <ModalPortal isOpen={isOpen} onClose={onCancel}>
+      <h2 className="text-lg font-semibold text-zinc-100 mb-2">{title}</h2>
       <p className="text-sm text-zinc-300 mb-4">{message}</p>
 
-      {/* Dugmad za Cancel i Confirm */}
       <div className="flex justify-end gap-3">
         <button
+          type="button"
           onClick={onCancel}
           className={cancelButtonClass || "ui-button-secondary"}
         >
@@ -50,10 +32,8 @@ const ConfirmModal = ({
         </button>
 
         <button
-          onClick={() => {
-            onConfirm();
-            onCancel();
-          }}
+          type="button"
+          onClick={handleConfirm}
           className={
             confirmButtonClass ||
             "ui-button bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
@@ -62,9 +42,9 @@ const ConfirmModal = ({
           {confirmText}
         </button>
       </div>
-    </div>
-  </ModalPortal>
-);
+    </ModalPortal>
+  );
+};
 
 ConfirmModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,

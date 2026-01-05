@@ -7,20 +7,15 @@ import { addCommentSecure } from "../../firebase/functions";
 import { showErrorToast, showInfoToast } from "../../utils/toastUtils";
 
 /**
- * Komponenta za unos komentara.
+ * @component CommentForm
+ * Komponenta za unos komentara (root ili reply).
  *
- * Omogucava korisniku da napise komentar i posalje ga u Firestore.
- * Moze se koristiti za dodavanje glavnih komentara ili odgovora (replies) ako je prosledjen `parentId`.
- * Podrzava automatsko fokusiranje i vizuelni indikator preostalog broja karaktera.
- *
- * @component
- * @param {string} postId - ID posta na koji se dodaje komentar.
- * @param {string} userId - ID trenutno prijavljenog korisnika koji unosi komentar.
- * @param {string|null} parentId - ID roditeljskog komentara ako se radi o odgovoru.
- * @param {Function} [onSubmitSuccess] - Callback koji se poziva nakon uspesnog unosa komentara.
- * @param {boolean} [autoFocus=false] - Ako je true, automatski fokusira textarea pri mountovanju komponente.
+ * Props:
+ * - postId: id posta
+ * - parentId: id roditeljskog komentara (ako je reply)
+ * - onSubmitSuccess: callback posle uspesnog submit-a
+ * - autoFocus: fokusira textarea i scrolluje u centar
  */
-
 const CommentForm = ({
   postId,
   parentId,
@@ -28,7 +23,7 @@ const CommentForm = ({
   autoFocus = false,
 }) => {
   const { currentUser } = useContext(AuthContext);
-  const user = currentUser || auth.currentUser; // fallback
+  const user = currentUser || auth.currentUser;
 
   const [commentContent, setCommentContent] = useState("");
   const [error, setError] = useState("");
@@ -36,7 +31,6 @@ const CommentForm = ({
   const isCommentValid = commentContent.trim().length > 0;
 
   useEffect(() => {
-    // Ako je autoFocus aktivan, fokusiraj textarea i skroluj je u centar ekrana
     if (autoFocus && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.scrollIntoView({
@@ -46,17 +40,9 @@ const CommentForm = ({
     }
   }, [autoFocus]);
 
-  /**
-   * Obradjuje submit forme.
-   * Sprecava osvecavanje stranice i slanje praznog komentara.
-   * Dodaje komentar u Firestore i resetuje polje za unos.
-   *
-   * @param {Event} e - Objekat dogadjaja submit event-a.
-   */
-
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Sprecava reload stranice
-    e.stopPropagation(); // Sprecava klik da pokrene `onClick` event iz PostCard
+    e.preventDefault();
+    e.stopPropagation();
 
     try {
       if (!user) {
@@ -65,7 +51,6 @@ const CommentForm = ({
       }
 
       if (!commentContent.trim()) {
-        // Sprecava slanje praznog komentara
         setError("Comment form cannot be empty.");
         return;
       }
@@ -75,8 +60,9 @@ const CommentForm = ({
         content: commentContent,
         parentId,
       });
-      setCommentContent(""); // Resetuje textarea nakon uspesnog slanja
-      onSubmitSuccess?.(); // Poziva se nakon uspesnog unosa komentara (npr. zatvaranje forme kod odgovora)
+
+      setCommentContent("");
+      onSubmitSuccess?.();
     } catch (error) {
       if (
         error.message.includes("too quickly") ||
@@ -91,10 +77,9 @@ const CommentForm = ({
     }
   };
 
-  // Prikaz broja preostalih karaktera (maksimum 500)
   const remainingChars = 500 - commentContent.length;
   const charCountColor =
-    remainingChars <= 50 ? "text-red-500" : "text-gray-500";
+    remainingChars <= 50 ? "text-rose-300" : "text-zinc-500";
 
   return (
     <form
@@ -103,35 +88,38 @@ const CommentForm = ({
       className="mt-6"
     >
       <textarea
-    id={`comment-${postId}${parentId ? `-${parentId}` : ""}`}
-    name="comment"
-    ref={textareaRef}
-    placeholder="Add comment..."
-    className="w-full border rounded-lg p-2 mb-2 focus:outline-none"
-    rows={3}
-    value={commentContent}
-    onChange={(e) => {
-      setCommentContent(e.target.value);
-      if (error) setError("");
-    }}
-    maxLength={500}
-    autoComplete="off"
-  />
+        id={`comment-${postId}${parentId ? `-${parentId}` : ""}`}
+        name="comment"
+        ref={textareaRef}
+        placeholder="Add comment..."
+        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 mb-2 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        rows={3}
+        value={commentContent}
+        onChange={(e) => {
+          setCommentContent(e.target.value);
+          if (error) setError("");
+        }}
+        maxLength={500}
+        autoComplete="off"
+      />
+
       {(!isCommentValid || error) && (
-        <p className="text-gray-500 text-sm mb-1">
+        <p className="text-zinc-400 text-sm mb-1">
           {error || "Comment cannot be empty."}
         </p>
       )}
+
       <div className={`text-right text-sm ${charCountColor} mb-2`}>
         {commentContent.length} / 500
       </div>
+
       <button
         type="submit"
         disabled={!isCommentValid}
-        className={`px-4 py-1 text-sm rounded-lg transition ${
+        className={`ui-button ${
           isCommentValid
-            ? "bg-blue-500 text-white hover:bg-blue-600"
-            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            ? "bg-sky-600 text-white hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            : "ui-button-secondary opacity-60 cursor-not-allowed"
         }`}
       >
         Send comment
@@ -140,10 +128,9 @@ const CommentForm = ({
   );
 };
 
-// Validacija props-a
 CommentForm.propTypes = {
-  postId: PropTypes.string.isRequired, // Obavezno postID mora biti string
-  parentId: PropTypes.string, // parentId moze biti string ili undefined (nije obavezan)
+  postId: PropTypes.string.isRequired,
+  parentId: PropTypes.string,
   onSubmitSuccess: PropTypes.func,
   autoFocus: PropTypes.bool,
 };

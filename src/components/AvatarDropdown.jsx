@@ -90,12 +90,17 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
     };
   }, [showMenu]);
 
+  const linkBase =
+    "block w-full px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-lg";
+
+  const linkActive = "bg-zinc-900/60 font-medium text-zinc-100";
+
   return (
     <div ref={dropdownRef} className="relative inline-block text-left">
       <button
         type="button"
         onClick={() => setShowMenu((prev) => !prev)}
-        className="flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+        className="flex items-center space-x-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
         aria-haspopup="menu"
         aria-expanded={showMenu}
       >
@@ -106,13 +111,13 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
             DEFAULT_PROFILE_PICTURE
           }
           alt="User Avatar"
-          className={`w-10 h-10 rounded-full object-cover border-2 border-gray-300 ${
-            isTopContributor ? "ring-2 ring-purple-800" : ""
+          className={`w-10 h-10 rounded-full object-cover border-2 border-zinc-800 ${
+            isTopContributor ? "ring-2 ring-violet-400/70" : ""
           }`}
         />
 
         {isTopContributor && (
-          <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5 text-purple-800" />
+          <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5 text-violet-300" />
         )}
       </button>
 
@@ -124,61 +129,60 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+            className="absolute right-0 mt-2 w-52 z-50"
             role="menu"
           >
-            <div className="absolute -top-1 right-4 w-3 h-3 bg-white rotate-45 border-l border-t border-gray-200 z-0" />
+            <div className="ui-card rounded-xl p-1">
+              {/* Arrow */}
+              <div className="absolute -top-1 right-5 w-3 h-3 bg-zinc-950 rotate-45 border-l border-t border-zinc-800/80 z-0" />
 
-            <ul className="py-1">
-              <li>
-                <NavLink
-                  to="/dashboard"
-                  className={`block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${
-                    location.pathname === "/dashboard"
-                      ? "bg-gray-100 font-medium"
-                      : ""
-                  }`}
-                >
-                  Dashboard
-                </NavLink>
-              </li>
+              <ul className="py-1 relative z-10">
+                <li>
+                  <NavLink
+                    to="/dashboard"
+                    className={`${linkBase} ${
+                      location.pathname === "/dashboard" ? linkActive : ""
+                    }`}
+                  >
+                    Dashboard
+                  </NavLink>
+                </li>
 
-              <li>
-                <NavLink
-                  to="/profile"
-                  className={`block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${
-                    location.pathname === "/profile"
-                      ? "bg-gray-100 font-medium"
-                      : ""
-                  }`}
-                >
-                  Profile Info
-                </NavLink>
-              </li>
+                <li>
+                  <NavLink
+                    to="/profile"
+                    className={`${linkBase} ${
+                      location.pathname === "/profile" ? linkActive : ""
+                    }`}
+                  >
+                    Profile Info
+                  </NavLink>
+                </li>
 
-              <li>
-                <NavLink
-                  to="/dashboard/settings"
-                  className={`block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${
-                    location.pathname === "/dashboard/settings"
-                      ? "bg-gray-100 font-medium"
-                      : ""
-                  }`}
-                >
-                  Settings
-                </NavLink>
-              </li>
+                <li>
+                  <NavLink
+                    to="/dashboard/settings"
+                    className={`${linkBase} ${
+                      location.pathname === "/dashboard/settings"
+                        ? linkActive
+                        : ""
+                    }`}
+                  >
+                    Settings
+                  </NavLink>
+                </li>
 
-              <li>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 disabled:opacity-60"
-                  onClick={logout}
-                  disabled={isLoggingOut}
-                >
-                  {isLoggingOut ? "Logging out..." : "Logout"}
-                </button>
-              </li>
-            </ul>
+                <li className="pt-1 mt-1 border-t border-zinc-800/80">
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition disabled:opacity-60 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    onClick={logout}
+                    disabled={isLoggingOut}
+                  >
+                    {isLoggingOut ? "Logging out..." : "Logout"}
+                  </button>
+                </li>
+              </ul>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
