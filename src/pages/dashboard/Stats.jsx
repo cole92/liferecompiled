@@ -41,7 +41,6 @@ const Stats = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pieData, setPieData] = useState([]);
   const [isPieEmpty, setIsPieEmpty] = useState(false);
-  
 
   useEffect(() => {
     const fetchUserStats = async () => {
@@ -64,7 +63,6 @@ const Stats = () => {
         const deleted = data.permanentlyDeletedPosts || 0;
 
         const monthlyArray = normalizeMonthlyArray(data.postsPerMonth || {});
-
 
         setPostsPerMonth(monthlyArray);
 
@@ -102,9 +100,9 @@ const Stats = () => {
 
   if (postsPerMonth.length === 0) {
     return (
-      <div className="text-white p-5 text-center">
-        <h2 className="text-2xl font-semibold mb-2">No data yet</h2>
-        <p className="text-gray-300">
+      <div className="p-5 text-center text-zinc-100">
+        <h2 className="mb-2 text-2xl font-semibold">No data yet</h2>
+        <p className="text-zinc-400">
           Once you create posts, your monthly activity will appear here.
         </p>
       </div>
@@ -112,12 +110,22 @@ const Stats = () => {
   }
 
   return (
-    <div className="text-white p-5">
-      <h1 className="text-2xl font-semibold mb-4">Your Posting Activity</h1>
+    <div className="p-5 text-zinc-100">
+      <h1 className="mb-4 text-2xl font-semibold">Your Posting Activity</h1>
+
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={postsPerMonth}>
-          <XAxis dataKey="month" />
-          <YAxis />
+          <XAxis
+            dataKey="month"
+            tick={{ fill: "#a1a1aa", fontSize: 12 }}
+            axisLine={{ stroke: "#3f3f46" }}
+            tickLine={{ stroke: "#3f3f46" }}
+          />
+          <YAxis
+            tick={{ fill: "#a1a1aa", fontSize: 12 }}
+            axisLine={{ stroke: "#3f3f46" }}
+            tickLine={{ stroke: "#3f3f46" }}
+          />
           <Tooltip
             content={<CustomTooltip mostActiveMonth={mostActiveMonth} />}
           />
@@ -131,11 +139,13 @@ const Stats = () => {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      <h2 className="text-xl font-semibold mt-10 mb-2">
+
+      <h2 className="mb-2 mt-10 text-xl font-semibold">
         Restore vs Delete Ratio
       </h2>
+
       {isPieEmpty ? (
-        <p className="text-gray-400 italic text-sm">
+        <p className="text-sm italic text-zinc-500">
           No restore or delete activity yet.
         </p>
       ) : (
@@ -155,7 +165,13 @@ const Stats = () => {
                 />
               ))}
             </Pie>
-            <Legend layout="horizontal" align="center" />
+            <Legend
+              layout="horizontal"
+              align="center"
+              formatter={(value) => (
+                <span className="text-zinc-200">{value}</span>
+              )}
+            />
             <Tooltip />
           </PieChart>
         </ResponsiveContainer>

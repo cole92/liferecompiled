@@ -386,7 +386,7 @@ const MyPosts = () => {
 
       {!hasMore && visiblePosts.length > 0 && (
         <p
-          className="mt-4 text-sm text-gray-500 text-center"
+          className="mt-4 text-sm text-zinc-400 text-center"
           aria-live="polite"
         >
           You reached the end.

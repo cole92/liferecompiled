@@ -11,11 +11,11 @@ import PropTypes from "prop-types";
 
 const BioSection = ({ bio }) => {
   return (
-    <div className="text-sm text-gray-700 dark:text-gray-700 mt-2">
+    <div className="mt-2 text-sm text-zinc-300">
       {bio ? (
         <p className="whitespace-pre-wrap break-words">{bio}</p>
       ) : (
-        <p className="italic text-gray-400">
+        <p className="italic text-zinc-500">
           This user hasn`t added a bio yet.
         </p>
       )}

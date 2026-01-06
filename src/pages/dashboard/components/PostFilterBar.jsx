@@ -41,22 +41,33 @@ const PostFilterBar = ({
     {
       label: "Active",
       value: "active",
-      className: "bg-blue-100 text-blue-800",
+      className:
+        "border-emerald-500/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15",
     },
-    { label: "Locked", value: "locked", className: "bg-red-100 text-red-800" },
-    { label: "All", value: "all", className: "bg-gray-200 text-gray-800" },
+    {
+      label: "Locked",
+      value: "locked",
+      className:
+        "border-rose-500/25 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15",
+    },
+    {
+      label: "All",
+      value: "all",
+      className:
+        "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40",
+    },
   ];
 
   const hasSearch = searchTerm.trim().length > 0;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       {/* Filter dugmici: fade-out i disable u search modu da bi se vizuelno prikazao prelaz u search mod */}
       <motion.div
         initial={false}
         animate={{ opacity: hasSearch ? 0 : 1, y: hasSearch ? -4 : 0 }}
         transition={{ duration: 0.2 }}
-        className={`flex gap-2 flex-wrap ${
+        className={`flex flex-wrap gap-2 ${
           hasSearch ? "pointer-events-none" : ""
         }`}
         aria-hidden={hasSearch}
@@ -64,13 +75,13 @@ const PostFilterBar = ({
         {filters.map((f) => (
           <button
             key={f.value}
+            type="button"
             onClick={() => onFilterChange(f.value)}
-            className={`px-3 py-1 rounded-full text-sm transition hover:scale-105 ${
-              f.className
-            } ${
-              activeFilter === f.value
-                ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 ring-black"
-                : ""
+            className={`inline-flex items-center rounded-full border px-3 py-1 text-sm transition
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+              focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
+              hover:scale-105 ${f.className} ${
+              activeFilter === f.value ? "ring-1 ring-zinc-100/40" : ""
             }`}
           >
             {f.label}
@@ -79,7 +90,7 @@ const PostFilterBar = ({
       </motion.div>
 
       {/* Search polje: uvek prisutno desno da bi se izbegao layout jump pri ulasku/izlasku iz search moda */}
-      <div className="flex items-center gap-2 max-w-md flex-1 md:flex-none md:ml-auto">
+      <div className="flex flex-1 items-center gap-2 max-w-md md:flex-none md:ml-auto">
         <input
           id="my-posts-search"
           name="myPostsSearch"
@@ -89,14 +100,16 @@ const PostFilterBar = ({
           placeholder="Search your posts by title..."
           aria-label="Search your posts by title"
           autoComplete="off"
-          className="border border-gray-600 bg-gray-800 text-white px-3 py-2 rounded w-full"
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+            focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
         />
         {hasSearch && (
           <button
             type="button"
             onClick={() => onSearchChange("")}
             aria-label="Clear search"
-            className="text-sm underline"
+            className="text-sm text-zinc-300 underline hover:text-zinc-100"
           >
             Clear
           </button>
@@ -112,4 +125,5 @@ PostFilterBar.propTypes = {
   searchTerm: PropTypes.string.isRequired,
   onSearchChange: PropTypes.func.isRequired,
 };
+
 export default PostFilterBar;

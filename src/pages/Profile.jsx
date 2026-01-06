@@ -227,7 +227,7 @@ const Profile = () => {
   const isTopContributor = !!userData?.badges?.topContributor;
 
   return (
-    <div className="text-center mb-4">
+    <div className="mb-4 text-center">
       {/* HEADER: avatar + badge */}
       <div className="relative inline-block">
         {loading ? (
@@ -236,8 +236,8 @@ const Profile = () => {
           <img
             src={userData.profilePicture}
             alt="Profile pic"
-            className={`rounded-full object-cover border-2 border-gray-300 ${
-              isTopContributor ? "ring-2 ring-purple-800" : ""
+            className={`rounded-full object-cover border-2 border-zinc-700 ${
+              isTopContributor ? "ring-2 ring-purple-600" : ""
             }`}
             style={{ width: "150px", height: "150px" }}
           />
@@ -245,9 +245,9 @@ const Profile = () => {
 
         {!loading && isTopContributor && (
           <>
-            <ShieldIcon className="absolute -top-2 -right-2 w-6 h-6 text-purple-800" />
+            <ShieldIcon className="absolute -top-2 -right-2 h-6 w-6 text-purple-400" />
             <p
-              className="mt-2 text-sm font-semibold text-purple-800 italic cursor-default select-none"
+              className="mt-2 cursor-default select-none text-sm font-semibold italic text-purple-400"
               title="Top Contributor"
             >
               .code-powered
@@ -257,7 +257,7 @@ const Profile = () => {
       </div>
 
       {/* BASIC INFO */}
-      <div className="mt-4 mb-4 flex flex-col gap-4 md:flex-row md:items-start">
+      <div className="mb-4 mt-4 flex flex-col gap-4 md:flex-row md:items-start">
         <div className="w-full text-center md:w-1/2 md:text-left">
           {loading ? (
             <>
@@ -270,13 +270,17 @@ const Profile = () => {
             </>
           ) : (
             <>
-              <h4>{userData.name}</h4>
-              <p>{userData.email}</p>
+              <h4 className="text-lg font-semibold text-zinc-100">
+                {userData.name}
+              </h4>
+              <p className="break-all text-sm text-zinc-400">
+                {userData.email}
+              </p>
             </>
           )}
         </div>
 
-         <div className="w-full text-center md:w-1/2 md:text-right">
+        <div className="w-full text-center md:w-1/2 md:text-right">
           {loading ? (
             <>
               <div className="mt-2">
@@ -288,7 +292,7 @@ const Profile = () => {
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-600 italic cursor-default select-none">
+              <p className="cursor-default select-none text-sm italic text-zinc-400">
                 Member since:{" "}
                 {userData.createdAt
                   ? dayjs(userData.createdAt.toDate()).format("DD MMMM 'YYYY")
@@ -301,9 +305,11 @@ const Profile = () => {
 
       {/* BIO */}
       <div className="text-center">
-        <h5 className="cursor-default select-none">Bio:</h5>
+        <h5 className="cursor-default select-none text-sm font-medium text-zinc-200">
+          Bio:
+        </h5>
         {loading ? (
-          <div className="mx-auto mt-2 space-y-2 max-w-xl">
+          <div className="mx-auto mt-2 max-w-xl space-y-2">
             <SkeletonLine w="w-full" h="h-4" />
             <SkeletonLine w="w-5/6" h="h-4" />
             <SkeletonLine w="w-2/3" h="h-4" />
@@ -323,17 +329,19 @@ const Profile = () => {
 
       {/* TOP 3 */}
       <div>
-        <h2 className="text-xl font-semibold mb-4 cursor-default select-none">
+        <h2 className="mb-4 cursor-default select-none text-xl font-semibold text-zinc-100">
           Top posts by this author
         </h2>
 
         {isLoadingTop3 && <SkeletonGrid count={3} />}
         {errorTop3 && <p className="text-red-500">{String(errorTop3)}</p>}
         {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
-          <p>This author has no public posts yet.</p>
+          <p className="text-sm text-zinc-400">
+            This author has no public posts yet.
+          </p>
         )}
         {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-          <div className="grid gap-4 mt-4 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
             {top3.map((post) => (
               <TopPostCard key={post.id} post={post} />
             ))}

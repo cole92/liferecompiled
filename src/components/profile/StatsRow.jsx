@@ -19,9 +19,9 @@ import { SkeletonLine } from "../ui/skeletonLoader/SkeletonBits";
 
 const StatsRow = ({ posts, reactions, loadingPosts, loadingReactions }) => {
   return (
-    <div className="flex justify-center gap-6 text-sm text-gray-700 dark:text-gray-300 mt-2">
+    <div className="mt-2 flex justify-center gap-6 text-sm text-zinc-300">
       <p
-        className="text-sm text-gray-600 cursor-default select-none"
+        className="cursor-default select-none text-zinc-400"
         title="Total posts by this author"
       >
         {loadingPosts ? (
@@ -30,8 +30,9 @@ const StatsRow = ({ posts, reactions, loadingPosts, loadingReactions }) => {
           `${posts} Posts`
         )}
       </p>
+
       <p
-        className="text-sm text-gray-600 cursor-default select-none"
+        className="cursor-default select-none text-zinc-400"
         title="Total reactions received (💡 + 🔥 + ⚡)"
       >
         {loadingReactions ? (

@@ -1,9 +1,8 @@
 import PropTypes from "prop-types";
 
-const EmptyState = ({message = ""}) => {
-
-    return (
-    <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+const EmptyState = ({ message = "" }) => {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 text-zinc-400">
       <p className="text-center text-sm">{message}</p>
     </div>
   );
@@ -12,6 +11,5 @@ const EmptyState = ({message = ""}) => {
 EmptyState.propTypes = {
   message: PropTypes.string,
 };
-
 
 export default EmptyState;

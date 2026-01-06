@@ -373,7 +373,7 @@ const Trash = () => {
 
           {!hasMore && filteredPosts.length > 0 && (
             <p
-              className="mt-4 text-sm text-gray-500 text-center"
+              className="mt-4 text-sm text-zinc-400 text-center"
               aria-live="polite"
             >
               You reached the end.
@@ -387,8 +387,8 @@ const Trash = () => {
         title="Restore Post"
         message="Are you sure you want to restore this post?"
         confirmText="Restore"
-        confirmButtonClass="bg-green-500 hover:bg-green-600 hover:scale-105 transition duration-200"
-        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
+        confirmButtonClass="rounded-lg bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/25 hover:bg-emerald-500/25 hover:scale-105 transition"
+        cancelButtonClass="rounded-lg bg-zinc-800/70 text-zinc-100 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:scale-105 transition"
         onCancel={() => {
           setRestoreModalOpen(false);
           setSelectedPostId(null);
@@ -405,8 +405,8 @@ const Trash = () => {
         title="Delete Post Permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
         confirmText="Delete"
-        confirmButtonClass="bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200"
-        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
+        confirmButtonClass="rounded-lg bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 hover:scale-105 transition"
+        cancelButtonClass="rounded-lg bg-zinc-800/70 text-zinc-100 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:scale-105 transition"
         onCancel={() => {
           setDeleteModalOpen(false);
           setPostIdToDelete(null);

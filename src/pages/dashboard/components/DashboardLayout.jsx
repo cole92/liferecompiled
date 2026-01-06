@@ -60,8 +60,8 @@ const DashboardLayout = () => {
   }, [user.uid]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100">
-      <div className="sticky top-0 z-20 bg-gray-100 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700">
+    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
+      <div className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <DashboardBreadcrumb />
 
@@ -93,15 +93,17 @@ const DashboardLayout = () => {
 
             {/* Sort bar za Saved sekciju (ruta: /dashboard/saved) */}
             {isSavedPage && (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setSavedSortDirection("desc")}
-                  className={`px-3 py-1 text-xs rounded-full border ${
-                    savedSortDirection === "desc"
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-700 border-gray-300"
-                  }`}
+                  className={`px-3 py-1 text-xs rounded-full border transition
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                    focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                      savedSortDirection === "desc"
+                        ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                        : "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+                    }`}
                 >
                   Recently saved
                 </button>
@@ -109,11 +111,13 @@ const DashboardLayout = () => {
                 <button
                   type="button"
                   onClick={() => setSavedSortDirection("asc")}
-                  className={`px-3 py-1 text-xs rounded-full border ${
-                    savedSortDirection === "asc"
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-700 border-gray-300"
-                  }`}
+                  className={`px-3 py-1 text-xs rounded-full border transition
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                    focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                      savedSortDirection === "asc"
+                        ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                        : "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+                    }`}
                 >
                   Oldest saved
                 </button>
