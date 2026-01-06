@@ -42,7 +42,7 @@ export default function Avatar({
         isOpen={open && zoomable}
         onClose={() => setOpen(false)}
         // za image-zoom: tamni overlay i čist sadržaj bez kutije
-        backdropClassName="bg-black/90 backdrop-blur-sm"
+        backdropClassName="bg-zinc-950/90 backdrop-blur-sm"
         contentClassName="bg-transparent p-0 shadow-none border-0"
       >
         <img

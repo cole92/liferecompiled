@@ -34,7 +34,7 @@ const ModalPortal = ({ isOpen, onClose, locked = false, children }) => {
       <button
         type="button"
         aria-label="Close modal"
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0 bg-zinc-950/60"
         onClick={() => {
           if (!locked) onClose?.();
         }}

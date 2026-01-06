@@ -327,7 +327,7 @@ const MyPosts = () => {
 
       <button
         onClick={() => navigate("/dashboard/create")}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+        className="bg-blue-600 text-zinc-50 px-4 py-2 rounded hover:bg-blue-700 transition"
       >
         Create New Post
       </button>

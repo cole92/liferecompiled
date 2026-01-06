@@ -347,7 +347,7 @@ const PostDetails = () => {
                   type="button"
                   onClick={() => setDeleteModalOpen(true)}
                   disabled={isDeletingPost}
-                  className={`ui-button bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                  className={`ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                     isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                 >
@@ -402,7 +402,7 @@ const PostDetails = () => {
         title="Delete Post Permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
         confirmText={isDeletingPost ? "Deleting..." : "Delete"}
-        confirmButtonClass={`ui-button bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+        confirmButtonClass={`ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
         }`}
         cancelButtonClass="ui-button-secondary"

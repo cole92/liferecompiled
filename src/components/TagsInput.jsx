@@ -159,7 +159,7 @@ const TagsInput = ({ tags, setTags }) => {
               type="button"
               className={`${tagButtonBase} ${
                 isActive
-                  ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-500"
+                  ? "border-blue-600 bg-blue-600 text-zinc-50 hover:bg-blue-500"
                   : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
               } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
               onClick={() => handleAddition({ id: tag, text: tag })}
@@ -199,7 +199,7 @@ const TagsInput = ({ tags, setTags }) => {
             selected: "flex flex-wrap gap-2",
             tag: "inline-flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-100",
             remove:
-              "inline-flex h-5 w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+              "inline-flex h-5 w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
             tagInput: "w-full",
             tagInputField:
               "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",

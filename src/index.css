@@ -30,7 +30,7 @@
   }
 
   .ui-card {
-    @apply rounded-2xl border border-zinc-800/80 bg-zinc-950/35 backdrop-blur shadow-sm ring-1 ring-white/5;
+    @apply rounded-2xl border border-zinc-800/80 bg-zinc-950/35 backdrop-blur shadow-sm ring-1 ring-zinc-100/5;
   }
 
   /* buttons */
@@ -42,7 +42,7 @@
   }
 
   .ui-button-primary {
-    @apply ui-button bg-sky-500 text-white hover:bg-sky-400;
+    @apply ui-button bg-sky-500 text-zinc-50 hover:bg-sky-400;
   }
 
   .ui-button-secondary {

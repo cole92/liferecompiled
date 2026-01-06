@@ -118,7 +118,7 @@ const CommentForm = ({
         disabled={!isCommentValid}
         className={`ui-button ${
           isCommentValid
-            ? "bg-sky-600 text-white hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            ? "bg-sky-600 text-zinc-50 hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             : "ui-button-secondary opacity-60 cursor-not-allowed"
         }`}
       >

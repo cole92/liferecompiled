@@ -36,7 +36,7 @@ const ConfirmModal = ({
           onClick={handleConfirm}
           className={
             confirmButtonClass ||
-            "ui-button bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            "ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
           }
         >
           {confirmText}

@@ -9,7 +9,7 @@ const AccessDenied = () => {
       <p className="mb-6">Only admins can view this page.</p>
       <button
         onClick={() => navigate("/dashboard")}
-        className="px-4 py-2 bg-blue-600 text-white rounded"
+        className="px-4 py-2 bg-blue-600 text-zinc-50 rounded"
       >
         Back to dashboard
       </button>
