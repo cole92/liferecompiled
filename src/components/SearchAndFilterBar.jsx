@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories";
@@ -21,6 +21,10 @@ const SearchAndFilterBar = ({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
+
+  // Custom sort dropdown UI-only state
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortWrapRef = useRef(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 640px)");
@@ -54,6 +58,32 @@ const SearchAndFilterBar = ({
 
   const closeFilters = useCallback(() => setIsFilterOpen(false), []);
   const toggleFilterPanel = () => setIsFilterOpen((prev) => !prev);
+
+  const closeSort = useCallback(() => setIsSortOpen(false), []);
+  const toggleSort = () => setIsSortOpen((prev) => !prev);
+
+  // Close sort on ESC / click outside (UI-only)
+  useEffect(() => {
+    if (!isSortOpen) return;
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") closeSort();
+    };
+
+    const onMouseDown = (e) => {
+      const wrap = sortWrapRef.current;
+      if (!wrap) return;
+      if (!wrap.contains(e.target)) closeSort();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onMouseDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [isSortOpen, closeSort]);
 
   // ESC to close + body scroll lock (UX standard for modal)
   useEffect(() => {
@@ -96,18 +126,20 @@ const SearchAndFilterBar = ({
     onSearchChange(value);
   };
 
-  const handleSortChange = (e) => {
-    const value = e.target.value;
+  // Keep same sort logic (just not driven by <select>)
+  const applySort = (value) => {
     if (hasActiveCategory && value === "oldest") return;
 
     setLocalSortBy(value);
     onSortChange(value);
+    closeSort();
   };
 
   const handleLocalClear = () => {
     onResetFilters();
     setLocalSearchTerm("");
     setLocalSortBy("newest");
+    setIsSortOpen(false);
   };
 
   // Animations:
@@ -150,6 +182,13 @@ const SearchAndFilterBar = ({
 
   const activeCount = selectedCategories?.length || 0;
 
+  const sortLabel = localSortBy === "oldest" ? "Oldest First" : "Newest First";
+
+  const sortOptions = [
+    { value: "newest", label: "Newest First", disabled: false },
+    { value: "oldest", label: "Oldest First", disabled: hasActiveCategory },
+  ];
+
   return (
     <div className="w-full">
       {/* Top bar */}
@@ -174,22 +213,96 @@ const SearchAndFilterBar = ({
           )}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <div className="sm:w-[220px]">
-              <label htmlFor="home-sort" className="sr-only">
+            {/* Custom Sort Dropdown (UI-only) */}
+            <div className="sm:w-[220px]" ref={sortWrapRef}>
+              <span id="home-sort-label" className="sr-only">
                 Sort posts
-              </label>
-              <select
-                id="home-sort"
-                name="homeSort"
-                value={localSortBy}
-                onChange={handleSortChange}
-                className="ui-input"
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest" disabled={hasActiveCategory}>
-                  Oldest First
-                </option>
-              </select>
+              </span>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  id="home-sort"
+                  aria-haspopup="listbox"
+                  aria-expanded={isSortOpen}
+                  aria-labelledby="home-sort-label"
+                  onClick={toggleSort}
+                  className="ui-input flex w-full cursor-pointer items-center justify-between pr-10 text-left"
+                >
+                  <span className="truncate">{sortLabel}</span>
+
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+
+                <AnimatePresence>
+                  {isSortOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.16, ease: "easeOut" }}
+                      className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/95 shadow-2xl ring-1 ring-zinc-100/5 backdrop-blur"
+                    >
+                      <ul
+                        role="listbox"
+                        aria-labelledby="home-sort-label"
+                        className="py-1"
+                      >
+                        {sortOptions.map((opt) => {
+                          const isSelected = localSortBy === opt.value;
+
+                          const base =
+                            "flex w-full items-center justify-between px-3 py-2 text-left text-sm";
+                          const enabled =
+                            "text-zinc-200 hover:bg-zinc-900/50 focus:outline-none focus-visible:bg-zinc-900/60";
+                          const selected = "bg-zinc-900/60 text-zinc-100";
+                          const disabled =
+                            "cursor-not-allowed text-zinc-500 hover:bg-transparent";
+
+                          return (
+                            <li key={opt.value}>
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                disabled={opt.disabled}
+                                onClick={() => applySort(opt.value)}
+                                className={[
+                                  base,
+                                  opt.disabled
+                                    ? disabled
+                                    : isSelected
+                                    ? selected
+                                    : enabled,
+                                ].join(" ")}
+                              >
+                                <span className="truncate">{opt.label}</span>
+
+                                {isSelected && (
+                                  <span className="ml-3 text-xs text-sky-300">
+                                    Selected
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             <button
@@ -243,14 +356,13 @@ const SearchAndFilterBar = ({
                 role="dialog"
                 aria-modal="true"
                 className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur sm:rounded-none sm:border-l sm:border-t-0 sm:w-[380px] sm:h-full"
-                variants={isDesktop ? panelVariantsDesktop : panelVariantsMobile}
-
+                variants={
+                  isDesktop ? panelVariantsDesktop : panelVariantsMobile
+                }
                 initial="hidden"
                 animate="visible"
                 exit="exit"
               >
-
-
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-lg font-semibold text-zinc-100">
                     Filter Options
