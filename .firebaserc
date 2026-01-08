@@ -1,5 +1,9 @@
 {
   "projects": {
-    "default": "myblogapp-4bae3"
-  }
+    "default": "myblogapp-4bae3",
+    "prod": "myblogapp-4bae3",
+    "staging": "liferecompiled-staging"
+  },
+  "targets": {},
+  "etags": {}
 }
