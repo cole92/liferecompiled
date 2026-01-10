@@ -32,7 +32,7 @@ try {
 // -------------------- INIT --------------------
 admin.initializeApp();
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
-setGlobalOptions({ region: "europe-central2" });
+setGlobalOptions({ region: "europe-central2", invoker: "public" });
 
 const db = admin.firestore();
 //const isEmulator = !!process.env.FUNCTIONS_EMULATOR;
