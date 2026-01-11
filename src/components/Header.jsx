@@ -1,31 +1,25 @@
 import { useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
 import { NavLink, useLocation } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 import AvatarDropdown from "./AvatarDropdown";
 import Spinner from "./Spinner";
 
 /**
  * @component Header
- * Global header: logo/link levo + auth/avatar desno.
- *
- * - AuthContext za status korisnika i logout
- * - Ako korisnik nije ulogovan: Login/Register (osim na tim rutama)
- * - Ako je ulogovan: AvatarDropdown
- *
- * @returns {JSX.Element}
+ * Global header (logo + auth/avatar).
+ * No Home toolbar or Create button here.
  */
 const Header = () => {
   const { user, isLoggingOut, logout, isCheckingAuth } =
     useContext(AuthContext);
 
   const { pathname } = useLocation();
-
   const isLogin = pathname === "/login";
   const isRegister = pathname === "/register";
 
   if (isCheckingAuth) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+      <div className="ui-shell-header py-3">
         <div className="flex items-center gap-2 text-sm text-zinc-200">
           <span>Checking authentication</span>
           <Spinner message="" />
@@ -38,8 +32,7 @@ const Header = () => {
 
   return (
     <header className="w-full">
-     <div className="ui-shell-header py-3">
-
+      <div className="ui-shell-header py-3">
         <div className="flex items-center justify-between gap-3">
           <NavLink
             to="/"

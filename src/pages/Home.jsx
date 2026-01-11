@@ -1,83 +1,64 @@
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-
-import { AuthContext } from "../context/AuthContext";
-import useSearch from "../context/useSearch";
-
 import { getPostsPage } from "../services/homeFeed/getPostsPage";
 
 import PostsList from "../components/PostsList";
+import useSearch from "../context/useSearch";
 import SearchAndFilterBar, {
   FiltersPanelContent,
 } from "../components/SearchAndFilterBar";
-
 import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import NoResultsMessage from "../components/NoResultsMessage";
+import { AuthContext } from "../context/AuthContext";
 
 const PAGE_SIZE_UI = 16;
 
-/**
- * @component Home
- * Landing stranica sa paginiranim Home feed-om.
- *
- * Namena:
- * - Fetch prve stranice postova preko `getPostsPage` (server filter/sort/paginacija)
- * - Uklapa `sortBy` i `selectedCategories` iz SearchContext-a u `serverSort` (v1 pravila)
- * - Prikazuje SkeletonCard, NoResultsMessage ili PostsList + "Load more" u zavisnosti od stanja
- * - U v1 verziji nema klijentskog tekstualnog search-a (search bar je iskljucen)
- *
- * Paginacija:
- * - PAGE_SIZE_UI = 16, cursor-based (lastDoc + hasMore)
- * - Append koristi dedupe po `id` da izbegne duplikate pri "Load more"
- *
- * V1 ogranicenja:
- * - Single category mode: ako je tacno jedna kategorija aktivna, sort se zakljucava na 'newest'
- * - Ako je 0 ili vise od 1 kategorije izabrano → server ne filtrira po kategoriji (activeCategory = null)
- *
- * @returns {JSX.Element}
- */
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
-  const {
-    setSearchTerm,
-    setSortBy,
-    setSelectedCategories,
-    selectedCategories,
-    handleResetFilters,
-    sortBy,
-  } = useSearch();
-
   const [posts, setPosts] = useState([]);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
+
+  const { sortBy, selectedCategories, setSortBy, setSelectedCategories, handleResetFilters } =
+    useSearch();
+
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Desktop sidebar open state (mobile uses drawer, but we keep same state)
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  // Desktop sidebar (lg+ only)
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
+  const [isLgUp, setIsLgUp] = useState(false);
 
-  const toggleFilters = () => setIsFiltersOpen((prev) => !prev);
-  const closeFilters = () => setIsFiltersOpen(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsLgUp(mq.matches);
+    sync();
+
+    mq.addEventListener?.("change", sync) ?? mq.addListener(sync);
+    return () =>
+      mq.removeEventListener?.("change", sync) ?? mq.removeListener(sync);
+  }, []);
+
+  // If we leave lg viewport, close desktop sidebar to avoid weird states
+  useEffect(() => {
+    if (!isLgUp) setIsDesktopSidebarOpen(false);
+  }, [isLgUp]);
 
   const canShowCreateButton = !!user;
 
-  // Pomocni derivati za server:
-  // 1) Jedna aktivna kategorija (v1) – ako ih je vise, tretiramo kao "nema filtera"
   const activeCategory =
     Array.isArray(selectedCategories) && selectedCategories.length === 1
       ? selectedCategories[0]
       : null;
 
-  // 2) Sort za server – v1 podrzava samo newest/oldest; pri aktivnoj kategoriji zakljucavamo na "newest"
   const serverSort = activeCategory
     ? "newest"
     : sortBy === "oldest"
     ? "oldest"
     : "newest";
 
-  // Fetch prve strane na mount + na promenu activeCategory/serverSort
   useEffect(() => {
     let isCanceled = false;
 
@@ -106,13 +87,9 @@ const Home = () => {
           console.warn("[Home feed warnings]", page.warnings);
         }
       } catch (error) {
-        if (!isCanceled) {
-          console.error("Error fetching first page:", error);
-        }
+        if (!isCanceled) console.error("Error fetching first page:", error);
       } finally {
-        if (!isCanceled) {
-          setIsLoading(false);
-        }
+        if (!isCanceled) setIsLoading(false);
       }
     };
 
@@ -124,9 +101,7 @@ const Home = () => {
   }, [activeCategory, serverSort]);
 
   const handleLoadMore = async () => {
-    if (isLoading || isLoadingMore || !hasMore || !lastDoc) {
-      return;
-    }
+    if (isLoading || isLoadingMore || !hasMore || !lastDoc) return;
 
     setIsLoadingMore(true);
 
@@ -138,12 +113,9 @@ const Home = () => {
         sortBy: serverSort,
       });
 
-      // Dedupe po id-u pri append-u (novi pregaze stare)
       setPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
-        for (const item of page.items) {
-          map.set(item.id, item);
-        }
+        for (const item of page.items) map.set(item.id, item);
         return Array.from(map.values());
       });
 
@@ -160,50 +132,59 @@ const Home = () => {
     }
   };
 
-  // Home v1 ne koristi klijentski search; finalPosts je trenutno identican `posts`
   const finalPosts = posts;
   const showNoResults = !isLoading && finalPosts.length === 0;
 
-  const layoutClass = isFiltersOpen
-    ? "grid gap-6 lg:grid-cols-[1fr_320px]"
-    : "grid gap-6";
+  const handleToggleDesktopSidebar = () =>
+    setIsDesktopSidebarOpen((prev) => !prev);
+
+  const handleCloseDesktopSidebar = () => setIsDesktopSidebarOpen(false);
+
+  const createBtn = canShowCreateButton ? (
+    <button
+      type="button"
+      className="ui-button-primary w-full sm:w-auto"
+      onClick={() => navigate("/dashboard/create")}
+    >
+      Create New Post
+    </button>
+  ) : null;
+
+  const layoutClass = useMemo(() => {
+    if (isLgUp && isDesktopSidebarOpen) {
+      return "mt-4 grid gap-6 lg:grid-cols-[1fr_380px]";
+    }
+    return "mt-4";
+  }, [isLgUp, isDesktopSidebarOpen]);
 
   return (
-    <div className="mt-4">
-      <div className={layoutClass}>
-        {/* Left column: toolbar + list */}
-        <div className="flex flex-col gap-3">
-          {/* Toolbar card */}
-          <div className="ui-card p-3 sm:p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <SearchAndFilterBar
-                  onSearchChange={setSearchTerm}
-                  onSortChange={setSortBy}
-                  onFilterChange={setSelectedCategories}
-                  onResetFilters={handleResetFilters}
-                  selectedCategories={selectedCategories}
-                  sortBy={sortBy}
-                  showSearch={false}
-                  isFiltersOpen={isFiltersOpen}
-                  onToggleFilters={toggleFilters}
-                  onCloseFilters={closeFilters}
-                />
-              </div>
+    <div className="pb-10">
+      {/* Subheader / Toolbar (sticky inside main scroll container) */}
+     <div className="sticky top-16 z-40">
 
-              {canShowCreateButton && (
-                <button
-                  type="button"
-                  className="ui-button-primary w-full lg:w-auto whitespace-nowrap"
-                  onClick={() => navigate("/dashboard/create")}
-                >
-                  Create New Post
-                </button>
-              )}
-            </div>
+        <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
+          <div className="ui-shell py-3">
+            <SearchAndFilterBar
+              onSearchChange={() => {}}
+              onSortChange={setSortBy}
+              onFilterChange={setSelectedCategories}
+              onResetFilters={handleResetFilters}
+              selectedCategories={selectedCategories}
+              sortBy={sortBy}
+              showSearch={false}
+              variant="bare"
+              afterSortSlot={createBtn}
+              desktopSidebarOpen={isDesktopSidebarOpen}
+              onDesktopToggleFilters={handleToggleDesktopSidebar}
+              onDesktopCloseFilters={handleCloseDesktopSidebar}
+            />
           </div>
+        </div>
+      </div>
 
-          {/* Feed */}
+      <div className={layoutClass}>
+        {/* Main feed */}
+        <div>
           {isLoading ? (
             <SkeletonCard />
           ) : showNoResults ? (
@@ -243,16 +224,19 @@ const Home = () => {
           )}
         </div>
 
-        {/* Right column: desktop sidebar (lg+) */}
-        {isFiltersOpen && (
+        {/* Desktop sidebar (lg+ only) */}
+        {isLgUp && isDesktopSidebarOpen && (
           <aside className="hidden lg:block">
-            <div className="ui-card p-4 sticky top-24">
-              <FiltersPanelContent
-                selectedCategories={selectedCategories}
-                onFilterChange={setSelectedCategories}
-                onResetFilters={handleResetFilters}
-                onClose={closeFilters}
-              />
+           <div className="sticky top-28">
+
+              <div className="ui-card p-4">
+                <FiltersPanelContent
+                  selectedCategories={selectedCategories}
+                  onFilterChange={setSelectedCategories}
+                  onReset={handleResetFilters}
+                  onClose={handleCloseDesktopSidebar}
+                />
+              </div>
             </div>
           </aside>
         )}

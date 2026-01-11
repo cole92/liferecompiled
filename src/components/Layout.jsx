@@ -15,7 +15,7 @@ const Layout = ({ children }) => {
 
   return (
     <SearchProvider>
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+      <div className="min-h-screen bg-zinc-950 text-zinc-100">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-zinc-900 focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-zinc-100"
@@ -23,20 +23,19 @@ const Layout = ({ children }) => {
           Skip to content
         </a>
 
-        <div className="w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-40">
+        {/* Header sticky (body scroll) */}
+        <div className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
           <Header />
         </div>
 
-        <main id="main-content" className="flex-1 overflow-auto">
-          <div
-            className={
-              isDashboard ? "ui-shell max-w-none py-6" : "ui-shell py-6"
-            }
-          >
+        {/* Main WITHOUT overflow-auto (pusti body da skroluje) */}
+        <main id="main-content" className="py-6">
+          <div className={isDashboard ? "ui-shell max-w-none" : "ui-shell"}>
             {children}
           </div>
         </main>
 
+        {/* Footer normalan (na dnu kad dodjes) */}
         <div className="w-full border-t border-zinc-800 bg-zinc-950">
           <Footer />
         </div>
