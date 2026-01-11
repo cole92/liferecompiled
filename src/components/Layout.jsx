@@ -18,7 +18,17 @@ const Layout = ({ children }) => {
       <div className="min-h-screen bg-zinc-950 text-zinc-100">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-zinc-900 focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-zinc-100"
+          className="
+    sr-only focus:not-sr-only
+    focus:fixed focus:left-1/2 focus:-translate-x-1/2
+    focus:top-16 sm:focus:top-4
+    focus:z-[60]
+    focus:rounded-md focus:bg-zinc-900
+    focus:px-2 focus:py-1 focus:text-xs
+    sm:focus:px-3 sm:focus:py-2 sm:focus:text-sm
+    focus:font-medium focus:text-zinc-100
+    focus:max-w-[calc(100vw-2rem)] focus:truncate
+  "
         >
           Skip to content
         </a>
@@ -29,7 +39,7 @@ const Layout = ({ children }) => {
         </div>
 
         {/* Main WITHOUT overflow-auto (pusti body da skroluje) */}
-        <main id="main-content" className="py-6">
+        <main id="main-content" className="pt-4 pb-6">
           <div className={isDashboard ? "ui-shell max-w-none" : "ui-shell"}>
             {children}
           </div>
