@@ -1,8 +1,16 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { AuthContext } from "../context/AuthContext";
+import useSearch from "../context/useSearch";
+
 import { getPostsPage } from "../services/homeFeed/getPostsPage";
 
 import PostsList from "../components/PostsList";
-import useSearch from "../context/useSearch";
+import SearchAndFilterBar, {
+  FiltersPanelContent,
+} from "../components/SearchAndFilterBar";
+
 import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import NoResultsMessage from "../components/NoResultsMessage";
 
@@ -29,12 +37,31 @@ const PAGE_SIZE_UI = 16;
  * @returns {JSX.Element}
  */
 const Home = () => {
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+
+  const {
+    setSearchTerm,
+    setSortBy,
+    setSelectedCategories,
+    selectedCategories,
+    handleResetFilters,
+    sortBy,
+  } = useSearch();
+
   const [posts, setPosts] = useState([]);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const { sortBy, selectedCategories } = useSearch();
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Desktop sidebar open state (mobile uses drawer, but we keep same state)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
+  const toggleFilters = () => setIsFiltersOpen((prev) => !prev);
+  const closeFilters = () => setIsFiltersOpen(false);
+
+  const canShowCreateButton = !!user;
 
   // Pomocni derivati za server:
   // 1) Jedna aktivna kategorija (v1) – ako ih je vise, tretiramo kao "nema filtera"
@@ -117,7 +144,6 @@ const Home = () => {
         for (const item of page.items) {
           map.set(item.id, item);
         }
-
         return Array.from(map.values());
       });
 
@@ -136,50 +162,101 @@ const Home = () => {
 
   // Home v1 ne koristi klijentski search; finalPosts je trenutno identican `posts`
   const finalPosts = posts;
-
   const showNoResults = !isLoading && finalPosts.length === 0;
+
+  const layoutClass = isFiltersOpen
+    ? "grid gap-6 lg:grid-cols-[1fr_320px]"
+    : "grid gap-6";
 
   return (
     <div className="mt-4">
-      {isLoading ? (
-        <SkeletonCard />
-      ) : showNoResults ? (
-        <>
-          <NoResultsMessage
-            posts={finalPosts}
-            searchTerm=""
-            selectedCategories={selectedCategories}
-          />
-        </>
-      ) : (
-        <>
-          <PostsList posts={finalPosts} showCommentsThread={false} />
+      <div className={layoutClass}>
+        {/* Left column: toolbar + list */}
+        <div className="flex flex-col gap-3">
+          {/* Toolbar card */}
+          <div className="ui-card p-3 sm:p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <SearchAndFilterBar
+                  onSearchChange={setSearchTerm}
+                  onSortChange={setSortBy}
+                  onFilterChange={setSelectedCategories}
+                  onResetFilters={handleResetFilters}
+                  selectedCategories={selectedCategories}
+                  sortBy={sortBy}
+                  showSearch={false}
+                  isFiltersOpen={isFiltersOpen}
+                  onToggleFilters={toggleFilters}
+                  onCloseFilters={closeFilters}
+                />
+              </div>
 
-          {isLoadingMore && (
-            <div className="mt-4">
-              <SkeletonCard />
+              {canShowCreateButton && (
+                <button
+                  type="button"
+                  className="ui-button-primary w-full lg:w-auto whitespace-nowrap"
+                  onClick={() => navigate("/dashboard/create")}
+                >
+                  Create New Post
+                </button>
+              )}
             </div>
-          )}
+          </div>
 
-          {hasMore ? (
-            <div className="mt-6 flex justify-center">
-              <button
-                type="button"
-                onClick={handleLoadMore}
-                disabled={isLoadingMore || isLoading || !hasMore}
-                aria-busy={isLoadingMore}
-                className="ui-button-primary py-2.5"
-              >
-                {isLoadingMore ? "Loading..." : "Load more"}
-              </button>
-            </div>
+          {/* Feed */}
+          {isLoading ? (
+            <SkeletonCard />
+          ) : showNoResults ? (
+            <NoResultsMessage
+              posts={finalPosts}
+              searchTerm=""
+              selectedCategories={selectedCategories}
+            />
           ) : (
-            <p className="ui-help text-center mt-6" aria-live="polite">
-              You reached the end.
-            </p>
+            <>
+              <PostsList posts={finalPosts} showCommentsThread={false} />
+
+              {isLoadingMore && (
+                <div className="mt-4">
+                  <SkeletonCard />
+                </div>
+              )}
+
+              {hasMore ? (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore || isLoading || !hasMore}
+                    aria-busy={isLoadingMore}
+                    className="ui-button-primary py-2.5"
+                  >
+                    {isLoadingMore ? "Loading..." : "Load more"}
+                  </button>
+                </div>
+              ) : (
+                <p className="ui-help text-center mt-6" aria-live="polite">
+                  You reached the end.
+                </p>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+
+        {/* Right column: desktop sidebar (lg+) */}
+        {isFiltersOpen && (
+          <aside className="hidden lg:block">
+            <div className="ui-card p-4 sticky top-24">
+              <FiltersPanelContent
+                selectedCategories={selectedCategories}
+                onFilterChange={setSelectedCategories}
+                onResetFilters={handleResetFilters}
+                onClose={closeFilters}
+              />
+            </div>
+          </aside>
+        )}
+      </div>
     </div>
   );
 };

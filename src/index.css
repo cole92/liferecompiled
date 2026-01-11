@@ -26,8 +26,12 @@
 @layer components {
   /* layout */
   .ui-shell {
-    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 lg:px-8;
   }
+
+ .ui-shell-header {
+  @apply mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10;
+}
 
   .ui-card {
     @apply rounded-2xl border border-zinc-800/80 bg-zinc-950/35 backdrop-blur shadow-sm ring-1 ring-zinc-100/5;
@@ -55,23 +59,20 @@
 
   /* form fields */
   .ui-label {
-  @apply block text-base font-medium text-zinc-200;
-}
+    @apply block text-base font-medium text-zinc-200;
+  }
 
-
- .ui-input {
-  @apply mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 text-base text-zinc-100
+  .ui-input {
+    @apply mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 text-base text-zinc-100
     placeholder:text-zinc-500
     focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
     focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
     disabled:cursor-not-allowed disabled:opacity-60;
-}
-
+  }
 
   .ui-help {
-  @apply mt-1 text-sm text-zinc-300;
-}
-
+    @apply mt-1 text-sm text-zinc-300;
+  }
 
   .ui-error {
     @apply mt-1 text-sm text-rose-300;
