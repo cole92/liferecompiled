@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories";
+import FilterPortal from "./modals/FilterPortal";
 
 export const FiltersPanelContent = ({
   selectedCategories,
@@ -74,7 +75,11 @@ export const FiltersPanelContent = ({
         </div>
 
         <div className="mt-4 flex items-center gap-3">
-          <button type="button" onClick={handleClear} className="ui-button-secondary">
+          <button
+            type="button"
+            onClick={handleClear}
+            className="ui-button-secondary"
+          >
             Clear
           </button>
 
@@ -176,6 +181,7 @@ const SearchAndFilterBar = ({
   }, [sortBy]);
 
   const closeFilters = useCallback(() => setIsFilterOpen(false), []);
+
   const toggleFilterPanel = () => {
     // Desktop (lg+): sidebar is controlled by parent (Home)
     if (isLgUp && typeof onDesktopToggleFilters === "function") {
@@ -311,8 +317,7 @@ const SearchAndFilterBar = ({
     { value: "oldest", label: "Oldest First", disabled: hasActiveCategory },
   ];
 
-  const wrapClass =
-    variant === "card" ? "ui-card p-3 sm:p-4" : "w-full";
+  const wrapClass = variant === "card" ? "ui-card p-3 sm:p-4" : "w-full";
 
   return (
     <div className="w-full">
@@ -462,44 +467,50 @@ const SearchAndFilterBar = ({
       </div>
 
       {/* Overlay filter panel (mobile/tablet only) */}
-      <AnimatePresence>
-        {!isLgUp && isFilterOpen && (
-          <motion.div
-            className="fixed inset-0 z-50"
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-          >
-            <motion.button
-              type="button"
-              aria-label="Close filters"
-              className="absolute inset-0 h-full w-full bg-zinc-950/60"
-              variants={backdropVariants}
-              onClick={closeFilters}
-            />
-
-            <div className="absolute inset-0 flex items-end sm:items-stretch sm:justify-end">
+      {!isLgUp && (
+        <FilterPortal>
+          <AnimatePresence>
+            {isFilterOpen && (
               <motion.div
-                id="filters-panel"
-                role="dialog"
-                aria-modal="true"
-                className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur sm:rounded-none sm:border-l sm:border-t-0 sm:w-[380px] sm:h-full"
-                variants={isSmUp ? panelVariantsDesktop : panelVariantsMobile}
+                className="fixed inset-0 z-[60]"
                 initial="hidden"
                 animate="visible"
                 exit="exit"
               >
-                <FiltersPanelContent
-                  selectedCategories={selectedCategories}
-                  onFilterChange={onFilterChange}
-                  onReset={handleLocalClear}
-                  onClose={closeFilters}
+                <motion.button
+                  type="button"
+                  aria-label="Close filters"
+                  className="absolute inset-0 h-full w-full bg-zinc-950/60"
+                  variants={backdropVariants}
+                  onClick={closeFilters}
                 />
+
+                <div className="absolute inset-0 flex items-end sm:items-stretch sm:justify-end">
+                  <motion.div
+                    id="filters-panel"
+                    role="dialog"
+                    aria-modal="true"
+                    className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur sm:rounded-none sm:border-l sm:border-t-0 sm:w-[380px] sm:h-full"
+                    variants={
+                      isSmUp ? panelVariantsDesktop : panelVariantsMobile
+                    }
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                  >
+                    <FiltersPanelContent
+                      selectedCategories={selectedCategories}
+                      onFilterChange={onFilterChange}
+                      onReset={handleLocalClear}
+                      onClose={closeFilters}
+                    />
+                  </motion.div>
+                </div>
               </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </AnimatePresence>
+        </FilterPortal>
+      )}
     </div>
   );
 };
