@@ -241,7 +241,7 @@ const Home = () => {
         {isMdUp && isDesktopSidebarOpen && (
           <aside className="hidden md:block">
             <div className="sticky top-28">
-              <div className="ui-card p-4 h-[calc(100vh-8rem)] overflow-hidden">
+              <div className="ui-card p-4 h-[calc(100vh-8rem)] max-h-[760px] overflow-hidden">
                 <FiltersPanelContent
                   selectedCategories={selectedCategories}
                   onFilterChange={setSelectedCategories}

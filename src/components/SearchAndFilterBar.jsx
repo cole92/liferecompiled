@@ -42,7 +42,7 @@ export const FiltersPanelContent = ({
         </h3>
 
         {/* Lista je jedino sto skroluje */}
-        <div className="mt-3 min-h-0 flex-1 overflow-auto pr-1">
+        <div className="mt-3 min-h-0 flex-1 overflow-auto pr-1 ui-scrollbar">
           <div className="space-y-2">
             {validCategories.map((categoryItem) => {
               const isActive = selectedCategories.includes(categoryItem);
@@ -489,12 +489,10 @@ const SearchAndFilterBar = ({
                     id="filters-panel"
                     role="dialog"
                     aria-modal="true"
-                    className="
-                      w-full h-[85vh] max-h-[85vh] overflow-hidden
-                      rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur
-                      sm:h-full sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0
-                      sm:w-[320px] min-[720px]:w-[380px]
-                    "
+                    className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95
+                     p-4 shadow-2xl backdrop-blur flex flex-col overflow-hidden h-[85vh]
+                      pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-full sm:pb-4 sm:rounded-none sm:border-l 
+                      sm:border-t-0 sm:w-[320px] min-[720px]:w-[380px]"
                     variants={
                       isSmUp ? panelVariantsDesktop : panelVariantsMobile
                     }
