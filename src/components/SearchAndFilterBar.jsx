@@ -24,27 +24,25 @@ export const FiltersPanelContent = ({
     onFilterChange([value]);
   };
 
-  const handleClear = () => {
-    onReset();
-  };
+  const handleClear = () => onReset();
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-100">Filter Options</h2>
-
         <button type="button" className="ui-button-outline" onClick={onClose}>
           Close
         </button>
       </div>
 
-      <div className="mt-4">
+      {/* Bitno: min-h-0 da bi unutrasnji overflow radio u flex konteineru */}
+      <div className="mt-4 flex min-h-0 flex-1 flex-col">
         <h3 className="text-sm font-semibold text-zinc-200">
           Categories{activeCount > 0 ? ` (${activeCount})` : ""}
         </h3>
 
-        {/* md+ now represents docked sidebar mode (>= 768) */}
-        <div className="mt-3 max-h-[55vh] overflow-auto pr-1 md:max-h-[calc(100vh-260px)]">
+        {/* Lista je jedino sto skroluje */}
+        <div className="mt-3 min-h-0 flex-1 overflow-auto pr-1">
           <div className="space-y-2">
             {validCategories.map((categoryItem) => {
               const isActive = selectedCategories.includes(categoryItem);
@@ -57,7 +55,7 @@ export const FiltersPanelContent = ({
                 <label
                   key={categoryItem}
                   htmlFor={checkboxId}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 md:py-1.5 hover:bg-zinc-900/40"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 hover:bg-zinc-900/40"
                 >
                   <input
                     id={checkboxId}
@@ -492,8 +490,9 @@ const SearchAndFilterBar = ({
                     role="dialog"
                     aria-modal="true"
                     className="
-                      w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur
-                      sm:rounded-none sm:border-l sm:border-t-0 sm:h-full
+                      w-full h-[85vh] max-h-[85vh] overflow-hidden
+                      rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur
+                      sm:h-full sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0
                       sm:w-[320px] min-[720px]:w-[380px]
                     "
                     variants={

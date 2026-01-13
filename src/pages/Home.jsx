@@ -165,8 +165,9 @@ const Home = () => {
 
   // Posts grid: 1 col until lg (1024) by default
   // (If you later decide: when sidebar is open, keep 1 col until xl, we can do that too.)
-  const postsGridClass =
-    "grid grid-cols-1 gap-5 sm:gap-6 items-stretch lg:grid-cols-2";
+  const feedGridClassName = isDesktopSidebarOpen
+    ? "grid grid-cols-1 gap-5 sm:gap-6 items-stretch xl:grid-cols-2"
+    : "grid grid-cols-1 gap-5 sm:gap-6 items-stretch lg:grid-cols-2";
 
   return (
     <div className="pb-10">
@@ -206,7 +207,7 @@ const Home = () => {
               <PostsList
                 posts={finalPosts}
                 showCommentsThread={false}
-                gridClassName={postsGridClass}
+                gridClassName={feedGridClassName}
               />
 
               {isLoadingMore && (
@@ -240,7 +241,7 @@ const Home = () => {
         {isMdUp && isDesktopSidebarOpen && (
           <aside className="hidden md:block">
             <div className="sticky top-28">
-              <div className="ui-card p-3 lg:p-4">
+              <div className="ui-card p-4 h-[calc(100vh-8rem)] overflow-hidden">
                 <FiltersPanelContent
                   selectedCategories={selectedCategories}
                   onFilterChange={setSelectedCategories}
