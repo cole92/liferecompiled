@@ -28,9 +28,13 @@ const PostsList = ({
   isMyPost,
   onLock,
   showCommentsThread = true,
+  gridClassName,
 }) => {
+  const defaultGridClass =
+    "grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 items-stretch";
+
   return (
-    <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 items-stretch">
+    <div className={gridClassName || defaultGridClass}>
       {posts.map((post) => (
         <PostCard
           key={post.id}
@@ -63,6 +67,7 @@ PostsList.propTypes = {
   isMyPost: PropTypes.bool,
   onLock: PropTypes.func,
   showCommentsThread: PropTypes.bool,
+  gridClassName: PropTypes.string,
 };
 
 export default PostsList;

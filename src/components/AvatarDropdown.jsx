@@ -132,9 +132,9 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
             className="absolute right-0 mt-2 w-52 z-50"
             role="menu"
           >
-            <div className="ui-card rounded-xl p-1">
+            <div className="ui-card overflow-hidden rounded-xl p-1 bg-zinc-950/95 shadow-2xl">
               {/* Arrow */}
-              <div className="absolute -top-1 right-5 w-3 h-3 bg-zinc-950 rotate-45 border-l border-t border-zinc-800/80 z-0" />
+              <div className="absolute -top-1 right-5 w-3 h-3 bg-zinc-950/95 rotate-45 border-l border-t border-zinc-800/80 z-0" />
 
               <ul className="py-1 relative z-10">
                 <li>

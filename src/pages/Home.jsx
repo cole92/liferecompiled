@@ -21,19 +21,24 @@ const Home = () => {
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
-  const { sortBy, selectedCategories, setSortBy, setSelectedCategories, handleResetFilters } =
-    useSearch();
+  const {
+    sortBy,
+    selectedCategories,
+    setSortBy,
+    setSelectedCategories,
+    handleResetFilters,
+  } = useSearch();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Desktop sidebar (lg+ only)
+  // Docked sidebar (md+ only)
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
-  const [isLgUp, setIsLgUp] = useState(false);
+  const [isMdUp, setIsMdUp] = useState(false);
 
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const sync = () => setIsLgUp(mq.matches);
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setIsMdUp(mq.matches);
     sync();
 
     mq.addEventListener?.("change", sync) ?? mq.addListener(sync);
@@ -41,10 +46,10 @@ const Home = () => {
       mq.removeEventListener?.("change", sync) ?? mq.removeListener(sync);
   }, []);
 
-  // If we leave lg viewport, close desktop sidebar to avoid weird states
+  // If we leave md viewport, close docked sidebar to avoid weird states
   useEffect(() => {
-    if (!isLgUp) setIsDesktopSidebarOpen(false);
-  }, [isLgUp]);
+    if (!isMdUp) setIsDesktopSidebarOpen(false);
+  }, [isMdUp]);
 
   const canShowCreateButton = !!user;
 
@@ -150,18 +155,22 @@ const Home = () => {
     </button>
   ) : null;
 
+  // Layout: docked sidebar starts at md (768)
   const layoutClass = useMemo(() => {
-    if (isLgUp && isDesktopSidebarOpen) {
-      return "mt-4 grid gap-6 lg:grid-cols-[1fr_380px]";
+    if (isMdUp && isDesktopSidebarOpen) {
+      return "mt-4 grid gap-4 lg:gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_380px]";
     }
     return "mt-4";
-  }, [isLgUp, isDesktopSidebarOpen]);
+  }, [isMdUp, isDesktopSidebarOpen]);
+
+  // Posts grid: 1 col until lg (1024) by default
+  // (If you later decide: when sidebar is open, keep 1 col until xl, we can do that too.)
+  const postsGridClass =
+    "grid grid-cols-1 gap-5 sm:gap-6 items-stretch lg:grid-cols-2";
 
   return (
     <div className="pb-10">
-      {/* Subheader / Toolbar (sticky inside main scroll container) */}
-     <div className="sticky top-16 z-40">
-
+      <div className="sticky top-16 z-40">
         <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
           <div className="ui-shell py-3">
             <SearchAndFilterBar
@@ -183,7 +192,6 @@ const Home = () => {
       </div>
 
       <div className={layoutClass}>
-        {/* Main feed */}
         <div>
           {isLoading ? (
             <SkeletonCard />
@@ -195,7 +203,11 @@ const Home = () => {
             />
           ) : (
             <>
-              <PostsList posts={finalPosts} showCommentsThread={false} />
+              <PostsList
+                posts={finalPosts}
+                showCommentsThread={false}
+                gridClassName={postsGridClass}
+              />
 
               {isLoadingMore && (
                 <div className="mt-4">
@@ -224,12 +236,11 @@ const Home = () => {
           )}
         </div>
 
-        {/* Desktop sidebar (lg+ only) */}
-        {isLgUp && isDesktopSidebarOpen && (
-          <aside className="hidden lg:block">
-           <div className="sticky top-28">
-
-              <div className="ui-card p-4">
+        {/* Docked sidebar (md+ only) */}
+        {isMdUp && isDesktopSidebarOpen && (
+          <aside className="hidden md:block">
+            <div className="sticky top-28">
+              <div className="ui-card p-3 lg:p-4">
                 <FiltersPanelContent
                   selectedCategories={selectedCategories}
                   onFilterChange={setSelectedCategories}

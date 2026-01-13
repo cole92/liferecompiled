@@ -43,7 +43,8 @@ export const FiltersPanelContent = ({
           Categories{activeCount > 0 ? ` (${activeCount})` : ""}
         </h3>
 
-        <div className="mt-3 max-h-[55vh] overflow-auto pr-1 lg:max-h-[calc(100vh-260px)]">
+        {/* md+ now represents docked sidebar mode (>= 768) */}
+        <div className="mt-3 max-h-[55vh] overflow-auto pr-1 md:max-h-[calc(100vh-260px)]">
           <div className="space-y-2">
             {validCategories.map((categoryItem) => {
               const isActive = selectedCategories.includes(categoryItem);
@@ -56,7 +57,7 @@ export const FiltersPanelContent = ({
                 <label
                   key={categoryItem}
                   htmlFor={checkboxId}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 hover:bg-zinc-900/40"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 md:py-1.5 hover:bg-zinc-900/40"
                 >
                   <input
                     id={checkboxId}
@@ -105,8 +106,8 @@ FiltersPanelContent.propTypes = {
 
 /**
  * SearchAndFilterBar
- * - Mobile/tablet: overlay drawer
- * - Desktop (lg+): toggles sidebar (Home renders FiltersPanelContent)
+ * - < md (0-767): overlay drawer (bottom sheet on <sm, right drawer on sm+)
+ * - >= md (768+): parent (Home) renders docked sidebar
  */
 const SearchAndFilterBar = ({
   onSearchChange,
@@ -128,7 +129,7 @@ const SearchAndFilterBar = ({
 
   // sm+ controls overlay type (bottom sheet vs right drawer)
   const [isSmUp, setIsSmUp] = useState(false);
-  // lg+ uses sidebar instead of overlay
+  // md+ uses docked sidebar instead of overlay
   const [isLgUp, setIsLgUp] = useState(false);
 
   // Custom sort dropdown UI-only state
@@ -137,25 +138,25 @@ const SearchAndFilterBar = ({
 
   useEffect(() => {
     const mqSm = window.matchMedia("(min-width: 640px)");
-    const mqLg = window.matchMedia("(min-width: 1024px)");
+    const mqMd = window.matchMedia("(min-width: 768px)");
 
     const sync = () => {
       setIsSmUp(mqSm.matches);
-      setIsLgUp(mqLg.matches);
+      setIsLgUp(mqMd.matches);
     };
 
     sync();
 
     mqSm.addEventListener?.("change", sync) ?? mqSm.addListener(sync);
-    mqLg.addEventListener?.("change", sync) ?? mqLg.addListener(sync);
+    mqMd.addEventListener?.("change", sync) ?? mqMd.addListener(sync);
 
     return () => {
       mqSm.removeEventListener?.("change", sync) ?? mqSm.removeListener(sync);
-      mqLg.removeEventListener?.("change", sync) ?? mqLg.removeListener(sync);
+      mqMd.removeEventListener?.("change", sync) ?? mqMd.removeListener(sync);
     };
   }, []);
 
-  // If we enter lg+, ensure overlay closes
+  // If we enter md+, ensure overlay closes
   useEffect(() => {
     if (isLgUp) setIsFilterOpen(false);
   }, [isLgUp]);
@@ -183,7 +184,7 @@ const SearchAndFilterBar = ({
   const closeFilters = useCallback(() => setIsFilterOpen(false), []);
 
   const toggleFilterPanel = () => {
-    // Desktop (lg+): sidebar is controlled by parent (Home)
+    // md+: sidebar is controlled by parent (Home)
     if (isLgUp && typeof onDesktopToggleFilters === "function") {
       onDesktopToggleFilters();
       return;
@@ -236,7 +237,7 @@ const SearchAndFilterBar = ({
     };
   }, [isFilterOpen, closeFilters]);
 
-  // Desktop sidebar: ESC closes sidebar if provided
+  // Docked sidebar: ESC closes sidebar if provided
   useEffect(() => {
     if (!isLgUp || !desktopSidebarOpen) return;
     if (typeof onDesktopCloseFilters !== "function") return;
@@ -435,11 +436,11 @@ const SearchAndFilterBar = ({
               </div>
             </div>
 
-            {/* Create slot (swapped left) */}
+            {/* Create slot */}
             {afterSortSlot}
           </div>
 
-          {/* Right group: Filters toggle (swapped right) */}
+          {/* Right group: Filters toggle */}
           <div className="flex items-center justify-end">
             <button
               type="button"
@@ -466,7 +467,7 @@ const SearchAndFilterBar = ({
         )}
       </div>
 
-      {/* Overlay filter panel (mobile/tablet only) */}
+      {/* Overlay filter panel (< md only) */}
       {!isLgUp && (
         <FilterPortal>
           <AnimatePresence>
@@ -490,7 +491,11 @@ const SearchAndFilterBar = ({
                     id="filters-panel"
                     role="dialog"
                     aria-modal="true"
-                    className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur sm:rounded-none sm:border-l sm:border-t-0 sm:w-[380px] sm:h-full"
+                    className="
+                      w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur
+                      sm:rounded-none sm:border-l sm:border-t-0 sm:h-full
+                      sm:w-[320px] min-[720px]:w-[380px]
+                    "
                     variants={
                       isSmUp ? panelVariantsDesktop : panelVariantsMobile
                     }
