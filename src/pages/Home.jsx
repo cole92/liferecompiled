@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, useContext } from "react";
+import { useEffect, useMemo, useState, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getPostsPage } from "../services/homeFeed/getPostsPage";
 
-import PostsList from "../components/PostsList";
+import { useSavedIdsForPostIds } from "../hooks/useSavedIdsForPostIds";
+import PostCardFeed from "../components/PostCardFeed";
 import useSearch from "../context/useSearch";
 import SearchAndFilterBar, {
   FiltersPanelContent,
@@ -138,6 +139,23 @@ const Home = () => {
   };
 
   const finalPosts = posts;
+
+  const postIds = useMemo(() => finalPosts.map((p) => p.id), [finalPosts]);
+
+  const { savedIds, setSavedIds } = useSavedIdsForPostIds(user?.uid, postIds);
+
+  const handleSavedChange = useCallback(
+    (postId, nextState) => {
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (nextState) next.add(postId);
+        else next.delete(postId);
+        return next;
+      });
+    },
+    [setSavedIds]
+  );
+
   const showNoResults = !isLoading && finalPosts.length === 0;
 
   const handleToggleDesktopSidebar = () =>
@@ -204,11 +222,16 @@ const Home = () => {
             />
           ) : (
             <>
-              <PostsList
-                posts={finalPosts}
-                showCommentsThread={false}
-                gridClassName={feedGridClassName}
-              />
+              <div className={feedGridClassName}>
+                {finalPosts.map((post) => (
+                  <PostCardFeed
+                    key={post.id}
+                    post={post}
+                    isSaved={savedIds.has(post.id)}
+                    onSavedChange={handleSavedChange}
+                  />
+                ))}
+              </div>
 
               {isLoadingMore && (
                 <div className="mt-4">

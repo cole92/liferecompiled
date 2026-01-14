@@ -1,14 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import PropTypes from "prop-types";
 import { FaRegLightbulb, FaFire, FaBolt } from "react-icons/fa";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 
-import {
-  doc,
-  getDoc,
-  runTransaction,
-  serverTimestamp,
-} from "firebase/firestore";
+import { doc, getDoc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
 import { auth, db } from "../../firebase";
@@ -20,9 +15,11 @@ const iconMap = {
   powerup: FaBolt,
 };
 
-// Deterministic reaction doc id: postId__userId__reactionType
-const buildReactionId = (postId, userId, type) =>
-  `${postId}__${userId}__${type}`;
+const typeActiveText = {
+  idea: "text-amber-200",
+  hot: "text-rose-400",
+  powerup: "text-sky-200",
+};
 
 const reactionLabels = {
   idea: "💡 Idea — This post inspired you.",
@@ -44,10 +41,21 @@ const reactionRemovalMessages = {
 
 const COOLDOWN_MS = 200;
 
-const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
+// Deterministic reaction doc id: postId__userId__reactionType
+const buildReactionId = (postId, userId, type) => `${postId}__${userId}__${type}`;
+
+const ReactionIcon = ({
+  type,
+  postId,
+  locked,
+  count,
+  onAfterToggle,
+  userId,
+  fetchActiveOnMount = true,
+}) => {
   const Icon = iconMap[type];
 
-  const [uid, setUid] = useState(auth.currentUser?.uid ?? null);
+  const [uid, setUid] = useState(userId ?? auth.currentUser?.uid ?? null);
   const [isActive, setIsActive] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
@@ -57,13 +65,22 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
 
   const cooldownTimerRef = useRef(null);
 
-  // Keep uid reactive (login/logout)
+  // If parent provides userId, use it and do NOT attach per-icon auth listener
   useEffect(() => {
+    if (typeof userId !== "undefined") {
+      setUid(userId ?? null);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (typeof userId !== "undefined") return;
+
     const unsub = onAuthStateChanged(auth, (user) => {
       setUid(user?.uid ?? null);
     });
+
     return () => unsub();
-  }, []);
+  }, [userId]);
 
   const startCooldown = useCallback(() => {
     setIsCoolingDown(true);
@@ -87,7 +104,6 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
     setOptimisticDelta(0);
   }, [count]);
 
-  // isActive state via deterministic reaction doc
   const fetchIsActive = useCallback(async () => {
     if (!postId || !type) return;
 
@@ -107,9 +123,11 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
     }
   }, [postId, type, uid]);
 
+  // Default behavior: fetch active state on mount
   useEffect(() => {
+    if (!fetchActiveOnMount) return;
     fetchIsActive();
-  }, [fetchIsActive]);
+  }, [fetchActiveOnMount, fetchIsActive]);
 
   const handleClick = async (e) => {
     e.stopPropagation();
@@ -127,7 +145,6 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
 
     setIsToggling(true);
 
-    // For safe rollback on error
     const prevIsActive = isActive;
 
     try {
@@ -149,36 +166,25 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
         return true;
       });
 
-      // Update active state
       setIsActive(nextIsActive);
-
-      // Optimistic count bump (instant)
       setOptimisticDelta((d) => d + (nextIsActive ? 1 : -1));
 
-      showInfoToast(
-        nextIsActive ? reactionMessages[type] : reactionRemovalMessages[type]
-      );
+      showInfoToast(nextIsActive ? reactionMessages[type] : reactionRemovalMessages[type]);
 
-      // Refetch only when toggle succeeded (PostDetails can pull new aggregates)
       if (typeof onAfterToggle === "function") {
         onAfterToggle();
-      } else {
-        // If no parent refetch, at least resync my active state
+      } else if (fetchActiveOnMount) {
+        // Only resync if we are in "active fetch" mode
         fetchIsActive();
       }
     } catch (err) {
       console.error("[ReactionIcon] toggle failed:", err?.message);
       showInfoToast("Something went wrong. Please try again.");
 
-      // Roll back optimistic state
       setIsActive(prevIsActive);
-      // If we optimistically moved, undo it (based on prev->intended)
-      // If prev was false and we tried to set true -> undo +1
-      // If prev was true and we tried to set false -> undo -1
       setOptimisticDelta((d) => d + (prevIsActive ? 1 : -1));
 
-      // Resync from Firestore to be sure
-      fetchIsActive();
+      if (fetchActiveOnMount) fetchIsActive();
     } finally {
       setIsToggling(false);
       startCooldown();
@@ -190,21 +196,42 @@ const ReactionIcon = ({ type, postId, locked, count, onAfterToggle }) => {
 
   const displayCount = Math.max(0, count + optimisticDelta);
 
+  const activeText = isActive ? typeActiveText[type] : "text-zinc-300";
+
+  const baseClass = useMemo(() => {
+    const common =
+      "reaction-button inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs " +
+      "transition select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+      "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 " +
+      "hover:bg-zinc-900/40";
+
+    const state = isActive
+      ? `bg-zinc-900/30 ring-1 ring-zinc-700/60 ${activeText}`
+      : `bg-transparent ${activeText}`;
+
+    const dis = disabled ? "opacity-60 cursor-not-allowed hover:bg-transparent" : "cursor-pointer";
+
+    // Powerup slightly "special" but still subtle
+    const powerupAccent =
+      type === "powerup" ? " ring-1 ring-sky-500/15 bg-sky-500/5" : "";
+
+    return `${common} ${state} ${dis}${isActive ? powerupAccent : ""}`;
+  }, [disabled, isActive, activeText, type]);
+
   return (
     <>
       <button
+        type="button"
         onClick={handleClick}
         disabled={disabled}
         aria-disabled={disabled}
         aria-pressed={isActive}
-        className={`reaction-button ${isActive ? "active" : ""} ${
-          disabled ? "opacity-60 cursor-not-allowed" : ""
-        }`}
+        className={baseClass}
         data-tooltip-id={tooltipId}
         data-tooltip-content={reactionLabels[type]}
       >
-        <Icon />
-        <span style={{ marginLeft: "4px" }}>{displayCount}</span>
+        <Icon className="h-4 w-4" />
+        <span className="tabular-nums">{displayCount}</span>
       </button>
 
       <ReactTooltip id={tooltipId} />
@@ -216,12 +243,14 @@ ReactionIcon.propTypes = {
   type: PropTypes.oneOf(["idea", "hot", "powerup"]).isRequired,
   postId: PropTypes.string.isRequired,
   locked: PropTypes.bool,
-
-  // Count dolazi iz post.reactionCounts (backend authoritative)
   count: PropTypes.number.isRequired,
-
-  // PostDetails moze proslediti refetch
   onAfterToggle: PropTypes.func,
+
+  // Optional: pass from parent to avoid per-icon auth subscription
+  userId: PropTypes.string,
+
+  // Optional: set false in Home list to avoid per-icon getDoc on mount
+  fetchActiveOnMount: PropTypes.bool,
 };
 
 export default ReactionIcon;

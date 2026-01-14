@@ -2,45 +2,37 @@ import PropTypes from "prop-types";
 import mostInspiringSmallBadge from "./badges/small/mini_inspiring.webp";
 import toHotSmallBagde from "./badges/small/mini_hot.webp";
 
-/**
- * @component Badge
- * Prikazuje mini PNG bedz na osnovu prosledjenog teksta.
- * Slika se koristi kao vizuelna oznaka za post (💡, 🔥 itd.).
- *
- * Ako je post zakljucan (`locked: true`), hover efekti i klik interakcije su onemoguceni.
- *
- * @param {string} text - Tekstualni identifikator bedza (mora odgovarati kljucu u badgeImages mapi).
- * @param {Function} [onClick] - Opcioni handler za klik (npr. otvara modal).
- * @param {boolean} [locked] - Da li je post zakljucan; u tom slucaju badge je pasivan.
- *
- * @returns {JSX.Element} Ikonica bedza sa vizuelnim stanjem u skladu sa `locked` statusom.
- */
-
-// prettier-ignore
 const badgeImages = {
   "Most Inspiring": mostInspiringSmallBadge,
-  "Trending": toHotSmallBagde,
+  Trending: toHotSmallBagde,
 };
 
-const Badge = ({ text, onClick, locked }) => {
-  // Odabir slike bedza na osnovu text prop vrednosti
+const Badge = ({ text, onClick, locked, size = 36 }) => {
   const imgSrc = badgeImages[text];
 
+  const canClick = !!onClick && !locked;
+
   return (
-    <span
-      onClick={onClick}
-      className={`inline-block cursor-pointer ${
-        locked ? "grayscale opacity-80" : ""
-      }`}
+    <button
+      type="button"
+      onClick={canClick ? onClick : undefined}
+      disabled={!canClick}
+      className={[
+        "inline-flex items-center justify-center rounded-md",
+        canClick ? "cursor-pointer" : "cursor-default",
+        locked ? "grayscale opacity-80" : "opacity-95 hover:opacity-100",
+        canClick ? "transition" : "",
+      ].join(" ")}
+      aria-label={text}
+      title={text}
     >
       <img
         src={imgSrc}
         alt={text}
-        className={`h-10 w-10 object-contain ${
-          locked ? "" : "transition-transform hover:scale-105"
-        }`}
+        style={{ width: size, height: size }}
+        className={canClick ? "transition-transform hover:scale-105" : ""}
       />
-    </span>
+    </button>
   );
 };
 
@@ -48,6 +40,7 @@ Badge.propTypes = {
   text: PropTypes.string.isRequired,
   onClick: PropTypes.func,
   locked: PropTypes.bool,
+  size: PropTypes.number, // px
 };
 
 export default Badge;

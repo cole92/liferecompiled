@@ -3,7 +3,14 @@ import ReactionIcon from "./ReactionIcon";
 
 const ZERO_COUNTS = { idea: 0, hot: 0, powerup: 0 };
 
-const ReactionSummary = ({ postId, locked, reactionCounts, onAfterToggle }) => {
+const ReactionSummary = ({
+  postId,
+  locked,
+  reactionCounts,
+  onAfterToggle,
+  userId,
+  fetchActiveOnMount = true,
+}) => {
   const safeCounts = {
     ...ZERO_COUNTS,
     ...(reactionCounts && typeof reactionCounts === "object"
@@ -12,30 +19,40 @@ const ReactionSummary = ({ postId, locked, reactionCounts, onAfterToggle }) => {
   };
 
   return (
-    <div className="flex gap-4 mt-2 ml-1 items-center">
-      <ReactionIcon
-        type="idea"
-        postId={postId}
-        locked={locked}
-        count={safeCounts.idea}
-        onAfterToggle={onAfterToggle}
-      />
+    <div className="mt-2 ml-1 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <ReactionIcon
+          type="idea"
+          postId={postId}
+          locked={locked}
+          count={safeCounts.idea}
+          onAfterToggle={onAfterToggle}
+          userId={userId}
+          fetchActiveOnMount={fetchActiveOnMount}
+        />
 
-      <ReactionIcon
-        type="hot"
-        postId={postId}
-        locked={locked}
-        count={safeCounts.hot}
-        onAfterToggle={onAfterToggle}
-      />
+        <ReactionIcon
+          type="hot"
+          postId={postId}
+          locked={locked}
+          count={safeCounts.hot}
+          onAfterToggle={onAfterToggle}
+          userId={userId}
+          fetchActiveOnMount={fetchActiveOnMount}
+        />
+      </div>
 
-      <ReactionIcon
-        type="powerup"
-        postId={postId}
-        locked={locked}
-        count={safeCounts.powerup}
-        onAfterToggle={onAfterToggle}
-      />
+      <div className="flex items-center">
+        <ReactionIcon
+          type="powerup"
+          postId={postId}
+          locked={locked}
+          count={safeCounts.powerup}
+          onAfterToggle={onAfterToggle}
+          userId={userId}
+          fetchActiveOnMount={fetchActiveOnMount}
+        />
+      </div>
     </div>
   );
 };
@@ -44,7 +61,6 @@ ReactionSummary.propTypes = {
   postId: PropTypes.string.isRequired,
   locked: PropTypes.bool,
 
-  // MVP: tolerantno (legacy postovi mogu faliti)
   reactionCounts: PropTypes.shape({
     idea: PropTypes.number,
     hot: PropTypes.number,
@@ -52,6 +68,12 @@ ReactionSummary.propTypes = {
   }),
 
   onAfterToggle: PropTypes.func,
+
+  // Optional perf: pass current user id from parent so each icon does not subscribe to auth
+  userId: PropTypes.string,
+
+  // Optional perf: if false, icons will not fetch active state on mount (good for Home list)
+  fetchActiveOnMount: PropTypes.bool,
 };
 
 export default ReactionSummary;
