@@ -69,25 +69,22 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
     const nextState = await toggleSavePost(user, post.id, isSaved, snapshot);
     onSavedChange?.(post.id, nextState);
   };
-
-  // ✅ Paper surface (Home-only), and ensure mt-auto works
   const cardBase =
     "relative w-full h-full overflow-hidden p-4 " +
-    "rounded-2xl border border-sky-300/15 bg-yellow-50/7 " +
-    "shadow-sm ring-1 ring-yellow-100/8 " +
+    "rounded-2xl border border-zinc-800/70 " +
+    "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
+    "ring-1 ring-sky-200/10 shadow-sm " +
     "flex flex-col transition-colors transition-shadow duration-200";
-  // ✅ Pro hover (no scale)
+
   const cardInteractive = post?.locked
     ? "cursor-pointer"
-    : "cursor-pointer hover:shadow-md hover:border-sky-300/25 hover:bg-yellow-50/10";
+    : "cursor-pointer hover:shadow-md hover:ring-sky-200/20 hover:border-sky-300/20";
 
-  const cardTrending = "";
-
-  // ✅ Locked = darker style (no chip, just visual state)
   const cardLocked = post?.locked
-    ? "opacity-70 grayscale saturate-0 bg-zinc-950/70 border-zinc-800/90 ring-zinc-100/5"
+    ? "opacity-60 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"
     : "";
 
+  const cardTrending = "";
   return (
     <>
       <article
