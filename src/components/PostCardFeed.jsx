@@ -39,14 +39,11 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
 
   const badgesToShow = useMemo(() => {
     const out = [];
-    if (post?.badges?.mostInspiring) {
+    if (post?.badges?.mostInspiring)
       out.push({ key: "mostInspiring", text: "Most Inspiring" });
-    }
-    if (post?.badges?.trending) {
-      out.push({ key: "trending", text: "Trending" });
-    }
+    if (post?.badges?.trending) out.push({ key: "trending", text: "Trending" });
     return out.slice(0, 2);
-  }, [post?.badges]);
+  }, [post?.badges?.mostInspiring, post?.badges?.trending]);
 
   const handleCardClick = () => {
     navigate(`/post/${post.id}`);
@@ -62,23 +59,33 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
     e.stopPropagation();
     if (!user) return;
 
-    const currentUpdated = post.updatedAt || post.createdAt;
+    const currentUpdated = post?.updatedAt || post?.createdAt;
 
     const snapshot = {
       postUpdatedAtAtSave: currentUpdated || null,
-      postTitleAtSave: post.title || "",
+      postTitleAtSave: post?.title || "",
     };
 
     const nextState = await toggleSavePost(user, post.id, isSaved, snapshot);
     onSavedChange?.(post.id, nextState);
   };
 
+  // ✅ Paper surface (Home-only), and ensure mt-auto works
   const cardBase =
-    "ui-card relative w-full h-full overflow-hidden p-4 shadow-sm transition duration-200 flex flex-col";
-  const cardInteractive = "cursor-pointer hover:shadow-md hover:scale-[1.01]";
-  const cardTrending = post?.badges?.trending ? "ring-2 ring-rose-500/40" : "";
+    "relative w-full h-full overflow-hidden p-4 " +
+    "rounded-2xl border border-sky-300/15 bg-yellow-50/7 " +
+    "shadow-sm ring-1 ring-yellow-100/8 " +
+    "flex flex-col transition-colors transition-shadow duration-200";
+  // ✅ Pro hover (no scale)
+  const cardInteractive = post?.locked
+    ? "cursor-pointer"
+    : "cursor-pointer hover:shadow-md hover:border-sky-300/25 hover:bg-yellow-50/10";
+
+  const cardTrending = "";
+
+  // ✅ Locked = darker style (no chip, just visual state)
   const cardLocked = post?.locked
-    ? "opacity-85 grayscale hover:opacity-100"
+    ? "opacity-70 grayscale saturate-0 bg-zinc-950/70 border-zinc-800/90 ring-zinc-100/5"
     : "";
 
   return (
@@ -140,7 +147,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
                 setShowInfo(true);
               }}
               aria-label="Info"
-              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
               <FaInfoCircle className="h-4 w-4" />
             </button>
@@ -150,7 +157,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
               onClick={handleSaveToggle}
               disabled={!user}
               aria-disabled={!user}
-              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition disabled:opacity-40 disabled:hover:bg-transparent"
+              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition disabled:opacity-40 disabled:hover:bg-transparent"
               title={isSaved ? "Remove from saved" : "Save this post"}
             >
               {isSaved ? (
@@ -187,7 +194,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
           <span className="min-w-0 line-clamp-1">{formatPostDate(post)}</span>
 
           {post?.category ? (
-            <span className="shrink-0 inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-0.5 text-xs font-semibold text-zinc-200 max-w-[12rem] truncate">
+            <span className="shrink-0 inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/25 px-2.5 py-0.5 text-xs font-semibold text-zinc-200 max-w-[12rem] truncate">
               {post.category}
             </span>
           ) : (
@@ -219,13 +226,13 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
             ))}
 
             {extraTagsCount > 0 && (
-              <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-xs text-zinc-200">
+              <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/25 px-2.5 py-1 text-xs text-zinc-200">
                 +{extraTagsCount}
               </span>
             )}
           </div>
 
-          {/* Reactions (stopPropagation so clicks do not open post) */}
+          {/* Reactions */}
           <div className="mt-3" onClick={(e) => e.stopPropagation()}>
             <ReactionSummary
               postId={post.id}

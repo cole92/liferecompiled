@@ -12,7 +12,7 @@ import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import NoResultsMessage from "../components/NoResultsMessage";
 import { AuthContext } from "../context/AuthContext";
 
-const PAGE_SIZE_UI = 16;
+const PAGE_SIZE_UI = 12;
 
 const Home = () => {
   const navigate = useNavigate();
