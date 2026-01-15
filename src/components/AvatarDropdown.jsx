@@ -32,7 +32,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
     setShowMenu(false);
   }, [location.pathname]);
 
-  // Read Top Contributor from public user doc
+  // Read Top Contributor + live profilePicture from public user doc
   useEffect(() => {
     if (!userId) {
       setIsTopContributor(false);
@@ -48,14 +48,12 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
         const data = snap.data();
         const flag = !!data?.badges?.topContributor;
         const pic = data?.profilePicture || null;
+
         setLiveProfilePicture(pic);
         setIsTopContributor(flag);
       },
       (err) => {
-        console.error(
-          "AvatarDropdown: failed to read TopContributor badge",
-          err
-        );
+        console.error("AvatarDropdown: failed to read TopContributor badge", err);
         setIsTopContributor(false);
       }
     );
@@ -91,33 +89,44 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   }, [showMenu]);
 
   const linkBase =
-    "block w-full px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-lg";
+    "block w-full px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-lg";
 
   const linkActive = "bg-zinc-900/60 font-medium text-zinc-100";
+
+  const avatarSrc =
+    liveProfilePicture || user?.profilePicture || DEFAULT_PROFILE_PICTURE;
+
+  // Always give avatar a subtle frame; Top Contributor gets amber accent ring
+  const avatarBaseFrame =
+    "bg-zinc-900/40 ring-1 ring-zinc-700/60 shadow-sm shadow-black/30";
+  const avatarBadgeRing = isTopContributor
+    ? "ring-2 ring-amber-300/70 ring-offset-2 ring-offset-zinc-950/70"
+    : "";
 
   return (
     <div ref={dropdownRef} className="relative inline-block text-left">
       <button
         type="button"
         onClick={() => setShowMenu((prev) => !prev)}
-        className="flex items-center space-x-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        className="relative flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
         aria-haspopup="menu"
         aria-expanded={showMenu}
+        aria-label="Open user menu"
       >
         <img
-          src={
-            liveProfilePicture ||
-            user?.profilePicture ||
-            DEFAULT_PROFILE_PICTURE
-          }
+          src={avatarSrc}
           alt="User Avatar"
-          className={`w-10 h-10 rounded-full object-cover border-2 border-zinc-800 ${
-            isTopContributor ? "ring-2 ring-violet-400/70" : ""
-          }`}
+          draggable={false}
+          className={[
+            "w-10 h-10 rounded-full object-cover",
+            avatarBaseFrame,
+            avatarBadgeRing,
+          ].join(" ")}
         />
 
         {isTopContributor && (
-          <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5 text-violet-300" />
+          <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5 text-amber-300" />
         )}
       </button>
 
@@ -174,6 +183,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
 
                 <li className="pt-1 mt-1 border-t border-zinc-800/80">
                   <button
+                    type="button"
                     className="w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition disabled:opacity-60 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                     onClick={logout}
                     disabled={isLoggingOut}
@@ -196,7 +206,6 @@ AvatarDropdown.propTypes = {
     id: PropTypes.string,
     userId: PropTypes.string,
     profilePicture: PropTypes.string,
-    // badges: PropTypes.shape({ topContributor: PropTypes.bool }), // optional
   }).isRequired,
   logout: PropTypes.func.isRequired,
   isLoggingOut: PropTypes.bool.isRequired,

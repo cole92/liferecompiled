@@ -196,7 +196,8 @@ const ReactionIcon = ({
 
   const displayCount = Math.max(0, count + optimisticDelta);
 
-  const activeText = isActive ? typeActiveText[type] : "text-zinc-300";
+  const activeText = typeActiveText[type];
+
 
   const baseClass = useMemo(() => {
     const common =

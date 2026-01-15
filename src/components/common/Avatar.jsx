@@ -11,7 +11,14 @@ export default function Avatar({
 }) {
   const [open, setOpen] = useState(false);
 
-  const ring = badge ? "ring-2 ring-purple-800" : "";
+  // Always-on subtle frame (so avatar never looks "naked")
+  const baseFrame =
+    "bg-zinc-900/40 ring-1 ring-zinc-700/60 shadow-sm shadow-black/30";
+
+  // Accent only when user has badge (Top Contributor)
+  const badgeRing = badge
+    ? "ring-2 ring-amber-300/70 ring-offset-2 ring-offset-zinc-950/70"
+    : "";
 
   return (
     <>
@@ -19,8 +26,9 @@ export default function Avatar({
       <img
         src={src}
         alt={alt}
+        draggable={false}
         onClick={(e) => {
-          e.stopPropagation(); // spreči klik na karticu
+          e.stopPropagation();
           if (zoomable) setOpen(true);
         }}
         onKeyDown={(e) => {
@@ -32,24 +40,30 @@ export default function Avatar({
         }}
         tabIndex={zoomable ? 0 : -1}
         role={zoomable ? "button" : undefined}
-        className={`rounded-full object-cover ${ring} ${
-          zoomable ? "cursor-pointer" : "cursor-default"
-        }`}
+        className={[
+          "rounded-full object-cover",
+          baseFrame,
+          badgeRing,
+          zoomable ? "cursor-pointer" : "cursor-default",
+        ].join(" ")}
         style={{ width: size, height: size }}
       />
 
       <ModalPortal
         isOpen={open && zoomable}
         onClose={() => setOpen(false)}
-        // za image-zoom: tamni overlay i čist sadržaj bez kutije
         backdropClassName="bg-zinc-950/90 backdrop-blur-sm"
         contentClassName="bg-transparent p-0 shadow-none border-0"
       >
-        <img
-          src={src}
-          alt={alt}
-          className="rounded-full object-cover shadow-2xl w-[80vmin] h-[80vmin] max-w-[90vw] max-h-[90vh]"
-        />
+        {/* Nice zoomed avatar: framed, not ugly, and not too harsh */}
+        <div className="p-2 rounded-full bg-zinc-950/40 ring-1 ring-zinc-800/80 shadow-2xl">
+          <img
+            src={src}
+            alt={alt}
+            draggable={false}
+            className="rounded-full object-cover w-[80vmin] h-[80vmin] max-w-[90vw] max-h-[90vh]"
+          />
+        </div>
       </ModalPortal>
     </>
   );

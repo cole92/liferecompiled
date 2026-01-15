@@ -178,7 +178,6 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
                 <Badge
                   key={b.key}
                   text={b.text}
-                  locked={post?.locked}
                   onClick={(e) => handleBadgeClick(e, b.key)}
                 />
               ))}
@@ -191,7 +190,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
           <span className="min-w-0 line-clamp-1">{formatPostDate(post)}</span>
 
           {post?.category ? (
-            <span className="shrink-0 inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/25 px-2.5 py-0.5 text-xs font-semibold text-zinc-200 max-w-[12rem] truncate">
+            <span className="shrink-0 inline-flex items-center rounded-full border border-zinc-800 bg-sky-500/5 px-2.5 py-0.5 text-xs font-semibold text-zinc-200 max-w-[12rem] truncate">
               {post.category}
             </span>
           ) : (
