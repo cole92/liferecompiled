@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useLocation, NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
@@ -7,6 +7,11 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import ShieldIcon from "./ui/ShieldIcon";
+import {
+  AVATAR_FRAME_BASE,
+  AVATAR_RING_DEFAULT,
+  AVATAR_RING_TOP,
+} from "../constants/uiClasses";
 
 /**
  * @component AvatarDropdown
@@ -21,13 +26,13 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const [showMenu, setShowMenu] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Normalize user id (prilagodi ako ti je siguran samo jedan key)
+  // Normalize user id
   const userId = user?.uid || user?.id || user?.userId;
 
   const [isTopContributor, setIsTopContributor] = useState(false);
   const [liveProfilePicture, setLiveProfilePicture] = useState(null);
 
-  // Close menu on route change (kad kliknes link, da ne ostane otvoren)
+  // Close menu on route change
   useEffect(() => {
     setShowMenu(false);
   }, [location.pathname]);
@@ -46,14 +51,14 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
       userRef,
       (snap) => {
         const data = snap.data();
-        const flag = !!data?.badges?.topContributor;
-        const pic = data?.profilePicture || null;
-
-        setLiveProfilePicture(pic);
-        setIsTopContributor(flag);
+        setIsTopContributor(!!data?.badges?.topContributor);
+        setLiveProfilePicture(data?.profilePicture || null);
       },
       (err) => {
-        console.error("AvatarDropdown: failed to read TopContributor badge", err);
+        console.error(
+          "AvatarDropdown: failed to read TopContributor badge",
+          err
+        );
         setIsTopContributor(false);
       }
     );
@@ -97,12 +102,14 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const avatarSrc =
     liveProfilePicture || user?.profilePicture || DEFAULT_PROFILE_PICTURE;
 
-  // Always give avatar a subtle frame; Top Contributor gets amber accent ring
-  const avatarBaseFrame =
-    "bg-zinc-900/40 ring-1 ring-zinc-700/60 shadow-sm shadow-black/30";
-  const avatarBadgeRing = isTopContributor
-    ? "ring-2 ring-amber-300/70 ring-offset-2 ring-offset-zinc-950/70"
-    : "";
+  const avatarClassName = useMemo(() => {
+    const ring = isTopContributor ? AVATAR_RING_TOP : AVATAR_RING_DEFAULT;
+    return [
+      "w-10 h-10 rounded-full object-cover",
+      AVATAR_FRAME_BASE,
+      ring,
+    ].join(" ");
+  }, [isTopContributor]);
 
   return (
     <div ref={dropdownRef} className="relative inline-block text-left">
@@ -118,11 +125,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
           src={avatarSrc}
           alt="User Avatar"
           draggable={false}
-          className={[
-            "w-10 h-10 rounded-full object-cover",
-            avatarBaseFrame,
-            avatarBadgeRing,
-          ].join(" ")}
+          className={avatarClassName}
         />
 
         {isTopContributor && (
