@@ -16,6 +16,13 @@ import Avatar from "./common/Avatar";
 import { toggleSavePost } from "../utils/savedPostUtils";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
+import {
+  FOCUS_RING,
+  PILL_CATEGORY,
+  PILL_TAG,
+  PILL_META,
+} from "../constants/uiClasses";
+
 function formatPostDate(post) {
   const ts = post?.updatedAt || post?.createdAt;
   if (!ts?.toDate) return "";
@@ -39,9 +46,12 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
 
   const badgesToShow = useMemo(() => {
     const out = [];
-    if (post?.badges?.mostInspiring)
+    if (post?.badges?.mostInspiring) {
       out.push({ key: "mostInspiring", text: "Most Inspiring" });
-    if (post?.badges?.trending) out.push({ key: "trending", text: "Trending" });
+    }
+    if (post?.badges?.trending) {
+      out.push({ key: "trending", text: "Trending" });
+    }
     return out.slice(0, 2);
   }, [post?.badges?.mostInspiring, post?.badges?.trending]);
 
@@ -69,6 +79,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
     const nextState = await toggleSavePost(user, post.id, isSaved, snapshot);
     onSavedChange?.(post.id, nextState);
   };
+
   const cardBase =
     "relative w-full h-full overflow-hidden p-4 " +
     "rounded-2xl border border-zinc-800/70 " +
@@ -85,6 +96,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
     : "";
 
   const cardTrending = "";
+
   return (
     <>
       <article
@@ -144,7 +156,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
                 setShowInfo(true);
               }}
               aria-label="Info"
-              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition ${FOCUS_RING}`}
             >
               <FaInfoCircle className="h-4 w-4" />
             </button>
@@ -154,7 +166,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
               onClick={handleSaveToggle}
               disabled={!user}
               aria-disabled={!user}
-              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition disabled:opacity-40 disabled:hover:bg-transparent"
+              className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition disabled:opacity-40 disabled:hover:bg-transparent ${FOCUS_RING}`}
               title={isSaved ? "Remove from saved" : "Save this post"}
             >
               {isSaved ? (
@@ -190,7 +202,9 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
           <span className="min-w-0 line-clamp-1">{formatPostDate(post)}</span>
 
           {post?.category ? (
-            <span className="shrink-0 inline-flex items-center rounded-full border border-zinc-800 bg-sky-500/5 px-2.5 py-0.5 text-xs font-semibold text-zinc-200 max-w-[12rem] truncate">
+            <span
+              className={`shrink-0 ${PILL_CATEGORY} max-w-[12rem] truncate`}
+            >
               {post.category}
             </span>
           ) : (
@@ -214,7 +228,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
             {visibleTags.map((tag, idx) => (
               <span
                 key={`${tag.text}-${idx}`}
-                className="inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-200 max-w-[12rem] truncate"
+                className={`${PILL_TAG} max-w-[12rem] truncate`}
                 title={`#${tag.text}`}
               >
                 #{tag.text}
@@ -222,9 +236,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
             ))}
 
             {extraTagsCount > 0 && (
-              <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/25 px-2.5 py-1 text-xs text-zinc-200">
-                +{extraTagsCount}
-              </span>
+              <span className={PILL_META}>+{extraTagsCount}</span>
             )}
           </div>
 
