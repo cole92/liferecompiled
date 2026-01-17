@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories";
 import FilterPortal from "./modals/FilterPortal";
+import { cx, SURFACE_PANEL } from "../constants/uiClasses";
 
 export const FiltersPanelContent = ({
   selectedCategories,
@@ -381,7 +382,11 @@ const SearchAndFilterBar = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 8 }}
                       transition={{ duration: 0.16, ease: "easeOut" }}
-                      className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/95 shadow-2xl ring-1 ring-zinc-100/5 backdrop-blur"
+                      className={cx(
+                        "absolute z-30 mt-2 w-full overflow-hidden rounded-xl backdrop-blur",
+                        SURFACE_PANEL,
+                        "ring-1 ring-sky-200/10 border-sky-500/15"
+                      )}
                     >
                       <ul
                         role="listbox"

@@ -7,7 +7,13 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import ShieldIcon from "./ui/ShieldIcon";
+
 import {
+  cx,
+  FOCUS_RING,
+  SURFACE_PANEL,
+  SURFACE_PANEL_INNER,
+  SURFACE_PANEL_ARROW,
   AVATAR_FRAME_BASE,
   AVATAR_RING_DEFAULT,
   AVATAR_RING_TOP,
@@ -95,7 +101,8 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
 
   const linkBase =
     "block w-full px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition " +
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-lg";
+    "rounded-lg " +
+    FOCUS_RING;
 
   const linkActive = "bg-zinc-900/60 font-medium text-zinc-100";
 
@@ -104,19 +111,24 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
 
   const avatarClassName = useMemo(() => {
     const ring = isTopContributor ? AVATAR_RING_TOP : AVATAR_RING_DEFAULT;
-    return [
-      "w-10 h-10 rounded-full object-cover",
-      AVATAR_FRAME_BASE,
-      ring,
-    ].join(" ");
+    return cx("w-10 h-10 rounded-full object-cover", AVATAR_FRAME_BASE, ring);
   }, [isTopContributor]);
+
+  // Subtle premium tint on dropdown surface
+  const dropdownSurfaceClass = cx(
+    SURFACE_PANEL,
+    SURFACE_PANEL_INNER,
+    "relative",
+    "ring-1 ring-sky-200/10",
+    "border-sky-500/15"
+  );
 
   return (
     <div ref={dropdownRef} className="relative inline-block text-left">
       <button
         type="button"
         onClick={() => setShowMenu((prev) => !prev)}
-        className="relative flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        className={cx("relative flex items-center rounded-full", FOCUS_RING)}
         aria-haspopup="menu"
         aria-expanded={showMenu}
         aria-label="Open user menu"
@@ -144,17 +156,18 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
             className="absolute right-0 mt-2 w-52 z-50"
             role="menu"
           >
-            <div className="ui-card overflow-hidden rounded-xl p-1 bg-zinc-950/95 shadow-2xl">
+            <div className={dropdownSurfaceClass}>
               {/* Arrow */}
-              <div className="absolute -top-1 right-5 w-3 h-3 bg-zinc-950/95 rotate-45 border-l border-t border-zinc-800/80 z-0" />
+              <div className={SURFACE_PANEL_ARROW} />
 
               <ul className="py-1 relative z-10">
                 <li>
                   <NavLink
                     to="/dashboard"
-                    className={`${linkBase} ${
-                      location.pathname === "/dashboard" ? linkActive : ""
-                    }`}
+                    className={cx(
+                      linkBase,
+                      location.pathname === "/dashboard" && linkActive
+                    )}
                   >
                     Dashboard
                   </NavLink>
@@ -163,9 +176,10 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                 <li>
                   <NavLink
                     to="/profile"
-                    className={`${linkBase} ${
-                      location.pathname === "/profile" ? linkActive : ""
-                    }`}
+                    className={cx(
+                      linkBase,
+                      location.pathname === "/profile" && linkActive
+                    )}
                   >
                     Profile Info
                   </NavLink>
@@ -174,11 +188,10 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                 <li>
                   <NavLink
                     to="/dashboard/settings"
-                    className={`${linkBase} ${
-                      location.pathname === "/dashboard/settings"
-                        ? linkActive
-                        : ""
-                    }`}
+                    className={cx(
+                      linkBase,
+                      location.pathname === "/dashboard/settings" && linkActive
+                    )}
                   >
                     Settings
                   </NavLink>
@@ -187,7 +200,10 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                 <li className="pt-1 mt-1 border-t border-zinc-800/80">
                   <button
                     type="button"
-                    className="w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition disabled:opacity-60 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    className={cx(
+                      "w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition rounded-lg disabled:opacity-60",
+                      FOCUS_RING
+                    )}
                     onClick={logout}
                     disabled={isLoggingOut}
                   >
