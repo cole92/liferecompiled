@@ -49,15 +49,17 @@ export default function Avatar({
       <ModalPortal
         isOpen={open && zoomable}
         onClose={() => setOpen(false)}
-        backdropClassName="bg-zinc-950/90 backdrop-blur-sm"
-        contentClassName="bg-transparent p-0 shadow-none border-0"
+        overlayClassName="bg-zinc-950/90 backdrop-blur-sm"
+        withPanel={false}
+        panelClassName="p-0"
+        containerClassName="fixed inset-0 z-[80] flex items-center justify-center px-4"
       >
         <div className="p-2 rounded-full bg-zinc-950/40 ring-1 ring-zinc-800/80 shadow-2xl">
           <img
             src={src}
             alt={alt}
             draggable={false}
-            className="rounded-full object-cover w-[80vmin] h-[80vmin] max-w-[90vw] max-h-[90vh]"
+            className="rounded-full object-cover w-[70vmin] h-[70vmin] max-w-[90vw] max-h-[90vh]"
           />
         </div>
       </ModalPortal>

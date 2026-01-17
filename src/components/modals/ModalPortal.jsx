@@ -2,7 +2,22 @@ import { useEffect } from "react";
 import ReactDOM from "react-dom";
 import PropTypes from "prop-types";
 
-const ModalPortal = ({ isOpen, onClose, locked = false, children }) => {
+const join = (...classes) => classes.filter(Boolean).join(" ");
+
+const ModalPortal = ({
+  isOpen,
+  onClose,
+  locked = false,
+  children,
+
+  // optional styling hooks
+  overlayClassName = "bg-zinc-950/60",
+  containerClassName = "fixed inset-0 z-50 flex items-center justify-center px-4",
+  panelClassName = "",
+
+  // when false -> no ui-card / no max-w-lg / no p-6
+  withPanel = true,
+}) => {
   useEffect(() => {
     if (!isOpen) return;
 
@@ -24,24 +39,24 @@ const ModalPortal = ({ isOpen, onClose, locked = false, children }) => {
 
   if (!isOpen) return null;
 
+  const panelBase = withPanel
+    ? "relative w-full max-w-lg ui-card p-6"
+    : "relative";
+
   return ReactDOM.createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      role="dialog"
-      aria-modal="true"
-    >
+    <div className={containerClassName} role="dialog" aria-modal="true">
       {/* Overlay */}
       <button
         type="button"
         aria-label="Close modal"
-        className="absolute inset-0 bg-zinc-950/60"
+        className={join("absolute inset-0", overlayClassName)}
         onClick={() => {
           if (!locked) onClose?.();
         }}
       />
 
-      {/* Panel */}
-      <div className="relative w-full max-w-lg ui-card p-6">{children}</div>
+      {/* Content */}
+      <div className={join(panelBase, panelClassName)}>{children}</div>
     </div>,
     document.body
   );
@@ -52,6 +67,11 @@ ModalPortal.propTypes = {
   onClose: PropTypes.func,
   locked: PropTypes.bool,
   children: PropTypes.node.isRequired,
+
+  overlayClassName: PropTypes.string,
+  containerClassName: PropTypes.string,
+  panelClassName: PropTypes.string,
+  withPanel: PropTypes.bool,
 };
 
 export default ModalPortal;
