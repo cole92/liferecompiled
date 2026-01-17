@@ -153,7 +153,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute right-0 mt-2 w-52 z-50"
+            className="absolute right-0 mt-3.5 sm:mt-3 w-52 z-50"
             role="menu"
           >
             <div className={dropdownSurfaceClass}>

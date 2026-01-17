@@ -120,7 +120,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
               {post?.author?.badges?.topContributor && (
                 <button
                   type="button"
-                  className="group absolute -top-1 -right-1"
+                  className="group absolute -top-2 -right-1 z-10"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowTopContributorModal(true);
@@ -128,7 +128,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
                   aria-label="Top contributor info"
                   title="Top Contributor"
                 >
-                  <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <ShieldIcon className="w-5 h-5 text-amber-300 group-hover:scale-110 transition-transform" />
                 </button>
               )}
             </div>

@@ -383,7 +383,7 @@ const SearchAndFilterBar = ({
                       exit={{ opacity: 0, y: 8 }}
                       transition={{ duration: 0.16, ease: "easeOut" }}
                       className={cx(
-                        "absolute z-30 mt-2 w-full overflow-hidden rounded-xl backdrop-blur",
+                        "absolute z-30 mt-2.5 sm:mt-3 w-full overflow-hidden rounded-xl backdrop-blur",
                         SURFACE_PANEL,
                         "ring-1 ring-sky-200/10 border-sky-500/15"
                       )}
