@@ -5,6 +5,45 @@ import { NavLink, useLocation } from "react-router-dom";
 
 import { AuthContext } from "../../../context/AuthContext";
 
+const IconSearch = ({ className = "" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M21 21l-4.2-4.2"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+IconSearch.propTypes = {
+  className: PropTypes.string,
+};
+
+const IconFilter = ({ className = "" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M4 6h16l-6 7v5l-4 2v-7L4 6Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+IconFilter.propTypes = {
+  className: PropTypes.string,
+};
+
 /**
  * PostFilterBar
  *
@@ -57,7 +96,6 @@ const PostFilterBar = ({
   // Panels: "none" | "search" | "filters"
   const [openPanel, setOpenPanel] = useState(hasSearch ? "search" : "none");
 
-  // If search becomes active from outside, make sure search panel is visible on mobile.
   useEffect(() => {
     if (hasSearch) setOpenPanel("search");
   }, [hasSearch]);
@@ -69,18 +107,11 @@ const PostFilterBar = ({
     setOpenPanel((prev) => (prev === next ? "none" : next));
   };
 
-  const iconBtnBase =
-    "inline-flex h-10 w-10 items-center justify-center rounded-xl " +
-    "border border-zinc-800 bg-zinc-950/40 text-zinc-200 " +
-    "hover:bg-zinc-900/40 hover:text-zinc-100 transition " +
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
-    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+  // Match Home toolbar button sizing + style
+  const iconBtn =
+    "ui-button-secondary inline-flex h-11 w-11 items-center justify-center p-0";
 
-  const createBtn =
-    "inline-flex h-10 w-10 items-center justify-center rounded-xl " +
-    "bg-sky-500 text-zinc-50 hover:bg-sky-400 transition " +
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
-    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+  // Keep create look as your sky primary (matches existing app look)
 
   return (
     <div className="w-full">
@@ -93,9 +124,9 @@ const PostFilterBar = ({
               onClick={() => togglePanel("search")}
               aria-label="Toggle search"
               aria-pressed={openPanel === "search"}
-              className={iconBtnBase}
+              className={iconBtn}
             >
-              <span className="text-lg leading-none">🔍</span>
+              <IconSearch className="h-5 w-5" />
             </button>
 
             <button
@@ -105,12 +136,10 @@ const PostFilterBar = ({
               aria-pressed={openPanel === "filters"}
               disabled={hasSearch}
               aria-disabled={hasSearch}
-              className={`${iconBtnBase} ${
-                hasSearch ? "opacity-40 cursor-not-allowed" : ""
-              }`}
+              className={`${iconBtn} ${hasSearch ? "opacity-40 cursor-not-allowed" : ""}`}
               title={hasSearch ? "Filters disabled in search mode" : "Filters"}
             >
-              <span className="text-lg leading-none">⚙️</span>
+              <IconFilter className="h-5 w-5" />
             </button>
 
             {canCreate && (
@@ -118,9 +147,21 @@ const PostFilterBar = ({
                 to="/dashboard/create"
                 aria-label="Create new post"
                 title="Create new post"
-                className={createBtn}
+                className="ui-button-primary inline-flex h-11 w-11 items-center justify-center p-0"
               >
-                <span className="text-xl leading-none">+</span>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="h-5 w-5"
+                >
+                  <path
+                    d="M12 5v14M5 12h14"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </NavLink>
             )}
           </div>
