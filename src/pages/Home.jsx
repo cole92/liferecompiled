@@ -62,8 +62,8 @@ const Home = () => {
   const serverSort = activeCategory
     ? "newest"
     : sortBy === "oldest"
-    ? "oldest"
-    : "newest";
+      ? "oldest"
+      : "newest";
 
   useEffect(() => {
     let isCanceled = false;
@@ -153,7 +153,7 @@ const Home = () => {
         return next;
       });
     },
-    [setSavedIds]
+    [setSavedIds],
   );
 
   const showNoResults = !isLoading && finalPosts.length === 0;
@@ -164,13 +164,38 @@ const Home = () => {
   const handleCloseDesktopSidebar = () => setIsDesktopSidebarOpen(false);
 
   const createBtn = canShowCreateButton ? (
-    <button
-      type="button"
-      className="ui-button-primary w-full sm:w-auto"
-      onClick={() => navigate("/dashboard/create")}
-    >
-      Create New Post
-    </button>
+    <>
+      {/* Mobile: icon-only */}
+      <button
+        type="button"
+        className="ui-button-primary inline-flex h-11 w-11 items-center justify-center p-0 sm:hidden"
+        aria-label="Create new post"
+        onClick={() => navigate("/dashboard/create")}
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          className="h-5 w-5"
+        >
+          <path
+            d="M12 5v14M5 12h14"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+
+      {/* Desktop: text button */}
+      <button
+        type="button"
+        className="hidden sm:inline-flex ui-button-primary"
+        onClick={() => navigate("/dashboard/create")}
+      >
+        Create New Post
+      </button>
+    </>
   ) : null;
 
   // Layout: docked sidebar starts at md (768)

@@ -5,6 +5,50 @@ import { validCategories } from "../constants/postCategories";
 import FilterPortal from "./modals/FilterPortal";
 import { cx, SURFACE_PANEL } from "../constants/uiClasses";
 
+const IconSort = ({ className = "" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M7 7h10M7 12h7M7 17h4"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+    <path
+      d="M17 16l2 2 2-2"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M19 6v12"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+IconSort.propTypes = {
+  className: PropTypes.string,
+};
+
+const IconFilter = ({ className = "" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M4 6h16l-6 7v5l-4 2v-7L4 6Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+IconFilter.propTypes = {
+  className: PropTypes.string,
+};
+
 export const FiltersPanelContent = ({
   selectedCategories,
   onFilterChange,
@@ -311,6 +355,7 @@ const SearchAndFilterBar = ({
 
   const activeCount = selectedCategories?.length || 0;
   const sortLabel = localSortBy === "oldest" ? "Oldest First" : "Newest First";
+  const sortLabelShort = localSortBy === "oldest" ? "Oldest" : "Newest";
 
   const sortOptions = [
     { value: "newest", label: "Newest First", disabled: false },
@@ -322,152 +367,187 @@ const SearchAndFilterBar = ({
   return (
     <div className="w-full">
       <div className={wrapClass}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Left group: search (optional) + sort + create slot */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {showSearch && (
-              <div className="min-w-[220px] flex-1">
-                <label htmlFor="home-search" className="sr-only">
-                  Search posts
-                </label>
-                <input
-                  id="home-search"
-                  name="homeSearch"
-                  type="text"
-                  placeholder="Search posts..."
-                  value={localSearchTerm}
-                  onChange={handleSearchChange}
-                  autoComplete="off"
-                  className="ui-input"
-                />
-              </div>
-            )}
+        <div className="flex flex-col gap-3">
+          {showSearch && (
+            <div className="w-full">
+              <label htmlFor="home-search" className="sr-only">
+                Search posts
+              </label>
+              <input
+                id="home-search"
+                name="homeSearch"
+                type="text"
+                placeholder="Search posts..."
+                value={localSearchTerm}
+                onChange={handleSearchChange}
+                autoComplete="off"
+                className="ui-input"
+              />
+            </div>
+          )}
 
-            {/* Sort dropdown */}
-            <div className="sm:w-[220px]" ref={sortWrapRef}>
-              <span id="home-sort-label" className="sr-only">
-                Sort posts
-              </span>
+          {/* Actions row:
+              - mobile: Sort (flex-1) + Create slot + Filters icon
+              - sm+: keep Create next to Sort, Filters button on the right
+          */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Sort dropdown */}
+              <div
+                className="flex-1 min-w-0 sm:flex-none sm:w-[220px]"
+                ref={sortWrapRef}
+              >
+                <span id="home-sort-label" className="sr-only">
+                  Sort posts
+                </span>
 
-              <div className="relative">
-                <button
-                  type="button"
-                  id="home-sort"
-                  aria-haspopup="listbox"
-                  aria-expanded={isSortOpen}
-                  aria-labelledby="home-sort-label"
-                  onClick={toggleSort}
-                  className="ui-input flex w-full cursor-pointer items-center justify-between pr-10 text-left"
-                >
-                  <span className="truncate">{sortLabel}</span>
-
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                <div className="relative">
+                  <button
+                    type="button"
+                    id="home-sort"
+                    aria-haspopup="listbox"
+                    aria-expanded={isSortOpen}
+                    aria-labelledby="home-sort-label"
+                    onClick={toggleSort}
+                    className="ui-input relative flex w-full cursor-pointer items-center justify-between pr-10 pl-10 sm:pl-3 text-left"
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
+                    {/* mobile sort icon */}
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 sm:hidden">
+                      <IconSort className="h-4 w-4" />
+                    </span>
 
-                <AnimatePresence>
-                  {isSortOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.16, ease: "easeOut" }}
-                      className={cx(
-                        "absolute z-30 mt-2.5 sm:mt-3 w-full overflow-hidden rounded-xl backdrop-blur",
-                        SURFACE_PANEL,
-                        "ring-1 ring-sky-200/10 border-sky-500/15"
-                      )}
+                    <span className="truncate">
+                      <span className="sm:hidden">{sortLabelShort}</span>
+                      <span className="hidden sm:inline">{sortLabel}</span>
+                    </span>
+
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
                     >
-                      <ul
-                        role="listbox"
-                        aria-labelledby="home-sort-label"
-                        className="py-1"
+                      <path
+                        fillRule="evenodd"
+                        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+
+                  <AnimatePresence>
+                    {isSortOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 8 }}
+                        transition={{ duration: 0.16, ease: "easeOut" }}
+                        className={cx(
+                          "absolute z-30 mt-2.5 sm:mt-3 w-full overflow-hidden rounded-xl backdrop-blur",
+                          SURFACE_PANEL,
+                          "ring-1 ring-sky-200/10 border-sky-500/15",
+                        )}
                       >
-                        {sortOptions.map((opt) => {
-                          const isSelected = localSortBy === opt.value;
+                        <ul
+                          role="listbox"
+                          aria-labelledby="home-sort-label"
+                          className="py-1"
+                        >
+                          {sortOptions.map((opt) => {
+                            const isSelected = localSortBy === opt.value;
 
-                          const base =
-                            "flex w-full items-center justify-between px-3 py-2 text-left text-sm";
-                          const enabled =
-                            "text-zinc-200 hover:bg-zinc-900/50 focus:outline-none focus-visible:bg-zinc-900/60";
-                          const selected = "bg-zinc-900/60 text-zinc-100";
-                          const disabled =
-                            "cursor-not-allowed text-zinc-500 hover:bg-transparent";
+                            const base =
+                              "flex w-full items-center justify-between px-3 py-2 text-left text-sm";
+                            const enabled =
+                              "text-zinc-200 hover:bg-zinc-900/50 focus:outline-none focus-visible:bg-zinc-900/60";
+                            const selected = "bg-zinc-900/60 text-zinc-100";
+                            const disabled =
+                              "cursor-not-allowed text-zinc-500 hover:bg-transparent";
 
-                          return (
-                            <li key={opt.value}>
-                              <button
-                                type="button"
-                                role="option"
-                                aria-selected={isSelected}
-                                disabled={opt.disabled}
-                                onClick={() => applySort(opt.value)}
-                                className={[
-                                  base,
-                                  opt.disabled
-                                    ? disabled
-                                    : isSelected
-                                    ? selected
-                                    : enabled,
-                                ].join(" ")}
-                              >
-                                <span className="truncate">{opt.label}</span>
+                            return (
+                              <li key={opt.value}>
+                                <button
+                                  type="button"
+                                  role="option"
+                                  aria-selected={isSelected}
+                                  disabled={opt.disabled}
+                                  onClick={() => applySort(opt.value)}
+                                  className={[
+                                    base,
+                                    opt.disabled
+                                      ? disabled
+                                      : isSelected
+                                        ? selected
+                                        : enabled,
+                                  ].join(" ")}
+                                >
+                                  <span className="truncate">{opt.label}</span>
 
-                                {isSelected && (
-                                  <span className="ml-3 text-xs text-sky-300">
-                                    Selected
-                                  </span>
-                                )}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                                  {isSelected && (
+                                    <span className="ml-3 text-xs text-sky-300">
+                                      Selected
+                                    </span>
+                                  )}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
+
+              {/* Create slot (Home should pass mobile+desktop variants) */}
+              {afterSortSlot && <div className="shrink-0">{afterSortSlot}</div>}
+
+              {/* Mobile Filters icon button */}
+              <button
+                type="button"
+                onClick={toggleFilterPanel}
+                aria-expanded={isLgUp ? desktopSidebarOpen : isFilterOpen}
+                aria-controls="filters-panel"
+                aria-label="Open filters"
+                className="ui-button-secondary relative inline-flex h-11 w-11 items-center justify-center p-0 sm:hidden"
+              >
+                <IconFilter className="h-5 w-5" />
+
+                {activeCount > 0 && (
+                  <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-500/20 px-1 text-[11px] font-semibold text-sky-100 ring-1 ring-sky-200/20">
+                    {activeCount}
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* Create slot */}
-            {afterSortSlot}
+            {/* Desktop Filters button */}
+            <div className="hidden sm:flex items-center justify-end">
+              <button
+                type="button"
+                onClick={toggleFilterPanel}
+                aria-expanded={isLgUp ? desktopSidebarOpen : isFilterOpen}
+                aria-controls="filters-panel"
+                className="ui-button-secondary w-full sm:w-auto"
+              >
+                Filters
+                {activeCount > 0 && (
+                  <span className="ml-1 inline-flex items-center rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">
+                    {activeCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* Right group: Filters toggle */}
-          <div className="flex items-center justify-end">
-            <button
-              type="button"
-              onClick={toggleFilterPanel}
-              aria-expanded={isLgUp ? desktopSidebarOpen : isFilterOpen}
-              aria-controls="filters-panel"
-              className="ui-button-secondary w-full sm:w-auto"
-            >
-              Filters
-              {activeCount > 0 && (
-                <span className="ml-1 inline-flex items-center rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">
-                  {activeCount}
-                </span>
-              )}
-            </button>
-          </div>
+          {hasActiveCategory && (
+            <p className="text-sm text-zinc-300">
+              Single category mode (v1): selecting another category switches the
+              active one. Oldest sort remains disabled while a category is
+              active.
+            </p>
+          )}
         </div>
-
-        {hasActiveCategory && (
-          <p className="mt-3 text-sm text-zinc-300">
-            Single category mode (v1): selecting another category switches the
-            active one. Oldest sort remains disabled while a category is active.
-          </p>
-        )}
       </div>
 
       {/* Overlay filter panel (< md only) */}
@@ -496,7 +576,7 @@ const SearchAndFilterBar = ({
                     aria-modal="true"
                     className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95
                      p-4 shadow-2xl backdrop-blur flex flex-col overflow-hidden h-[85vh]
-                      pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-full sm:pb-4 sm:rounded-none sm:border-l 
+                      pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-full sm:pb-4 sm:rounded-none sm:border-l
                       sm:border-t-0 sm:w-[320px] min-[720px]:w-[380px]"
                     variants={
                       isSmUp ? panelVariantsDesktop : panelVariantsMobile
