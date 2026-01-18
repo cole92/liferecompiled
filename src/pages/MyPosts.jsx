@@ -1,6 +1,5 @@
-// Paketi
 import { useContext, useEffect, useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import {
   doc,
   getDocs,
@@ -9,70 +8,47 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-// Konfiguracija i kontekst
 import { db } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
 
-// Util funkcije i konstante
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import ConfirmModal from "../components/modals/ConfirmModal";
 
-// Komponente
 import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import PostsList from "../components/PostsList";
 
-// Dashboard komponente
 import EmptyState from "./dashboard/components/EmptyState";
 import buildPostsQuery from "../services/postsService";
 
 /**
- * @component MyPosts
+ * MyPosts
  *
- * Dashboard lista postova trenutnog korisnika sa filterima, paginacijom,
- * server-side prefix search-om i akcijama (soft delete, lock).
+ * UI-only changes in this pass:
+ * - Remove large "Welcome, email" heading and Create button (Create moved to DashboardTabs).
+ * - Disable comment thread preview in list view (comments live on PostDetails only).
+ * - Button styling aligned with app tokens.
  *
- * Namena:
- * - Dohvata postove preko `buildPostsQuery` u dva moda:
- *   • Normal mod → filteri (active/locked/all) + sort po datumu (desc)
- *   • Search mod → server-side prefix search po `title_lc` (case-insensitive), filteri se ignorisu
- * - Debounce search (300ms) da se spreci visak Firestore upita
- * - Paginacija pomocu startAfter kursora i “Load more” dugmeta
- * - Soft delete (deleted:true + deletedAt) uz lokalno uklanjanje bez refetch-a
- * - Manual lock (locked:true + lockedAt) sa instant lokalnim azuriranjem
- * - `Outlet` kontekst obezbedjuje centralizovano stanje filtera i search-a
- *
- * UI logika:
- * - `visiblePosts` = posts u search modu, filteredPosts u normal modu
- * - EmptyState poruke zavise od moda
- * - SkeletonCard se prikazuje tokom inicijalnog i “load more” ucitavanja
- *
- * @returns {JSX.Element}
+ * NOTE: No logic changes (fetch/filter/pagination/transactions untouched).
  */
-
-// Dashboard komponenta za prikaz podataka korisnika
 const MyPosts = () => {
   const { user } = useContext(AuthContext);
   const { filter, myPostsSearch } = useOutletContext();
-  const navigate = useNavigate();
 
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal stanja za delete i lock
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [isLockModalOpen, setIsLockModalOpen] = useState(false);
   const [postToLock, setPostToLock] = useState(null);
 
-  // Paginacija
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
   const POST_PER_PAGE = 10;
 
-  // Debounce search (300ms)
   const rawSearch = myPostsSearch || "";
   const [debouncedSearch, setDebouncedSearch] = useState(rawSearch.trim());
 
@@ -104,7 +80,6 @@ const MyPosts = () => {
       setIsLoadingMore(false);
 
       try {
-        // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
         const q = buildPostsQuery({
           userId: user.uid,
           filter,
@@ -149,11 +124,7 @@ const MyPosts = () => {
         });
 
         setPosts(userPosts);
-
-        // Cursor mora da bude poslednji prikazan doc (ne onaj +1)
         setLastDoc(pageDocs[pageDocs.length - 1]);
-
-        // Ima jos samo ako smo dobili vise od POST_PER_PAGE
         setHasMore(docs.length > POST_PER_PAGE);
       } catch (error) {
         console.error("Error fetching posts:", error);
@@ -178,7 +149,6 @@ const MyPosts = () => {
     setIsLoadingMore(true);
 
     try {
-      // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
       const q = buildPostsQuery({
         userId: user.uid,
         filter,
@@ -222,10 +192,7 @@ const MyPosts = () => {
         return Array.from(map.values());
       });
 
-      // Cursor mora da bude poslednji prikazan doc (ne onaj +1)
       setLastDoc(pageDocs[pageDocs.length - 1]);
-
-      // Ima jos samo ako smo dobili vise od POST_PER_PAGE
       setHasMore(docs.length > POST_PER_PAGE);
     } catch (error) {
       console.error("Error loading more posts:", error);
@@ -288,8 +255,8 @@ const MyPosts = () => {
                 locked: true,
                 lockedAt: Timestamp.fromDate(new Date()),
               }
-            : post
-        )
+            : post,
+        ),
       );
     } catch (error) {
       console.error("Locking error", error);
@@ -306,8 +273,6 @@ const MyPosts = () => {
   const isSearchMode = trimmedSearch.length > 0;
   const visiblePosts = isSearchMode ? posts : filteredPosts;
 
-  // Auto-load sledece strane ako je trenutna strana ispraznjena (npr. sve prebaceno u Trash),
-  // a cursor kaze da postoji jos podataka.
   useEffect(() => {
     if (isLoading) return;
     if (isLoadingMore) return;
@@ -319,19 +284,11 @@ const MyPosts = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, isLoadingMore, hasMore, lastDoc, visiblePosts.length]);
 
+  const gridClassName =
+    "grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2 items-stretch";
+
   return (
-    <div className="mb-6">
-      <h2 className="text-2xl font-semibold mb-2">
-        Welcome, {user ? user.email : "Guest"}
-      </h2>
-
-      <button
-        onClick={() => navigate("/dashboard/create")}
-        className="bg-blue-600 text-zinc-50 px-4 py-2 rounded hover:bg-blue-700 transition"
-      >
-        Create New Post
-      </button>
-
+    <div className="pb-6">
       {!isLoading && visiblePosts.length === 0 && !hasMore && (
         <EmptyState
           message={
@@ -347,6 +304,8 @@ const MyPosts = () => {
           posts={visiblePosts}
           isMyPost={true}
           showDeleteButton={true}
+          showCommentsThread={false}
+          gridClassName={gridClassName}
           onDelete={(postId) => {
             setPostToDelete(postId);
             setIsModalOpen(true);
@@ -359,7 +318,7 @@ const MyPosts = () => {
       )}
 
       {isLoading && (
-        <div className="grid gap-4" role="status" aria-live="polite">
+        <div className={gridClassName} role="status" aria-live="polite">
           {Array.from({ length: 10 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -367,28 +326,28 @@ const MyPosts = () => {
       )}
 
       {isLoadingMore && (
-        <div className="mt-2 space-y-2" role="status" aria-live="polite">
-          <SkeletonCard />
+        <div className="mt-4" role="status" aria-live="polite">
           <SkeletonCard />
         </div>
       )}
 
       {hasMore && (
-        <button
-          onClick={handleLoadMore}
-          disabled={isLoadingMore || !hasMore}
-          aria-busy={isLoadingMore}
-          aria-disabled={isLoadingMore || !hasMore}
-        >
-          {isLoadingMore ? "Loading..." : "Load more"}
-        </button>
+        <div className="mt-6 flex justify-center">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore || !hasMore}
+            aria-busy={isLoadingMore}
+            aria-disabled={isLoadingMore || !hasMore}
+            className="ui-button-primary py-2.5"
+          >
+            {isLoadingMore ? "Loading..." : "Load more"}
+          </button>
+        </div>
       )}
 
       {!hasMore && visiblePosts.length > 0 && (
-        <p
-          className="mt-4 text-sm text-zinc-400 text-center"
-          aria-live="polite"
-        >
+        <p className="ui-help text-center mt-6" aria-live="polite">
           You reached the end.
         </p>
       )}

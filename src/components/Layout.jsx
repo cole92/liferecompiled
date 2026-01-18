@@ -1,4 +1,3 @@
-import { useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
 import Header from "./Header";
 import Footer from "./Footer";
@@ -10,8 +9,6 @@ import { SearchProvider } from "../context/SearchContext";
  * koji se menja u zavisnosti od rute.
  */
 const Layout = ({ children }) => {
-  const location = useLocation();
-  const isDashboard = location.pathname.startsWith("/dashboard");
 
   return (
     <SearchProvider>
@@ -40,9 +37,8 @@ const Layout = ({ children }) => {
 
         {/* Main WITHOUT overflow-auto (pusti body da skroluje) */}
         <main id="main-content" className="pt-4 pb-6">
-          <div className={isDashboard ? "ui-shell max-w-none" : "ui-shell"}>
-            {children}
-          </div>
+          {/* IMPORTANT: keep dashboard width consistent with the rest of the app */}
+          <div className="ui-shell">{children}</div>
         </main>
 
         {/* Footer normalan (na dnu kad dodjes) */}
