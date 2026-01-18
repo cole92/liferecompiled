@@ -1,6 +1,9 @@
 import PropTypes from "prop-types";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+
+import { AuthContext } from "../../../context/AuthContext";
 
 /**
  * PostFilterBar
@@ -8,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
  * Mobile-first:
  * - Tabs are above (DashboardTabs)
  * - This bar becomes compact on <sm:
- *   - action row with Search / Filters buttons
+ *   - action row with Search / Filters / Create buttons
  *   - only one panel can be open at a time
  * - sm+: classic layout (filters left, search right)
  *
@@ -22,6 +25,12 @@ const PostFilterBar = ({
   searchTerm,
   onSearchChange,
 }) => {
+  const { user } = useContext(AuthContext);
+  const { pathname } = useLocation();
+
+  const isMyPostsPage = pathname === "/dashboard";
+  const canCreate = Boolean(user?.email) && isMyPostsPage;
+
   const filters = useMemo(
     () => [
       {
@@ -67,6 +76,12 @@ const PostFilterBar = ({
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
 
+  const createBtn =
+    "inline-flex h-10 w-10 items-center justify-center rounded-xl " +
+    "bg-sky-500 text-zinc-50 hover:bg-sky-400 transition " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
   return (
     <div className="w-full">
       {/* Mobile (<sm) compact actions */}
@@ -97,6 +112,17 @@ const PostFilterBar = ({
             >
               <span className="text-lg leading-none">⚙️</span>
             </button>
+
+            {canCreate && (
+              <NavLink
+                to="/dashboard/create"
+                aria-label="Create new post"
+                title="Create new post"
+                className={createBtn}
+              >
+                <span className="text-xl leading-none">+</span>
+              </NavLink>
+            )}
           </div>
 
           {/* Small summary chip so user always knows current mode */}

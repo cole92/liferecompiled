@@ -10,7 +10,7 @@ import { FOCUS_RING } from "../../../constants/uiClasses";
  *
  * Compact dashboard navigation (mobile-first).
  * - Tabs scroll horizontally on small screens.
- * - Create action on the right (mobile icon, md+ text button).
+ * - Create action stays on md+ (mobile create will live in the actions row).
  */
 const DashboardTabs = ({ trashCount = 0 }) => {
   const { user } = useContext(AuthContext);
@@ -94,23 +94,12 @@ const DashboardTabs = ({ trashCount = 0 }) => {
         ) : null}
 
         {isMyPostsPage && (
-          <>
-            <NavLink
-              to="/dashboard/create"
-              aria-label="Create new post"
-              title="Create new post"
-              className={`md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-zinc-50 hover:bg-sky-400 transition ${FOCUS_RING}`}
-            >
-              <span className="text-xl leading-none">+</span>
-            </NavLink>
-
-            <NavLink
-              to="/dashboard/create"
-              className="hidden md:inline-flex ui-button-primary"
-            >
-              Create post
-            </NavLink>
-          </>
+          <NavLink
+            to="/dashboard/create"
+            className="hidden md:inline-flex ui-button-primary"
+          >
+            Create post
+          </NavLink>
         )}
       </div>
     </div>
