@@ -111,14 +111,17 @@ const PostFilterBar = ({
   const iconBtn =
     "ui-button-secondary inline-flex h-11 w-11 items-center justify-center p-0";
 
-  // Keep create look as your sky primary (matches existing app look)
+  const statusPill =
+    "inline-flex h-11 w-full items-center justify-center rounded-xl " +
+    "border border-zinc-800 bg-zinc-950/40 px-3 text-sm text-zinc-200 " +
+    "truncate";
 
   return (
     <div className="w-full">
       {/* Mobile (<sm) compact actions */}
       <div className="sm:hidden">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => togglePanel("search")}
@@ -167,13 +170,11 @@ const PostFilterBar = ({
           </div>
 
           {/* Small summary chip so user always knows current mode */}
-          <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
             {hasSearch ? (
-              <span className="text-xs text-zinc-400">Search mode</span>
+              <span className={statusPill}>Search mode</span>
             ) : (
-              <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-300">
-                {activeFilterLabel}
-              </span>
+              <span className={statusPill}>{activeFilterLabel}</span>
             )}
           </div>
         </div>
