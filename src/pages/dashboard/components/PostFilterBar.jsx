@@ -1,119 +1,243 @@
 import PropTypes from "prop-types";
 import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 
 /**
- * @component PostFilterBar
+ * PostFilterBar
  *
- * UI traka za filtriranje i pretragu u MyPosts stranici.
+ * Mobile-first:
+ * - Tabs are above (DashboardTabs)
+ * - This bar becomes compact on <sm:
+ *   - action row with Search / Filters buttons
+ *   - only one panel can be open at a time
+ * - sm+: classic layout (filters left, search right)
  *
- * Namena:
- * - Prikazuje filter dugmice (Active / Locked / All) za normalni mod
- * - Prikazuje search input za server-side prefix pretragu (title_lc)
- * - Implementira “search mode” gde filter dugmici vizuelno blede i postaju neaktivni
- * - Obezbedjuje da se layout ne pomera: search polje je uvek prisutno desno
- *
- * UX ponasanje:
- * - Kada `searchTerm.trim().length > 0`:
- *   - filter dugmici imaju fade-out (`opacity:0`, `y:-4`)
- *   - `pointer-events-none` i `aria-hidden=true`
- *   - prikazani su samo rezultati search moda (filteri se ignorisu)
- *
- * - Kada je `searchTerm` prazan:
- *   - filter dugmici su ponovo aktivni
- *   - prikaz vraca u normalni mod (Active / Locked / All)
- *
- * Props:
- * @param {string} activeFilter - Trenutno aktivni filter u normal mod-u
- * @param {Function} onFilterChange - Callback za promenu filtera
- * @param {string} searchTerm - Tekst pretrage (kontrolisano stanje)
- * @param {Function} onSearchChange - Callback prilikom promene search input-a
- *
- * @returns {JSX.Element}
+ * Behavior:
+ * - When searchTerm is non-empty, filters are disabled (search mode).
+ * - UI-only local state for panel toggles (does not touch fetch/filter logic).
  */
-
 const PostFilterBar = ({
   activeFilter,
   onFilterChange,
   searchTerm,
   onSearchChange,
 }) => {
-  const filters = [
-    {
-      label: "Active",
-      value: "active",
-      className:
-        "border-emerald-500/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15",
-    },
-    {
-      label: "Locked",
-      value: "locked",
-      className:
-        "border-rose-500/25 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15",
-    },
-    {
-      label: "All",
-      value: "all",
-      className:
-        "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40",
-    },
-  ];
+  const filters = useMemo(
+    () => [
+      {
+        label: "Active",
+        value: "active",
+        activeClass: "bg-emerald-500/12 text-emerald-200",
+      },
+      {
+        label: "Locked",
+        value: "locked",
+        activeClass: "bg-rose-500/12 text-rose-200",
+      },
+      {
+        label: "All",
+        value: "all",
+        activeClass: "bg-zinc-100/10 text-zinc-100",
+      },
+    ],
+    [],
+  );
 
   const hasSearch = searchTerm.trim().length > 0;
 
-  return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      {/* Filter dugmici: fade-out i disable u search modu da bi se vizuelno prikazao prelaz u search mod */}
-      <motion.div
-        initial={false}
-        animate={{ opacity: hasSearch ? 0 : 1, y: hasSearch ? -4 : 0 }}
-        transition={{ duration: 0.2 }}
-        className={`flex flex-wrap gap-2 ${
-          hasSearch ? "pointer-events-none" : ""
-        }`}
-        aria-hidden={hasSearch}
-      >
-        {filters.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => onFilterChange(f.value)}
-            className={`inline-flex items-center rounded-full border px-3 py-1 text-sm transition
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-              focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
-              hover:scale-105 ${f.className} ${
-              activeFilter === f.value ? "ring-1 ring-zinc-100/40" : ""
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </motion.div>
+  // Panels: "none" | "search" | "filters"
+  const [openPanel, setOpenPanel] = useState(hasSearch ? "search" : "none");
 
-      {/* Search polje: uvek prisutno desno da bi se izbegao layout jump pri ulasku/izlasku iz search moda */}
-      <div className="flex flex-1 items-center gap-2 max-w-md md:flex-none md:ml-auto">
-        <input
-          id="my-posts-search"
-          name="myPostsSearch"
-          type="text"
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search your posts by title..."
-          aria-label="Search your posts by title"
-          autoComplete="off"
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-            focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-        />
-        {hasSearch && (
-          <button
-            type="button"
-            onClick={() => onSearchChange("")}
-            aria-label="Clear search"
-            className="text-sm text-zinc-300 underline hover:text-zinc-100"
-          >
-            Clear
-          </button>
+  // If search becomes active from outside, make sure search panel is visible on mobile.
+  useEffect(() => {
+    if (hasSearch) setOpenPanel("search");
+  }, [hasSearch]);
+
+  const activeFilterLabel =
+    filters.find((f) => f.value === activeFilter)?.label || "All";
+
+  const togglePanel = (next) => {
+    setOpenPanel((prev) => (prev === next ? "none" : next));
+  };
+
+  const iconBtnBase =
+    "inline-flex h-10 w-10 items-center justify-center rounded-xl " +
+    "border border-zinc-800 bg-zinc-950/40 text-zinc-200 " +
+    "hover:bg-zinc-900/40 hover:text-zinc-100 transition " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
+  return (
+    <div className="w-full">
+      {/* Mobile (<sm) compact actions */}
+      <div className="sm:hidden">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => togglePanel("search")}
+              aria-label="Toggle search"
+              aria-pressed={openPanel === "search"}
+              className={iconBtnBase}
+            >
+              <span className="text-lg leading-none">🔍</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => togglePanel("filters")}
+              aria-label="Toggle filters"
+              aria-pressed={openPanel === "filters"}
+              disabled={hasSearch}
+              aria-disabled={hasSearch}
+              className={`${iconBtnBase} ${
+                hasSearch ? "opacity-40 cursor-not-allowed" : ""
+              }`}
+              title={hasSearch ? "Filters disabled in search mode" : "Filters"}
+            >
+              <span className="text-lg leading-none">⚙️</span>
+            </button>
+          </div>
+
+          {/* Small summary chip so user always knows current mode */}
+          <div className="flex items-center gap-2">
+            {hasSearch ? (
+              <span className="text-xs text-zinc-400">Search mode</span>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-300">
+                {activeFilterLabel}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Panels */}
+        {openPanel !== "none" && (
+          <div className="mt-2">
+            {openPanel === "search" && (
+              <div className="flex w-full items-center gap-2">
+                <input
+                  id="my-posts-search"
+                  name="myPostsSearch"
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder="Search by title..."
+                  aria-label="Search your posts by title"
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                    focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                />
+
+                {(hasSearch || searchTerm.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => onSearchChange("")}
+                    aria-label="Clear search"
+                    className="shrink-0 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/40 hover:text-zinc-100 transition
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                      focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+
+            {openPanel === "filters" && !hasSearch && (
+              <div className="inline-flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-950/40 p-1">
+                {filters.map((f) => {
+                  const isActive = activeFilter === f.value;
+
+                  return (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => onFilterChange(f.value)}
+                      className={[
+                        "flex-1",
+                        "rounded-lg px-3 py-2 text-sm transition",
+                        "text-zinc-300 hover:text-zinc-100",
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
+                        "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+                        isActive ? f.activeClass : "bg-transparent",
+                      ].join(" ")}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
+      </div>
+
+      {/* sm+ layout (classic, stable) */}
+      <div className="hidden sm:block">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Filters left */}
+          <motion.div
+            initial={false}
+            animate={{ opacity: hasSearch ? 0 : 1, y: hasSearch ? -4 : 0 }}
+            transition={{ duration: 0.2 }}
+            className={`w-full sm:w-auto ${hasSearch ? "pointer-events-none" : ""}`}
+            aria-hidden={hasSearch}
+          >
+            <div className="inline-flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-950/40 p-1 sm:w-auto">
+              {filters.map((f) => {
+                const isActive = activeFilter === f.value;
+
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => onFilterChange(f.value)}
+                    className={[
+                      "flex-1 sm:flex-none",
+                      "rounded-lg px-3 py-1.5 text-sm transition",
+                      "text-zinc-300 hover:text-zinc-100",
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
+                      "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+                      isActive ? f.activeClass : "bg-transparent",
+                    ].join(" ")}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Search right */}
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:max-w-md sm:ml-auto">
+            <input
+              id="my-posts-search-sm"
+              name="myPostsSearch"
+              type="text"
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search your posts by title..."
+              aria-label="Search your posts by title"
+              autoComplete="off"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            />
+
+            {hasSearch && (
+              <button
+                type="button"
+                onClick={() => onSearchChange("")}
+                aria-label="Clear search"
+                className="shrink-0 text-sm text-zinc-300 underline hover:text-zinc-100"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

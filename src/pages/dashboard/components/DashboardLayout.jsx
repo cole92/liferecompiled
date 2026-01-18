@@ -43,17 +43,19 @@ const DashboardLayout = () => {
     <div className="pb-10">
       <div className="sticky top-16 z-40">
         <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
-          <div className="py-3">
-            <div className="ui-card p-3 sm:p-4">
+          {/* slightly tighter on mobile */}
+          <div className="py-2 sm:py-3">
+            <div className="ui-card p-2.5 sm:p-4">
               <div className="hidden lg:block">
                 <DashboardBreadcrumb />
               </div>
 
-              <div className="mt-2">
+              <div className="mt-1.5 sm:mt-2">
                 <DashboardTabs trashCount={trashCount} />
               </div>
 
-              <div className="mt-3 space-y-2">
+              {/* keep this compact; PostFilterBar handles mobile compact actions */}
+              <div className="mt-2 sm:mt-3 space-y-2">
                 {isTrashPage && (
                   <TrashFilterBar
                     filterRange={filterRange}

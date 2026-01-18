@@ -9,11 +9,8 @@ import { FOCUS_RING } from "../../../constants/uiClasses";
  * DashboardTabs
  *
  * Compact dashboard navigation (mobile-first).
- * - Tabs are horizontally scrollable on small screens.
- * - Create action lives on the right (like Home compact actions).
- * - Optional small user label on md+ only.
- *
- * UI-only: does not change any route logic.
+ * - Tabs scroll horizontally on small screens.
+ * - Create action on the right (mobile icon, md+ text button).
  */
 const DashboardTabs = ({ trashCount = 0 }) => {
   const { user } = useContext(AuthContext);
@@ -22,7 +19,8 @@ const DashboardTabs = ({ trashCount = 0 }) => {
   const isMyPostsPage = pathname === "/dashboard";
 
   const tabBase =
-    "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium " +
+    "inline-flex items-center gap-2 rounded-xl " +
+    "px-2.5 py-1 text-[13px] sm:px-3 sm:py-1.5 sm:text-sm font-medium " +
     "border border-transparent text-zinc-300 hover:text-zinc-100 hover:bg-zinc-950/40 " +
     "transition " +
     FOCUS_RING;
@@ -36,7 +34,6 @@ const DashboardTabs = ({ trashCount = 0 }) => {
 
   return (
     <div className="flex items-center justify-between gap-3">
-      {/* Tabs: scrollable on mobile, no wrapping */}
       <div className="-mx-1 flex-1 overflow-x-auto ui-scrollbar">
         <div className="flex items-center gap-2 whitespace-nowrap px-1">
           <NavLink
@@ -89,7 +86,6 @@ const DashboardTabs = ({ trashCount = 0 }) => {
         </div>
       </div>
 
-      {/* Right side: user label (md+) + Create action (MyPosts only) */}
       <div className="flex items-center gap-2 shrink-0">
         {user?.email ? (
           <span className="hidden md:block text-xs text-zinc-400 max-w-[220px] truncate">
@@ -99,7 +95,6 @@ const DashboardTabs = ({ trashCount = 0 }) => {
 
         {isMyPostsPage && (
           <>
-            {/* Mobile: icon square */}
             <NavLink
               to="/dashboard/create"
               aria-label="Create new post"
@@ -109,7 +104,6 @@ const DashboardTabs = ({ trashCount = 0 }) => {
               <span className="text-xl leading-none">+</span>
             </NavLink>
 
-            {/* md+: text button */}
             <NavLink
               to="/dashboard/create"
               className="hidden md:inline-flex ui-button-primary"
