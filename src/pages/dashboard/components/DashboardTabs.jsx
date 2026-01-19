@@ -29,6 +29,7 @@ const DashboardTabs = ({ trashCount = 0, isAdmin = false }) => {
       <div className="flex items-center gap-2 whitespace-nowrap px-1">
         <NavLink
           to="/dashboard"
+          end
           className={({ isActive }) =>
             `${tabBase} ${isActive ? tabActive : ""}`
           }
@@ -83,4 +84,5 @@ DashboardTabs.propTypes = {
   trashCount: PropTypes.number,
   isAdmin: PropTypes.bool,
 };
+
 export default DashboardTabs;

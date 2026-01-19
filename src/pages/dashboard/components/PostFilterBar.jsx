@@ -44,20 +44,6 @@ IconFilter.propTypes = {
   className: PropTypes.string,
 };
 
-/**
- * PostFilterBar
- *
- * Mobile-first:
- * - Tabs are above (DashboardTabs)
- * - This bar becomes compact on <sm:
- *   - action row with Search / Filters / Create buttons
- *   - only one panel can be open at a time
- * - sm+: classic layout (filters left, search right)
- *
- * Behavior:
- * - When searchTerm is non-empty, filters are disabled (search mode).
- * - UI-only local state for panel toggles (does not touch fetch/filter logic).
- */
 const PostFilterBar = ({
   activeFilter,
   onFilterChange,
@@ -76,17 +62,20 @@ const PostFilterBar = ({
       {
         label: "Active",
         value: "active",
-        activeClass: "bg-emerald-500/12 text-emerald-200",
+        activeClass:
+          "bg-emerald-500/12 text-emerald-200 ring-1 ring-inset ring-emerald-400/25",
       },
       {
         label: "Locked",
         value: "locked",
-        activeClass: "bg-rose-500/12 text-rose-200",
+        activeClass:
+          "bg-rose-500/12 text-rose-200 ring-1 ring-inset ring-rose-400/25",
       },
       {
         label: "All",
         value: "all",
-        activeClass: "bg-zinc-100/10 text-zinc-100",
+        activeClass:
+          "bg-zinc-100/10 text-zinc-100 ring-1 ring-inset ring-zinc-200/15",
       },
     ],
     [],
@@ -94,7 +83,6 @@ const PostFilterBar = ({
 
   const hasSearch = searchTerm.trim().length > 0;
 
-  // Panels: "none" | "search" | "filters"
   const [openPanel, setOpenPanel] = useState(hasSearch ? "search" : "none");
 
   useEffect(() => {
@@ -108,7 +96,6 @@ const PostFilterBar = ({
     setOpenPanel((prev) => (prev === next ? "none" : next));
   };
 
-  // Match Home toolbar button sizing + style
   const iconBtn =
     "ui-button-secondary inline-flex h-11 w-11 items-center justify-center p-0";
 
@@ -170,7 +157,6 @@ const PostFilterBar = ({
             )}
           </div>
 
-          {/* Small summary chip so user always knows current mode */}
           <div className="flex-1 min-w-0">
             {hasSearch ? (
               <span className={statusPill}>Search mode</span>
@@ -180,7 +166,6 @@ const PostFilterBar = ({
           </div>
         </div>
 
-        {/* Panels */}
         {openPanel !== "none" && (
           <div className="mt-2">
             {openPanel === "search" && (
@@ -243,7 +228,7 @@ const PostFilterBar = ({
         )}
       </div>
 
-      {/* sm+ layout (classic, stable) */}
+      {/* sm+ layout */}
       <div className="hidden sm:block">
         <div
           className={[
@@ -251,7 +236,6 @@ const PostFilterBar = ({
             showDesktopSearch ? "sm:justify-between" : "sm:justify-start",
           ].join(" ")}
         >
-          {/* Filters left */}
           <motion.div
             initial={false}
             animate={{
@@ -293,7 +277,6 @@ const PostFilterBar = ({
             </div>
           </motion.div>
 
-          {/* Search right (optional) */}
           {showDesktopSearch && (
             <div className="flex w-full items-center gap-2 sm:w-auto sm:max-w-md sm:ml-auto">
               <input
@@ -306,8 +289,8 @@ const PostFilterBar = ({
                 aria-label="Search your posts by title"
                 autoComplete="off"
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-            focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                  focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
               />
 
               {hasSearch && (

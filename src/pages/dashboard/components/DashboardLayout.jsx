@@ -70,7 +70,10 @@ const DashboardLayout = () => {
                   ) : null}
 
                   {isMyPostsPage && (
-                    <NavLink to="/dashboard/create" className="ui-button-primary">
+                    <NavLink
+                      to="/dashboard/create"
+                      className="ui-button-primary"
+                    >
                       Create post
                     </NavLink>
                   )}
