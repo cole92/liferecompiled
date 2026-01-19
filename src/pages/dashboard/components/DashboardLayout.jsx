@@ -39,27 +39,45 @@ const DashboardLayout = () => {
     return () => unsubscribe();
   }, [user?.uid]);
 
- return (
-  <div className="pb-10">
-    <div className="sticky top-16 z-40">
-      <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
-        {/* slightly tighter on mobile */}
-        <div className="py-2 sm:py-3">
-          <div className="ui-card p-2.5 sm:p-4">
-            <div className="md:flex md:items-start md:justify-between md:gap-6">
-              {/* Left column */}
-              <div className="min-w-0 flex-1">
-                <div className="hidden lg:block">
-                  <DashboardBreadcrumb />
+  return (
+    <div className="pb-10">
+      <div className="sticky top-16 z-40">
+        <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
+          <div className="py-2 sm:py-3">
+            <div className="ui-card p-2.5 sm:p-4">
+              {/* md+ uses a 2-col / 2-row grid so Search can live on the far right */}
+              <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(320px,28rem)] md:gap-6">
+                {/* Row 1, Col 1 */}
+                <div className="min-w-0">
+                  <div className="hidden lg:block">
+                    <DashboardBreadcrumb />
+                  </div>
+
+                  <div className="mt-1.5 sm:mt-2">
+                    <DashboardTabs
+                      trashCount={trashCount}
+                      isAdmin={Boolean(user?.isAdmin)}
+                    />
+                  </div>
                 </div>
 
-                <div className="mt-1.5 sm:mt-2">
-                 <DashboardTabs trashCount={trashCount} isAdmin={Boolean(user?.isAdmin)} />
+                {/* Row 1, Col 2 */}
+                <div className="flex items-center justify-end gap-2">
+                  {user?.email ? (
+                    <span className="text-sm text-zinc-300 max-w-[360px] truncate">
+                      {user.email}
+                    </span>
+                  ) : null}
 
+                  {isMyPostsPage && (
+                    <NavLink to="/dashboard/create" className="ui-button-primary">
+                      Create post
+                    </NavLink>
+                  )}
                 </div>
 
-                {/* md+ left-side bars (keeps header compact and avoids scattered look) */}
-                <div className="mt-2 sm:mt-3">
+                {/* Row 2, Col 1 */}
+                <div className="min-w-0 mt-2 sm:mt-3">
                   {isTrashPage && (
                     <TrashFilterBar
                       filterRange={filterRange}
@@ -68,16 +86,13 @@ const DashboardLayout = () => {
                   )}
 
                   {isMyPostsPage && (
-                    <div className="hidden md:block">
-                      {/* md+ uses "classic" PostFilterBar layout */}
-                      <PostFilterBar
-                        activeFilter={filter}
-                        onFilterChange={setFilter}
-                        searchTerm={myPostsSearch}
-                        onSearchChange={setMyPostsSearch}
-                         showDesktopSearch={false}
-                      />
-                    </div>
+                    <PostFilterBar
+                      activeFilter={filter}
+                      onFilterChange={setFilter}
+                      searchTerm={myPostsSearch}
+                      onSearchChange={setMyPostsSearch}
+                      showDesktopSearch={false}
+                    />
                   )}
 
                   {isSavedPage && (
@@ -112,115 +127,113 @@ const DashboardLayout = () => {
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Right column (md+) */}
-              <div className="hidden md:flex w-full max-w-md shrink-0 flex-col gap-2">
-                <div className="flex items-center justify-end gap-2">
-                  {user?.email ? (
-                    <span className="text-xs text-zinc-400 max-w-[240px] truncate">
-                      {user.email}
-                    </span>
-                  ) : null}
-
+                {/* Row 2, Col 2 (Search on far right) */}
+                <div className="min-w-0 mt-2 sm:mt-3">
                   {isMyPostsPage && (
-                    <NavLink to="/dashboard/create" className="ui-button-primary">
-                      Create post
-                    </NavLink>
+                    <div className="w-full">
+                      <label htmlFor="my-posts-search-md" className="sr-only">
+                        Search your posts by title
+                      </label>
+                      <input
+                        id="my-posts-search-md"
+                        name="myPostsSearch"
+                        type="text"
+                        value={myPostsSearch}
+                        onChange={(e) => setMyPostsSearch(e.target.value)}
+                        placeholder="Search your posts by title..."
+                        autoComplete="off"
+                        className="ui-input w-full"
+                      />
+                    </div>
                   )}
                 </div>
-
-                {isMyPostsPage && (
-                  <div className="w-full">
-                    <label htmlFor="my-posts-search-md" className="sr-only">
-                      Search your posts by title
-                    </label>
-                    <input
-                      id="my-posts-search-md"
-                      name="myPostsSearch"
-                      type="text"
-                      value={myPostsSearch}
-                      onChange={(e) => setMyPostsSearch(e.target.value)}
-                      placeholder="Search your posts by title..."
-                      autoComplete="off"
-                      className="ui-input w-full"
-                    />
-                  </div>
-                )}
               </div>
-            </div>
 
-            {/* Mobile-only bars stay as-is (your compact design) */}
-            <div className="mt-2 sm:mt-3 space-y-2 md:hidden">
-              {isTrashPage && (
-                <TrashFilterBar
-                  filterRange={filterRange}
-                  onFilterChange={setFilterRange}
-                />
-              )}
-
-              {isMyPostsPage && (
-                <PostFilterBar
-                  activeFilter={filter}
-                  onFilterChange={setFilter}
-                  searchTerm={myPostsSearch}
-                  onSearchChange={setMyPostsSearch}
-                />
-              )}
-
-              {isSavedPage && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSavedSortDirection("desc")}
-                    className={`px-3 py-1 text-xs rounded-full border transition
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-                      focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
-                        savedSortDirection === "desc"
-                          ? "bg-zinc-100 text-zinc-950 border-zinc-100"
-                          : "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
-                      }`}
-                  >
-                    Recently saved
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSavedSortDirection("asc")}
-                    className={`px-3 py-1 text-xs rounded-full border transition
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-                      focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
-                        savedSortDirection === "asc"
-                          ? "bg-zinc-100 text-zinc-950 border-zinc-100"
-                          : "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
-                      }`}
-                  >
-                    Oldest saved
-                  </button>
+              {/* Mobile-only bars stay as-is */}
+              <div className="md:hidden">
+                <div className="hidden lg:block">
+                  <DashboardBreadcrumb />
                 </div>
-              )}
+
+                <div className="mt-1.5 sm:mt-2">
+                  <DashboardTabs
+                    trashCount={trashCount}
+                    isAdmin={Boolean(user?.isAdmin)}
+                  />
+                </div>
+
+                <div className="mt-2 sm:mt-3 space-y-2">
+                  {isTrashPage && (
+                    <TrashFilterBar
+                      filterRange={filterRange}
+                      onFilterChange={setFilterRange}
+                    />
+                  )}
+
+                  {isMyPostsPage && (
+                    <PostFilterBar
+                      activeFilter={filter}
+                      onFilterChange={setFilter}
+                      searchTerm={myPostsSearch}
+                      onSearchChange={setMyPostsSearch}
+                    />
+                  )}
+
+                  {isSavedPage && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSavedSortDirection("desc")}
+                        className={`px-3 py-1 text-xs rounded-full border transition
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                          focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                            savedSortDirection === "desc"
+                              ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                              : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+                          }`}
+                      >
+                        Recently saved
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSavedSortDirection("asc")}
+                        className={`px-3 py-1 text-xs rounded-full border transition
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                          focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                            savedSortDirection === "asc"
+                              ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                              : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+                          }`}
+                      >
+                        Oldest saved
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div className="pt-6">
-      <Outlet
-        context={{
-          filterRange,
-          setFilterRange,
-          filter,
-          setFilter,
-          myPostsSearch,
-          setMyPostsSearch,
-          savedSortDirection,
-          setSavedSortDirection,
-        }}
-      />
+      <div className="pt-6">
+        <Outlet
+          context={{
+            filterRange,
+            setFilterRange,
+            filter,
+            setFilter,
+            myPostsSearch,
+            setMyPostsSearch,
+            savedSortDirection,
+            setSavedSortDirection,
+          }}
+        />
+      </div>
     </div>
-  </div>
-)
+  );
 };
 
 export default DashboardLayout;
