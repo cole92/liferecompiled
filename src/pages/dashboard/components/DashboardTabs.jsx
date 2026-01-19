@@ -1,8 +1,6 @@
-import { useContext } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import PropTypes from "prop-types";
 
-import { AuthContext } from "../../../context/AuthContext";
 import { FOCUS_RING } from "../../../constants/uiClasses";
 
 /**
@@ -10,14 +8,8 @@ import { FOCUS_RING } from "../../../constants/uiClasses";
  *
  * Compact dashboard navigation (mobile-first).
  * - Tabs scroll horizontally on small screens.
- * - Create action stays on md+ (mobile create will live in the actions row).
  */
-const DashboardTabs = ({ trashCount = 0 }) => {
-  const { user } = useContext(AuthContext);
-  const { pathname } = useLocation();
-
-  const isMyPostsPage = pathname === "/dashboard";
-
+const DashboardTabs = ({ trashCount = 0, isAdmin = false }) => {
   const tabBase =
     "inline-flex items-center gap-2 rounded-xl " +
     "px-2.5 py-1 text-[13px] sm:px-3 sm:py-1.5 sm:text-sm font-medium " +
@@ -33,72 +25,53 @@ const DashboardTabs = ({ trashCount = 0 }) => {
     "border border-zinc-700 bg-zinc-100/10 px-1.5 text-[11px] text-zinc-200";
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="-mx-1 flex-1 overflow-x-auto ui-scrollbar">
-        <div className="flex items-center gap-2 whitespace-nowrap px-1">
+    <div className="-mx-1 overflow-x-auto ui-scrollbar">
+      <div className="flex items-center gap-2 whitespace-nowrap px-1">
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            `${tabBase} ${isActive ? tabActive : ""}`
+          }
+        >
+          My Posts
+        </NavLink>
+
+        <NavLink
+          to="/dashboard/saved"
+          className={({ isActive }) =>
+            `${tabBase} ${isActive ? tabActive : ""}`
+          }
+        >
+          Saved
+        </NavLink>
+
+        <NavLink
+          to="/dashboard/stats"
+          className={({ isActive }) =>
+            `${tabBase} ${isActive ? tabActive : ""}`
+          }
+        >
+          Stats
+        </NavLink>
+
+        <NavLink
+          to="/dashboard/trash"
+          className={({ isActive }) =>
+            `${tabBase} ${isActive ? tabActive : ""}`
+          }
+        >
+          <span>Trash</span>
+          {trashCount > 0 && <span className={badgeBase}>{trashCount}</span>}
+        </NavLink>
+
+        {isAdmin && (
           <NavLink
-            to="/dashboard"
+            to="/dashboard/moderation"
             className={({ isActive }) =>
               `${tabBase} ${isActive ? tabActive : ""}`
             }
           >
-            My Posts
-          </NavLink>
-
-          <NavLink
-            to="/dashboard/saved"
-            className={({ isActive }) =>
-              `${tabBase} ${isActive ? tabActive : ""}`
-            }
-          >
-            Saved
-          </NavLink>
-
-          <NavLink
-            to="/dashboard/stats"
-            className={({ isActive }) =>
-              `${tabBase} ${isActive ? tabActive : ""}`
-            }
-          >
-            Stats
-          </NavLink>
-
-          <NavLink
-            to="/dashboard/trash"
-            className={({ isActive }) =>
-              `${tabBase} ${isActive ? tabActive : ""}`
-            }
-          >
-            <span>Trash</span>
-            {trashCount > 0 && <span className={badgeBase}>{trashCount}</span>}
-          </NavLink>
-
-          {user?.isAdmin && (
-            <NavLink
-              to="/dashboard/moderation"
-              className={({ isActive }) =>
-                `${tabBase} ${isActive ? tabActive : ""}`
-              }
-            >
-              Moderation
-            </NavLink>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0">
-        {user?.email ? (
-          <span className="hidden md:block text-xs text-zinc-400 max-w-[220px] truncate">
-            {user.email}
-          </span>
-        ) : null}
-
-        {isMyPostsPage && (
-          <NavLink
-            to="/dashboard/create"
-            className="hidden md:inline-flex ui-button-primary"
-          >
-            Create post
+            Moderation
           </NavLink>
         )}
       </div>
@@ -108,6 +81,6 @@ const DashboardTabs = ({ trashCount = 0 }) => {
 
 DashboardTabs.propTypes = {
   trashCount: PropTypes.number,
+  isAdmin: PropTypes.bool,
 };
-
 export default DashboardTabs;

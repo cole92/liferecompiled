@@ -63,6 +63,7 @@ const PostFilterBar = ({
   onFilterChange,
   searchTerm,
   onSearchChange,
+  showDesktopSearch = true,
 }) => {
   const { user } = useContext(AuthContext);
   const { pathname } = useLocation();
@@ -244,14 +245,28 @@ const PostFilterBar = ({
 
       {/* sm+ layout (classic, stable) */}
       <div className="hidden sm:block">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className={[
+            "flex flex-col gap-3 sm:flex-row sm:items-center",
+            showDesktopSearch ? "sm:justify-between" : "sm:justify-start",
+          ].join(" ")}
+        >
           {/* Filters left */}
           <motion.div
             initial={false}
-            animate={{ opacity: hasSearch ? 0 : 1, y: hasSearch ? -4 : 0 }}
+            animate={{
+              opacity: showDesktopSearch
+                ? hasSearch
+                  ? 0
+                  : 1
+                : hasSearch
+                  ? 0.55
+                  : 1,
+              y: showDesktopSearch ? (hasSearch ? -4 : 0) : 0,
+            }}
             transition={{ duration: 0.2 }}
             className={`w-full sm:w-auto ${hasSearch ? "pointer-events-none" : ""}`}
-            aria-hidden={hasSearch}
+            aria-hidden={false}
           >
             <div className="inline-flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-950/40 p-1 sm:w-auto">
               {filters.map((f) => {
@@ -278,33 +293,35 @@ const PostFilterBar = ({
             </div>
           </motion.div>
 
-          {/* Search right */}
-          <div className="flex w-full items-center gap-2 sm:w-auto sm:max-w-md sm:ml-auto">
-            <input
-              id="my-posts-search-sm"
-              name="myPostsSearch"
-              type="text"
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search your posts by title..."
-              aria-label="Search your posts by title"
-              autoComplete="off"
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-                focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-            />
+          {/* Search right (optional) */}
+          {showDesktopSearch && (
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:max-w-md sm:ml-auto">
+              <input
+                id="my-posts-search-sm"
+                name="myPostsSearch"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Search your posts by title..."
+                aria-label="Search your posts by title"
+                autoComplete="off"
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+            focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              />
 
-            {hasSearch && (
-              <button
-                type="button"
-                onClick={() => onSearchChange("")}
-                aria-label="Clear search"
-                className="shrink-0 text-sm text-zinc-300 underline hover:text-zinc-100"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+              {hasSearch && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  aria-label="Clear search"
+                  className="shrink-0 text-sm text-zinc-300 underline hover:text-zinc-100"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -316,6 +333,7 @@ PostFilterBar.propTypes = {
   onFilterChange: PropTypes.func.isRequired,
   searchTerm: PropTypes.string.isRequired,
   onSearchChange: PropTypes.func.isRequired,
+  showDesktopSearch: PropTypes.bool,
 };
 
 export default PostFilterBar;
