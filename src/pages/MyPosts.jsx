@@ -17,6 +17,7 @@ import ConfirmModal from "../components/modals/ConfirmModal";
 
 import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import PostsList from "../components/PostsList";
+import PostCardDashboard from "../components/PostCardDashboard";
 
 import EmptyState from "./dashboard/components/EmptyState";
 import buildPostsQuery from "../services/postsService";
@@ -306,6 +307,7 @@ const MyPosts = () => {
           showDeleteButton={true}
           showCommentsThread={false}
           gridClassName={gridClassName}
+          CardComponent={PostCardDashboard}
           onDelete={(postId) => {
             setPostToDelete(postId);
             setIsModalOpen(true);
