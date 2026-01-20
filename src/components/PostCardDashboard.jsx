@@ -128,8 +128,9 @@ const PostCardDashboard = ({
 
   const pillEditInfo =
     "inline-flex items-center gap-1 rounded-full " +
-    "border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 " +
-    "text-xs font-medium text-sky-200";
+    "border border-sky-500/20 bg-sky-500/10 " +
+    "px-2 py-0.5 text-[11px] font-medium text-sky-200 whitespace-nowrap " +
+    "sm:px-2.5 sm:py-0.5 sm:text-xs";
 
   return (
     <>
@@ -289,13 +290,23 @@ const PostCardDashboard = ({
           {/* Management strip */}
           {(isMyPost || showDeleteButton) && (
             <div
-              className="mt-3 pt-3 border-t border-zinc-800/60 flex items-start justify-between gap-3"
+              className="mt-3 pt-3 border-t border-zinc-800/60 flex items-center justify-between gap-2"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex flex-wrap items-center gap-2 min-w-0">
+              {/* LEFT: Edit + status pills */}
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {canEdit && (
+                  <Link
+                    to={`/dashboard/edit/${post.id}`}
+                    className="ui-button-primary inline-flex justify-center text-xs px-4 py-1.5 min-w-[72px] sm:text-sm sm:px-4 sm:py-2"
+                  >
+                    Edit
+                  </Link>
+                )}
+
                 {post?.locked && (
                   <span
-                    className={`${PILL_META} inline-flex items-center gap-1`}
+                    className={`${PILL_META} inline-flex items-center gap-1 min-w-0`}
                     title={
                       archivedAtLabel
                         ? `Archived on: ${archivedAtLabel}`
@@ -303,7 +314,12 @@ const PostCardDashboard = ({
                     }
                   >
                     <FiLock className="text-sm" />
-                    Archived by author
+                    <span className="min-w-0 truncate">
+                      <span className="sm:hidden">Archived</span>
+                      <span className="hidden sm:inline">
+                        Archived by author
+                      </span>
+                    </span>
                   </span>
                 )}
 
@@ -313,10 +329,15 @@ const PostCardDashboard = ({
                   !isEditExpired && (
                     <span
                       className={pillEditInfo}
-                      title={`Editing will be disabled after 7 days. ${editDaysLeft} day${editDaysLeft === 1 ? "" : "s"} left.`}
+                      title={`Editing will be disabled after 7 days. ${editDaysLeft} day${
+                        editDaysLeft === 1 ? "" : "s"
+                      } left.`}
                     >
                       <MdLockClock className="text-sm" />
-                      Edit: {editDaysLeft}d left
+                      <span className="sm:hidden">Edit: {editDaysLeft}d</span>
+                      <span className="hidden sm:inline">
+                        Edit: {editDaysLeft}d left
+                      </span>
                     </span>
                   )}
 
@@ -328,35 +349,31 @@ const PostCardDashboard = ({
                       className={`${pillEditInfo} opacity-80`}
                       title="Editing is disabled after 7 days"
                     >
-                      Edit disabled (7d)
+                      <span className="sm:hidden">Edit disabled</span>
+                      <span className="hidden sm:inline">
+                        Edit disabled (7d)
+                      </span>
                     </span>
                   )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 justify-end">
-                {canEdit && (
-                  <Link
-                    to={`/dashboard/edit/${post.id}`}
-                    className="ui-button-primary inline-flex"
-                  >
-                    Edit
-                  </Link>
-                )}
-
+              {/* RIGHT: destructive actions (NO WRAP) */}
+              <div className="flex items-center gap-2 shrink-0">
                 {canLock && (
                   <button
                     type="button"
-                    className="rounded-lg bg-rose-500/15 px-3 py-2 text-sm font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition"
+                    className="rounded-lg bg-rose-500/15 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition sm:px-3 sm:py-2 sm:text-sm"
                     onClick={() => onLock?.(post.id)}
                   >
-                    Archive post
+                    <span className="sm:hidden">Archive</span>
+                    <span className="hidden sm:inline">Archive post</span>
                   </button>
                 )}
 
                 {showDeleteButton && (
                   <button
                     type="button"
-                    className="rounded-lg bg-rose-500/15 px-3 py-2 text-sm font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition"
+                    className="rounded-lg bg-rose-500/15 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition sm:px-3 sm:py-2 sm:text-sm"
                     onClick={() => onDelete?.(post.id)}
                   >
                     Delete
