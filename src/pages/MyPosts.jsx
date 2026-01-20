@@ -289,7 +289,7 @@ const MyPosts = () => {
     "grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2 items-stretch";
 
   return (
-    <div className="pb-6">
+    <div className="pb-2">
       {!isLoading && visiblePosts.length === 0 && !hasMore && (
         <EmptyState
           message={

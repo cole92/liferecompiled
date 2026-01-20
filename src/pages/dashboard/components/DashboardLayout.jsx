@@ -40,7 +40,7 @@ const DashboardLayout = () => {
   }, [user?.uid]);
 
   return (
-    <div className="pb-10">
+    <div className="pb-2">
       <div className="sticky top-16 z-40">
         <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
           <div className="py-2 sm:py-3">

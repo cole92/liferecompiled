@@ -213,7 +213,7 @@ const Home = () => {
     : "grid grid-cols-1 gap-5 sm:gap-6 items-stretch lg:grid-cols-2";
 
   return (
-    <div className="pb-10">
+    <div className="pb-2">
       <div className="sticky top-16 z-40">
         <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
           <div className="ui-shell py-3">
