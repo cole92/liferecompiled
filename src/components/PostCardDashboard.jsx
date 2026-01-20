@@ -5,6 +5,7 @@ import PropTypes from "prop-types";
 import { FaInfoCircle } from "react-icons/fa";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
+import { MdLockClock } from "react-icons/md";
 
 import { AuthContext } from "../context/AuthContext";
 import { useCheckSavedStatus } from "../hooks/useCheckSavedStatus";
@@ -81,6 +82,11 @@ const PostCardDashboard = ({
     isMyPost && !post?.locked && editDaysLeft !== null && !isEditExpired;
   const canLock = isMyPost && !post?.locked;
 
+  const archivedAtDate = post?.lockedAt?.toDate?.();
+  const archivedAtLabel = archivedAtDate
+    ? archivedAtDate.toLocaleDateString()
+    : "";
+
   const handleCardClick = () => {
     navigate(`/post/${post.id}`);
   };
@@ -120,10 +126,10 @@ const PostCardDashboard = ({
     ? "opacity-70 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"
     : "";
 
-  const pillNotice =
+  const pillEditInfo =
     "inline-flex items-center gap-1 rounded-full " +
-    "border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 " +
-    "text-xs font-medium text-amber-200";
+    "border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 " +
+    "text-xs font-medium text-sky-200";
 
   return (
     <>
@@ -286,24 +292,45 @@ const PostCardDashboard = ({
               className="mt-3 pt-3 border-t border-zinc-800/60 flex items-start justify-between gap-3"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
                 {post?.locked && (
                   <span
                     className={`${PILL_META} inline-flex items-center gap-1`}
+                    title={
+                      archivedAtLabel
+                        ? `Archived on: ${archivedAtLabel}`
+                        : "Archived by author"
+                    }
                   >
                     <FiLock className="text-sm" />
                     Archived by author
                   </span>
                 )}
 
-                {editDaysLeft !== null && isEditExpired && (
-                  <span
-                    className={pillNotice}
-                    title="Editing is disabled after 7 days"
-                  >
-                    Edit disabled (7d)
-                  </span>
-                )}
+                {isMyPost &&
+                  !post?.locked &&
+                  editDaysLeft !== null &&
+                  !isEditExpired && (
+                    <span
+                      className={pillEditInfo}
+                      title={`Editing will be disabled after 7 days. ${editDaysLeft} day${editDaysLeft === 1 ? "" : "s"} left.`}
+                    >
+                      <MdLockClock className="text-sm" />
+                      Edit: {editDaysLeft}d left
+                    </span>
+                  )}
+
+                {isMyPost &&
+                  !post?.locked &&
+                  editDaysLeft !== null &&
+                  isEditExpired && (
+                    <span
+                      className={`${pillEditInfo} opacity-80`}
+                      title="Editing is disabled after 7 days"
+                    >
+                      Edit disabled (7d)
+                    </span>
+                  )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 justify-end">
