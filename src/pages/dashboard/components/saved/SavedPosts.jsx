@@ -259,13 +259,13 @@ const SavedPosts = () => {
   }, [isLoading, isLoadingMore, hasMore, lastDoc, savedPosts.length]);
 
   const gridBase = "grid gap-4 grid-cols-1 lg:grid-cols-2";
-  const shell = "ui-shell pb-2";
-  const wrap = "mx-auto w-full max-w-6xl space-y-6";
+  const shell = "w-full pb-2";
+  const wrap = "space-y-6 py-1";
 
   if (isCheckingAuth || isLoading) {
     return (
       <div className={shell}>
-        <div className={`${wrap} py-6`}>
+        <div className={wrap}>
           <div className={gridBase} role="status" aria-live="polite">
             {Array.from({ length: 10 }).map((_, i) => (
               <SkeletonCard key={i} />
@@ -293,7 +293,7 @@ const SavedPosts = () => {
   if (!user) {
     return (
       <div className={shell}>
-        <div className={`${wrap} py-6`}>
+        <div className={wrap}>
           <div className="ui-card p-6">
             <p className="text-zinc-300">Please log in to view saved posts.</p>
           </div>
@@ -305,7 +305,7 @@ const SavedPosts = () => {
   if (savedPosts.length === 0 && !hasMore) {
     return (
       <div className={shell}>
-        <div className={`${wrap} py-6`}>
+        <div className={wrap}>
           <EmptyState message="You haven't saved any posts yet." />
         </div>
       </div>

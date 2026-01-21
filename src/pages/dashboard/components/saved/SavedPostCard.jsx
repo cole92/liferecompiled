@@ -37,8 +37,10 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
   const tags = Array.isArray(post?.tags) ? post.tags : [];
-  const visibleTags = tags.slice(0, 3);
-  const extraTagsCount = Math.max(0, tags.length - visibleTags.length);
+  const visibleTagsXs = tags.slice(0, 2);
+  const visibleTagsSm = tags.slice(0, 3);
+  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
+  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
 
   const badgesToShow = useMemo(() => {
     const out = [];
@@ -98,7 +100,6 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
     ? "opacity-60 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"
     : "";
 
-  // Ghost scenario
   if (post.isRemoved) {
     const handleRemoveClick = async (e) => {
       e.stopPropagation();
@@ -178,7 +179,6 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
       className={`${cardBase} ${cardInteractive} ${cardLocked}`}
       onClick={handleCardClick}
     >
-      {/* Header: author + save */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <div
@@ -237,7 +237,6 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
         </button>
       </div>
 
-      {/* Title + badges */}
       <div className="mt-3 flex items-start justify-between gap-3">
         <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem]">
           {post?.title || ""}
@@ -252,20 +251,23 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
         ) : null}
       </div>
 
-      {/* Meta: date + category */}
-      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-400">
-        <span className="min-w-0 line-clamp-1">{formatPostDate(post)}</span>
+      {/* Meta: date has priority, category truncates inside remaining space */}
+      <div className="mt-2 flex items-center gap-3 text-xs text-zinc-400">
+        <span className="shrink-0 whitespace-nowrap">
+          {formatPostDate(post)}
+        </span>
 
         {post?.category ? (
-          <span className={`shrink-0 ${PILL_CATEGORY} max-w-[12rem] truncate`}>
-            {post.category}
+          <span className="min-w-0 flex-1 flex justify-end">
+            <span className={`${PILL_CATEGORY} max-w-full truncate`}>
+              {post.category}
+            </span>
           </span>
         ) : (
-          <span className="shrink-0" aria-hidden="true" />
+          <span className="flex-1" aria-hidden="true" />
         )}
       </div>
 
-      {/* Status pills (Saved-specific) */}
       {(isUpdatedSinceSaved || post?.locked) && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {isUpdatedSinceSaved && (
@@ -290,7 +292,6 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
         </div>
       )}
 
-      {/* Preview (description OR content fallback) */}
       {previewText ? (
         <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
           {previewText}
@@ -304,22 +305,45 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
         <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
       )}
 
-      {/* Bottom block pinned */}
       <div className="mt-auto pt-3 border-t border-zinc-800/60">
-        <div className="min-h-[2.25rem] flex flex-wrap items-center gap-2">
-          {visibleTags.map((tag, idx) => (
-            <span
-              key={`${tag?.text || "tag"}-${idx}`}
-              className={`${PILL_TAG} max-w-[12rem] truncate`}
-              title={`#${tag?.text || ""}`}
-            >
-              #{tag?.text || ""}
-            </span>
-          ))}
+        <div className="min-h-[2.25rem]">
+          {/* XS: 2 tags */}
+          <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
+            {visibleTagsXs.map((tag, idx) => (
+              <span
+                key={`${tag?.text || "tag"}-${idx}`}
+                className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
+                title={`#${tag?.text || ""}`}
+              >
+                #{tag?.text || ""}
+              </span>
+            ))}
 
-          {extraTagsCount > 0 && (
-            <span className={PILL_META}>+{extraTagsCount}</span>
-          )}
+            {extraTagsCountXs > 0 && (
+              <span className={`${PILL_META} shrink-0`}>
+                +{extraTagsCountXs}
+              </span>
+            )}
+          </div>
+
+          {/* SM+: 3 tags */}
+          <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
+            {visibleTagsSm.map((tag, idx) => (
+              <span
+                key={`${tag?.text || "tag"}-${idx}`}
+                className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
+                title={`#${tag?.text || ""}`}
+              >
+                #{tag?.text || ""}
+              </span>
+            ))}
+
+            {extraTagsCountSm > 0 && (
+              <span className={`${PILL_META} shrink-0`}>
+                +{extraTagsCountSm}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </article>
