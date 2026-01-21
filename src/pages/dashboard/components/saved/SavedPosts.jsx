@@ -36,7 +36,7 @@ const SavedPosts = () => {
   // Map<postId, { snapshot, index, didUndo }>
   const pendingUndoRef = useRef(new Map());
 
-  // Guard: da ne radimo setState nakon unmount-a
+  // Guard: avoid setState after unmount
   const mountedRef = useRef(false);
   useEffect(() => {
     mountedRef.current = true;
@@ -139,11 +139,11 @@ const SavedPosts = () => {
               console.warn(
                 "[SavedPosts] Failed to fetch post, using ghost fallback:",
                 docItem.id,
-                error
+                error,
               );
               return buildGhostFromSaved(savedMeta, docItem.id);
             }
-          })
+          }),
         );
 
         const posts = results
@@ -223,11 +223,11 @@ const SavedPosts = () => {
             console.warn(
               "[SavedPosts] Failed to fetch post in LoadMore, using ghost fallback:",
               docItem.id,
-              error
+              error,
             );
             return buildGhostFromSaved(savedMeta, docItem.id);
           }
-        })
+        }),
       );
 
       const newPosts = results
@@ -258,13 +258,19 @@ const SavedPosts = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, isLoadingMore, hasMore, lastDoc, savedPosts.length]);
 
+  const gridBase = "grid gap-4 grid-cols-1 lg:grid-cols-2";
+  const shell = "ui-shell pb-2";
+  const wrap = "mx-auto w-full max-w-6xl space-y-6";
+
   if (isCheckingAuth || isLoading) {
     return (
-      <div className="ui-shell max-w-5xl my-8">
-        <div className="grid gap-4" role="status" aria-live="polite">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
+      <div className={shell}>
+        <div className={`${wrap} py-6`}>
+          <div className={gridBase} role="status" aria-live="polite">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -286,9 +292,11 @@ const SavedPosts = () => {
 
   if (!user) {
     return (
-      <div className="ui-shell max-w-5xl my-8">
-        <div className="ui-card p-6">
-          <p className="text-zinc-300">Please log in to view saved posts.</p>
+      <div className={shell}>
+        <div className={`${wrap} py-6`}>
+          <div className="ui-card p-6">
+            <p className="text-zinc-300">Please log in to view saved posts.</p>
+          </div>
         </div>
       </div>
     );
@@ -296,8 +304,10 @@ const SavedPosts = () => {
 
   if (savedPosts.length === 0 && !hasMore) {
     return (
-      <div className="ui-shell max-w-5xl my-8">
-        <EmptyState message="You haven't saved any posts yet." />
+      <div className={shell}>
+        <div className={`${wrap} py-6`}>
+          <EmptyState message="You haven't saved any posts yet." />
+        </div>
       </div>
     );
   }
@@ -379,58 +389,55 @@ const SavedPosts = () => {
   };
 
   return (
-    <div className="ui-shell max-w-5xl my-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-100">Saved Posts</h1>
-      </div>
-
-      <div className="space-y-4">
-        {savedPosts.map((post) => {
-          const isPending = pendingUndoRef.current.has(post.id);
-          return (
-            <div key={post.id}>
+    <div className={shell}>
+      <div className={wrap}>
+        <div className={gridBase}>
+          {savedPosts.map((post) => {
+            const isPending = pendingUndoRef.current.has(post.id);
+            return (
               <SavedPostCard
+                key={post.id}
                 post={post}
                 onUnsave={handleUnsave}
                 isPendingUndo={isPending}
               />
-            </div>
-          );
-        })}
-      </div>
-
-      {isLoadingMore && (
-        <div className="space-y-3" role="status" aria-live="polite">
-          <SkeletonCard />
-          <SkeletonCard />
+            );
+          })}
         </div>
-      )}
 
-      {hasMore && (
-        <div className="flex justify-center pt-2">
-          <button
-            type="button"
-            onClick={handleLoadMore}
-            disabled={isLoadingMore || !hasMore}
-            aria-busy={isLoadingMore}
-            aria-disabled={isLoadingMore || !hasMore}
-            className={`ui-button-primary ${
-              isLoadingMore ? "opacity-60 cursor-not-allowed" : ""
-            }`}
+        {isLoadingMore && (
+          <div className={gridBase} role="status" aria-live="polite">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="flex justify-center pt-3">
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore || !hasMore}
+              aria-busy={isLoadingMore}
+              aria-disabled={isLoadingMore || !hasMore}
+              className={`ui-button-primary ${
+                isLoadingMore ? "opacity-60 cursor-not-allowed" : ""
+              }`}
+            >
+              {isLoadingMore ? "Loading..." : "Load more"}
+            </button>
+          </div>
+        )}
+
+        {!hasMore && savedPosts.length > 0 && (
+          <p
+            className="mt-2 text-sm text-zinc-400 text-center"
+            aria-live="polite"
           >
-            {isLoadingMore ? "Loading..." : "Load more"}
-          </button>
-        </div>
-      )}
-
-      {!hasMore && savedPosts.length > 0 && (
-        <p
-          className="mt-2 text-sm text-zinc-400 text-center"
-          aria-live="polite"
-        >
-          You reached the end.
-        </p>
-      )}
+            You reached the end.
+          </p>
+        )}
+      </div>
     </div>
   );
 };
