@@ -36,6 +36,14 @@ function formatPostDate(post) {
     : `Posted: ${ts.toDate().toLocaleDateString()}`;
 }
 
+function formatPostDateCompact(post) {
+  const ts = post?.updatedAt || post?.createdAt;
+  if (!ts?.toDate) return "";
+  const d = ts.toDate().toLocaleDateString();
+  return post?.updatedAt ? `Edited: ${d}` : `Posted: ${d}`;
+}
+
+
 function getEditDaysLeft(createdAt) {
   if (!createdAt?.toDate) return null;
 
@@ -215,7 +223,7 @@ const PostCardDashboard = ({
 
         {/* Title + badges */}
         <div className="mt-3 flex items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem]">
+          <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
             {post?.title || ""}
           </h2>
 
@@ -234,23 +242,27 @@ const PostCardDashboard = ({
         </div>
 
         {/* Meta: date + category */}
-        <div className="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-400">
-          <span className="min-w-0 line-clamp-1">{formatPostDate(post)}</span>
+      <div className="mt-2 flex items-center gap-3 text-xs text-zinc-400">
+  <span className="shrink-0 whitespace-nowrap text-[11px] sm:text-xs">
+    <span className="sm:hidden">{formatPostDateCompact(post)}</span>
+    <span className="hidden sm:inline">{formatPostDate(post)}</span>
+  </span>
 
-          {post?.category ? (
-            <span
-              className={`shrink-0 ${PILL_CATEGORY} max-w-[12rem] truncate`}
-            >
-              {post.category}
-            </span>
-          ) : (
-            <span className="shrink-0" aria-hidden="true" />
-          )}
-        </div>
+  {post?.category ? (
+    <span className="min-w-0 flex-1 flex justify-end">
+      <span className={`${PILL_CATEGORY} max-w-full truncate`}>
+        {post.category}
+      </span>
+    </span>
+  ) : (
+    <span className="flex-1" aria-hidden="true" />
+  )}
+</div>
+
 
         {/* Description */}
         {post?.description ? (
-          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem]">
+          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
             {post.description}
           </p>
         ) : (

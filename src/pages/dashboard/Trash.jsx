@@ -66,7 +66,7 @@ const Trash = () => {
   // zato ovde NE stavljamo ui-shell (da ne dobijemo dupli/narrow wrapper).
   const shell = "w-full pb-2";
 
-  const wrap = "space-y-6 py-6";
+  const wrap = "space-y-6 py-2";
 
   useEffect(() => {
     let canceled = false;
