@@ -111,22 +111,27 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
       </div>
 
       {/* Meta (Saved pattern) */}
-      <div className="mt-2 flex items-center gap-3 text-xs text-zinc-400">
-        <span className="shrink-0 whitespace-nowrap text-[11px] sm:text-xs">
-          <span className="sm:hidden">{formatPostDateCompact(post)}</span>
-          <span className="hidden sm:inline">{formatPostDate(post)}</span>
-        </span>
+     <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+  <span className="shrink-0 whitespace-nowrap text-[11px] sm:text-xs">
+    <span className="sm:hidden">{formatPostDateCompact(post)}</span>
+    <span className="hidden sm:inline">{formatPostDate(post)}</span>
+  </span>
 
-        {post?.category ? (
-          <span className="min-w-0 flex-1 flex justify-end">
-            <span className={`${PILL_CATEGORY} max-w-full truncate`}>
-              {post.category}
-            </span>
-          </span>
-        ) : (
-          <span className="flex-1" aria-hidden="true" />
-        )}
-      </div>
+  {post?.category ? (
+    <span className="min-w-0 flex-1 flex justify-end">
+      {/* pill wrapper */}
+      <span
+        className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+        title={post.category}
+      >
+        {/* tekst trunca pouzdano */}
+        <span className="min-w-0 truncate">{post.category}</span>
+      </span>
+    </span>
+  ) : (
+    <span className="flex-1" aria-hidden="true" />
+  )}
+</div>
 
       {/* TTL pill */}
       {typeof daysLeft === "number" && (

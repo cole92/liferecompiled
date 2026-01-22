@@ -252,21 +252,26 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
       </div>
 
       {/* Meta: date has priority, category truncates inside remaining space */}
-      <div className="mt-2 flex items-center gap-3 text-xs text-zinc-400">
-        <span className="shrink-0 whitespace-nowrap">
-          {formatPostDate(post)}
-        </span>
+     <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+  <span className="shrink-0 whitespace-nowrap">
+    {formatPostDate(post)}
+  </span>
 
-        {post?.category ? (
-          <span className="min-w-0 flex-1 flex justify-end">
-            <span className={`${PILL_CATEGORY} max-w-full truncate`}>
-              {post.category}
-            </span>
-          </span>
-        ) : (
-          <span className="flex-1" aria-hidden="true" />
-        )}
-      </div>
+  {post?.category ? (
+    <span className="min-w-0 flex-1 flex justify-end">
+      {/* pill wrapper */}
+      <span
+        className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+        title={post.category}
+      >
+        {/* tekst je taj koji trunca */}
+        <span className="min-w-0 truncate">{post.category}</span>
+      </span>
+    </span>
+  ) : (
+    <span className="flex-1" aria-hidden="true" />
+  )}
+</div>
 
       {(isUpdatedSinceSaved || post?.locked) && (
         <div className="mt-2 flex flex-wrap items-center gap-2">

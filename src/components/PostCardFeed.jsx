@@ -205,30 +205,29 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
         </div>
 
         {/* Meta: date + category */}
-        <div className="mt-2 flex items-center gap-3 text-xs text-zinc-400">
-          <span className="shrink-0 whitespace-nowrap text-[11px] sm:text-xs">
+        {/* Meta: date + category */}
+        <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+          {/* date: dozvoli da se skrati na XS ako treba */}
+          <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
             <span className="sm:hidden">{formatPostDateCompact(post)}</span>
             <span className="hidden sm:inline">{formatPostDate(post)}</span>
           </span>
 
           {post?.category ? (
             <span className="min-w-0 flex-1 flex justify-end">
-              <span className={`${PILL_CATEGORY} max-w-full truncate`}>
-                {post.category}
+              {/* pill wrapper */}
+              <span
+                className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+                title={post.category}
+              >
+                {/* tekst je taj koji trunca */}
+                <span className="min-w-0 truncate">{post.category}</span>
               </span>
             </span>
           ) : (
             <span className="flex-1" aria-hidden="true" />
           )}
         </div>
-        {/* Description (reserved space for consistency) */}
-        {post?.description ? (
-          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
-            {post.description}
-          </p>
-        ) : (
-          <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
-        )}
 
         {/* Bottom block pinned to the bottom */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
