@@ -26,7 +26,7 @@ import { getDaysLeft } from "../../utils/dateUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Komponente
-import PostCard from "../../components/PostCard";
+import PostCardTrash from "../../components/PostCardTrash";
 import EmptyState from "./components/EmptyState";
 import SkeletonCard from "../../components/ui/skeletonLoader/SkeletonCard";
 
@@ -59,6 +59,15 @@ const Trash = () => {
       }
     : null;
 
+  const gridBase = "grid gap-4 grid-cols-1 lg:grid-cols-2";
+
+  // IMPORTANT:
+  // Dashboard layout najverovatnije vec ima ui-shell oko Outlet-a,
+  // zato ovde NE stavljamo ui-shell (da ne dobijemo dupli/narrow wrapper).
+  const shell = "w-full pb-2";
+
+  const wrap = "space-y-6 py-6";
+
   useEffect(() => {
     let canceled = false;
 
@@ -74,13 +83,13 @@ const Trash = () => {
       try {
         const postRef = collection(db, "posts");
 
-        // Prefetch +1 (eliminiše fake Load more kad ima tacno 10)
+        // Prefetch +1 (eliminise fake Load more kad ima tacno 10)
         const q = query(
           postRef,
           where("userId", "==", user.uid),
           where("deleted", "==", true),
           orderBy("deletedAt", "desc"),
-          limit(POST_PER_PAGE + 1)
+          limit(POST_PER_PAGE + 1),
         );
 
         const snap = await getDocs(q);
@@ -147,7 +156,7 @@ const Trash = () => {
         where("deleted", "==", true),
         orderBy("deletedAt", "desc"),
         startAfter(lastDoc),
-        limit(POST_PER_PAGE + 1)
+        limit(POST_PER_PAGE + 1),
       );
 
       const snap = await getDocs(q);
@@ -200,7 +209,6 @@ const Trash = () => {
   const handleRestore = async (postId) => {
     if (!postId) return;
 
-    // optimistic
     const snapshot = deletedPosts.find((p) => p.id === postId) || null;
     removeFromUI(postId);
 
@@ -214,7 +222,6 @@ const Trash = () => {
     } catch (err) {
       console.error("Error restoring post:", err);
 
-      // rollback
       if (snapshot) {
         setDeletedPosts((prev) => {
           const map = new Map(prev.map((p) => [p.id, p]));
@@ -232,8 +239,6 @@ const Trash = () => {
     if (!postIdToDelete) return;
 
     const snapshot = deletedPosts.find((p) => p.id === postIdToDelete) || null;
-
-    // optimistic
     removeFromUI(postIdToDelete);
 
     try {
@@ -243,7 +248,6 @@ const Trash = () => {
     } catch (error) {
       console.error("Delete error:", error);
 
-      // rollback
       if (snapshot) {
         setDeletedPosts((prev) => {
           const map = new Map(prev.map((p) => [p.id, p]));
@@ -308,79 +312,88 @@ const Trash = () => {
       : "You haven't deleted any posts yet.";
 
   return (
-    <div>
-      {shouldShowEmpty && <EmptyState message={emptyMessage} />}
+    <div className={shell}>
+      <div className={wrap}>
+        {shouldShowEmpty && <EmptyState message={emptyMessage} />}
 
-      {isLoading && (
-        <div className="grid gap-4">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      )}
+        {isLoading && (
+          <div className={gridBase} role="status" aria-live="polite">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
 
-      {isLoadingMore && (
-        <div className="mt-2 space-y-2">
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-      )}
+        {!isLoading && filteredPosts.length > 0 && (
+          <>
+            <div className={gridBase}>
+              <AnimatePresence>
+                {filteredPosts.map((post) => {
+                  const daysLeft = post.deletedAt
+                    ? getDaysLeft(post.deletedAt)
+                    : null;
 
-      {!isLoading && filteredPosts.length > 0 && (
-        <div className="grid gap-4">
-          <AnimatePresence>
-            {filteredPosts.map((post) => {
-              const daysLeft = post.deletedAt
-                ? getDaysLeft(post.deletedAt)
-                : null;
+                  return (
+                    <motion.div
+                      key={post.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    >
+                      <PostCardTrash
+                        post={post}
+                        daysLeft={daysLeft}
+                        onRestore={() => {
+                          setSelectedPostId(post.id);
+                          setRestoreModalOpen(true);
+                        }}
+                        onDeletePermanently={() => {
+                          setPostIdToDelete(post.id);
+                          setDeleteModalOpen(true);
+                        }}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
 
-              return (
-                <motion.div
-                  key={post.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
+            {isLoadingMore && (
+              <div className={gridBase} role="status" aria-live="polite">
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            )}
+
+            {hasMore && (
+              <div className="flex justify-center pt-3">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore || !hasMore}
+                  aria-busy={isLoadingMore}
+                  aria-disabled={isLoadingMore || !hasMore}
+                  className={`ui-button-primary ${
+                    isLoadingMore ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
                 >
-                  <PostCard
-                    post={post}
-                    isTrashMode={true}
-                    daysLeft={daysLeft}
-                    onRestore={() => {
-                      setSelectedPostId(post.id);
-                      setRestoreModalOpen(true);
-                    }}
-                    onDeletePermanently={() => {
-                      setPostIdToDelete(post.id);
-                      setDeleteModalOpen(true);
-                    }}
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                  {isLoadingMore ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
 
-          {hasMore && (
-            <button
-              onClick={handleLoadMore}
-              disabled={isLoadingMore || !hasMore}
-              aria-busy={isLoadingMore}
-              aria-disabled={isLoadingMore || !hasMore}
-            >
-              {isLoadingMore ? "Loading..." : "Load more"}
-            </button>
-          )}
-
-          {!hasMore && filteredPosts.length > 0 && (
-            <p
-              className="mt-4 text-sm text-zinc-400 text-center"
-              aria-live="polite"
-            >
-              You reached the end.
-            </p>
-          )}
-        </div>
-      )}
+            {!hasMore && filteredPosts.length > 0 && (
+              <p
+                className="mt-2 text-sm text-zinc-400 text-center"
+                aria-live="polite"
+              >
+                You reached the end.
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
       <ConfirmModal
         isOpen={restoreModalOpen}
