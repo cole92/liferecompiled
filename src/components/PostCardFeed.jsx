@@ -48,8 +48,11 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
   const tags = Array.isArray(post?.tags) ? post.tags : [];
-  const visibleTags = tags.slice(0, 3);
-  const extraTagsCount = Math.max(0, tags.length - visibleTags.length);
+
+  const visibleTagsXs = tags.slice(0, 2);
+  const visibleTagsSm = tags.slice(0, 3);
+  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
+  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
 
   const badgesToShow = useMemo(() => {
     const out = [];
@@ -231,7 +234,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
 
         {/* Description (reserved space for consistency) */}
         {post?.description ? (
-          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem]">
+          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
             {post.description}
           </p>
         ) : (
@@ -241,20 +244,44 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
         {/* Bottom block pinned to the bottom */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
           {/* Tags row: always reserve one row so reactions align across cards */}
-          <div className="min-h-[2.25rem] flex flex-wrap items-center gap-2">
-            {visibleTags.map((tag, idx) => (
-              <span
-                key={`${tag.text}-${idx}`}
-                className={`${PILL_TAG} max-w-[12rem] truncate`}
-                title={`#${tag.text}`}
-              >
-                #{tag.text}
-              </span>
-            ))}
+          <div className="min-h-[2.25rem]">
+            {/* XS: 2 tags */}
+            <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
+              {visibleTagsXs.map((tag, idx) => (
+                <span
+                  key={`${tag.text}-${idx}`}
+                  className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
+                  title={`#${tag.text}`}
+                >
+                  #{tag.text}
+                </span>
+              ))}
 
-            {extraTagsCount > 0 && (
-              <span className={PILL_META}>+{extraTagsCount}</span>
-            )}
+              {extraTagsCountXs > 0 && (
+                <span className={`${PILL_META} shrink-0`}>
+                  +{extraTagsCountXs}
+                </span>
+              )}
+            </div>
+
+            {/* SM+: 3 tags */}
+            <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
+              {visibleTagsSm.map((tag, idx) => (
+                <span
+                  key={`${tag.text}-${idx}`}
+                  className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
+                  title={`#${tag.text}`}
+                >
+                  #{tag.text}
+                </span>
+              ))}
+
+              {extraTagsCountSm > 0 && (
+                <span className={`${PILL_META} shrink-0`}>
+                  +{extraTagsCountSm}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Reactions */}

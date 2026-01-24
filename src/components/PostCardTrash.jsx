@@ -2,6 +2,8 @@ import PropTypes from "prop-types";
 import { FiLock } from "react-icons/fi";
 
 import ShieldIcon from "./ui/ShieldIcon";
+import Avatar from "./common/Avatar";
+
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import {
   FOCUS_RING,
@@ -37,12 +39,12 @@ function getTtlPillClasses(daysLeft) {
 
 const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
   const authorName = post?.author?.name || "Unknown";
-  const authorPic = post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE;
 
   const tags = Array.isArray(post?.tags) ? post.tags : [];
-  const visibleTags = tags.slice(0, 3);
-  const extraXs = Math.max(0, tags.length - 2);
-  const extraSm = Math.max(0, tags.length - 3);
+  const visibleTagsXs = tags.slice(0, 2);
+  const visibleTagsSm = tags.slice(0, 3);
+  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
+  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
 
   const lockedAtLabel = post?.lockedAt?.toDate?.()
     ? post.lockedAt.toDate().toLocaleDateString()
@@ -61,15 +63,11 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <div className="relative shrink-0">
-            <img
-              src={authorPic}
-              alt={`Avatar of ${authorName}`}
-              className={`w-10 h-10 rounded-full object-cover border border-zinc-800 ${
-                post?.author?.badges?.topContributor
-                  ? "ring-2 ring-sky-400/40"
-                  : ""
-              }`}
-              loading="lazy"
+            <Avatar
+              src={post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE}
+              size={40}
+              zoomable
+              badge={post?.author?.badges?.topContributor}
             />
 
             {post?.author?.badges?.topContributor && (
@@ -105,33 +103,31 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
 
       {/* Title */}
       <div className="mt-3">
-        <h2 className="text-lg font-semibold leading-snug text-zinc-100 line-clamp-2 min-h-[3.25rem] break-words">
+        <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
           {post?.title || "Untitled"}
         </h2>
       </div>
 
-      {/* Meta (Saved pattern) */}
-     <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
-  <span className="shrink-0 whitespace-nowrap text-[11px] sm:text-xs">
-    <span className="sm:hidden">{formatPostDateCompact(post)}</span>
-    <span className="hidden sm:inline">{formatPostDate(post)}</span>
-  </span>
+      {/* Meta (standard date+category row) */}
+      <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+        <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
+          <span className="sm:hidden">{formatPostDateCompact(post)}</span>
+          <span className="hidden sm:inline">{formatPostDate(post)}</span>
+        </span>
 
-  {post?.category ? (
-    <span className="min-w-0 flex-1 flex justify-end">
-      {/* pill wrapper */}
-      <span
-        className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
-        title={post.category}
-      >
-        {/* tekst trunca pouzdano */}
-        <span className="min-w-0 truncate">{post.category}</span>
-      </span>
-    </span>
-  ) : (
-    <span className="flex-1" aria-hidden="true" />
-  )}
-</div>
+        {post?.category ? (
+          <span className="min-w-0 flex-1 flex justify-end">
+            <span
+              className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+              title={post.category}
+            >
+              <span className="min-w-0 truncate">{post.category}</span>
+            </span>
+          </span>
+        ) : (
+          <span className="flex-1" aria-hidden="true" />
+        )}
+      </div>
 
       {/* TTL pill */}
       {typeof daysLeft === "number" && (
@@ -161,33 +157,45 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
 
       {/* Bottom */}
       <div className="mt-auto pt-3 border-t border-zinc-800/60">
-        {/* Tags: XS = 2 tags, SM+ = 3 tags; keep +N on same row */}
-        <div className="min-h-[2.25rem] flex items-center gap-2 overflow-hidden flex-nowrap sm:flex-wrap sm:overflow-visible">
-          {visibleTags.map((tag, idx) => (
-            <span
-              key={`${tag?.text || "tag"}-${idx}`}
-              className={
-                `${PILL_TAG} shrink min-w-0 truncate ` +
-                (idx === 2
-                  ? "hidden sm:inline-flex max-w-[12rem]"
-                  : "max-w-[48%] sm:max-w-[12rem]")
-              }
-              title={`#${tag?.text || ""}`}
-            >
-              #{tag?.text || ""}
-            </span>
-          ))}
+        {/* Tags: Pattern B (XS=2, SM+=3) */}
+        <div className="min-h-[2.25rem]">
+          {/* XS: 2 tags */}
+          <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
+            {visibleTagsXs.map((tag, idx) => (
+              <span
+                key={`${tag?.text || "tag"}-${idx}`}
+                className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
+                title={`#${tag?.text || ""}`}
+              >
+                #{tag?.text || ""}
+              </span>
+            ))}
 
-          {extraXs > 0 && (
-            <span className={`${PILL_META} shrink-0 sm:hidden`}>
-              +{extraXs}
-            </span>
-          )}
-          {extraSm > 0 && (
-            <span className={`${PILL_META} shrink-0 hidden sm:inline-flex`}>
-              +{extraSm}
-            </span>
-          )}
+            {extraTagsCountXs > 0 && (
+              <span className={`${PILL_META} shrink-0`}>
+                +{extraTagsCountXs}
+              </span>
+            )}
+          </div>
+
+          {/* SM+: 3 tags */}
+          <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
+            {visibleTagsSm.map((tag, idx) => (
+              <span
+                key={`${tag?.text || "tag"}-${idx}`}
+                className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
+                title={`#${tag?.text || ""}`}
+              >
+                #{tag?.text || ""}
+              </span>
+            ))}
+
+            {extraTagsCountSm > 0 && (
+              <span className={`${PILL_META} shrink-0`}>
+                +{extraTagsCountSm}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Actions: left/right, smaller on XS */}

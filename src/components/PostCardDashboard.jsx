@@ -43,7 +43,6 @@ function formatPostDateCompact(post) {
   return post?.updatedAt ? `Edited: ${d}` : `Posted: ${d}`;
 }
 
-
 function getEditDaysLeft(createdAt) {
   if (!createdAt?.toDate) return null;
 
@@ -72,8 +71,10 @@ const PostCardDashboard = ({
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
   const tags = Array.isArray(post?.tags) ? post.tags : [];
-  const visibleTags = tags.slice(0, 3);
-  const extraTagsCount = Math.max(0, tags.length - visibleTags.length);
+  const visibleTagsXs = tags.slice(0, 2);
+  const visibleTagsSm = tags.slice(0, 3);
+  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
+  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
 
   const badgesToShow = useMemo(() => {
     const out = [];
@@ -242,29 +243,28 @@ const PostCardDashboard = ({
         </div>
 
         {/* Meta: date + category */}
-     <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
-  {/* date: dozvoli da se po potrebi skrati na 320px */}
-  <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
-    <span className="sm:hidden">{formatPostDateCompact(post)}</span>
-    <span className="hidden sm:inline">{formatPostDate(post)}</span>
-  </span>
+        <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+          {/* date: dozvoli da se po potrebi skrati na 320px */}
+          <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
+            <span className="sm:hidden">{formatPostDateCompact(post)}</span>
+            <span className="hidden sm:inline">{formatPostDate(post)}</span>
+          </span>
 
-  {post?.category ? (
-    <span className="min-w-0 flex-1 flex justify-end">
-      {/* pill wrapper */}
-      <span
-        className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
-        title={post.category}
-      >
-        {/* tekst je taj koji trunca */}
-        <span className="min-w-0 truncate">{post.category}</span>
-      </span>
-    </span>
-  ) : (
-    <span className="flex-1" aria-hidden="true" />
-  )}
-</div>
-
+          {post?.category ? (
+            <span className="min-w-0 flex-1 flex justify-end">
+              {/* pill wrapper */}
+              <span
+                className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+                title={post.category}
+              >
+                {/* tekst je taj koji trunca */}
+                <span className="min-w-0 truncate">{post.category}</span>
+              </span>
+            </span>
+          ) : (
+            <span className="flex-1" aria-hidden="true" />
+          )}
+        </div>
 
         {/* Description */}
         {post?.description ? (
@@ -278,20 +278,44 @@ const PostCardDashboard = ({
         {/* Bottom: tags + reactions + management */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
           {/* Tags row */}
-          <div className="min-h-[2.25rem] flex flex-wrap items-center gap-2">
-            {visibleTags.map((tag, idx) => (
-              <span
-                key={`${tag.text}-${idx}`}
-                className={`${PILL_TAG} max-w-[12rem] truncate`}
-                title={`#${tag.text}`}
-              >
-                #{tag.text}
-              </span>
-            ))}
+          <div className="min-h-[2.25rem]">
+            {/* XS: 2 tags */}
+            <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
+              {visibleTagsXs.map((tag, idx) => (
+                <span
+                  key={`${tag.text}-${idx}`}
+                  className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
+                  title={`#${tag.text}`}
+                >
+                  #{tag.text}
+                </span>
+              ))}
 
-            {extraTagsCount > 0 && (
-              <span className={PILL_META}>+{extraTagsCount}</span>
-            )}
+              {extraTagsCountXs > 0 && (
+                <span className={`${PILL_META} shrink-0`}>
+                  +{extraTagsCountXs}
+                </span>
+              )}
+            </div>
+
+            {/* SM+: 3 tags */}
+            <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
+              {visibleTagsSm.map((tag, idx) => (
+                <span
+                  key={`${tag.text}-${idx}`}
+                  className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
+                  title={`#${tag.text}`}
+                >
+                  #{tag.text}
+                </span>
+              ))}
+
+              {extraTagsCountSm > 0 && (
+                <span className={`${PILL_META} shrink-0`}>
+                  +{extraTagsCountSm}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Reactions */}

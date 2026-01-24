@@ -8,7 +8,7 @@ import { AuthContext } from "../../../../context/AuthContext";
 import { useCheckSavedStatus } from "../../../../hooks/useCheckSavedStatus";
 
 import Badge from "../../../../components/ui/Bagde";
-import ShieldIcon from "../../../../components/ui/ShieldIcon";
+import Avatar from "../../../../components/common/Avatar";
 
 import { toggleSavePost } from "../../../../utils/savedPostUtils";
 import { DEFAULT_PROFILE_PICTURE } from "../../../../constants/defaults";
@@ -28,6 +28,13 @@ function formatPostDate(post) {
   return post?.updatedAt
     ? `Last edited: ${ts.toDate().toLocaleDateString()}`
     : `Posted: ${ts.toDate().toLocaleDateString()}`;
+}
+
+function formatPostDateCompact(post) {
+  const ts = post?.updatedAt || post?.createdAt;
+  if (!ts?.toDate) return "";
+  const d = ts.toDate().toLocaleDateString();
+  return post?.updatedAt ? `Edited: ${d}` : `Posted: ${d}`;
 }
 
 const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
@@ -121,7 +128,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold leading-snug text-zinc-100 line-clamp-1">
+            <h2 className="text-lg font-semibold leading-snug text-zinc-100 line-clamp-1 break-words">
               {post.postTitleAtSave ||
                 post.title ||
                 "Post is no longer available"}
@@ -152,7 +159,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
           </button>
         </div>
 
-        <p className="mt-3 text-sm text-zinc-300">
+        <p className="mt-3 text-sm text-zinc-300 break-words">
           This post was removed by its author and is no longer available.
         </p>
 
@@ -160,9 +167,6 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
       </article>
     );
   }
-
-  const authorName = post?.author?.name || "Unknown";
-  const authorPic = post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE;
 
   const previewText = post?.description
     ? post.description
@@ -185,30 +189,17 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
             className="relative shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
-              src={authorPic}
-              alt={`Avatar of ${authorName}`}
-              className={`w-10 h-10 rounded-full object-cover border border-zinc-800 ${
-                post?.author?.badges?.topContributor
-                  ? "ring-2 ring-sky-400/40"
-                  : ""
-              }`}
-              loading="lazy"
+            <Avatar
+              src={post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE}
+              size={40}
+              zoomable
+              badge={post?.author?.badges?.topContributor}
             />
-
-            {post?.author?.badges?.topContributor && (
-              <span
-                className="absolute -top-2 -right-2"
-                title="Top Contributor"
-              >
-                <ShieldIcon className="w-5 h-5 text-amber-300" />
-              </span>
-            )}
           </div>
 
           <span className="min-w-0">
             <span className="font-semibold text-sm text-zinc-100 line-clamp-1">
-              {authorName}
+              {post?.author?.name || "Unknown"}
             </span>
           </span>
         </div>
@@ -238,7 +229,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
       </div>
 
       <div className="mt-3 flex items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem]">
+        <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
           {post?.title || ""}
         </h2>
 
@@ -251,27 +242,26 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
         ) : null}
       </div>
 
-      {/* Meta: date has priority, category truncates inside remaining space */}
-     <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
-  <span className="shrink-0 whitespace-nowrap">
-    {formatPostDate(post)}
-  </span>
+      {/* Meta: XS-safe date + category */}
+      <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+        <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
+          <span className="sm:hidden">{formatPostDateCompact(post)}</span>
+          <span className="hidden sm:inline">{formatPostDate(post)}</span>
+        </span>
 
-  {post?.category ? (
-    <span className="min-w-0 flex-1 flex justify-end">
-      {/* pill wrapper */}
-      <span
-        className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
-        title={post.category}
-      >
-        {/* tekst je taj koji trunca */}
-        <span className="min-w-0 truncate">{post.category}</span>
-      </span>
-    </span>
-  ) : (
-    <span className="flex-1" aria-hidden="true" />
-  )}
-</div>
+        {post?.category ? (
+          <span className="min-w-0 flex-1 flex justify-end">
+            <span
+              className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+              title={post.category}
+            >
+              <span className="min-w-0 truncate">{post.category}</span>
+            </span>
+          </span>
+        ) : (
+          <span className="flex-1" aria-hidden="true" />
+        )}
+      </div>
 
       {(isUpdatedSinceSaved || post?.locked) && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -373,7 +363,7 @@ SavedPostCard.propTypes = {
     tags: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string,
-      }),
+      })
     ),
     author: PropTypes.shape({
       name: PropTypes.string,
