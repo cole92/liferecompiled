@@ -20,6 +20,7 @@ import Avatar from "./common/Avatar";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+import { formatPostDateLabel } from "../utils/formatDate";
 
 import {
   FOCUS_RING,
@@ -27,21 +28,6 @@ import {
   PILL_TAG,
   PILL_META,
 } from "../constants/uiClasses";
-
-function formatPostDate(post) {
-  const ts = post?.updatedAt || post?.createdAt;
-  if (!ts?.toDate) return "";
-  return post?.updatedAt
-    ? `Last edited: ${ts.toDate().toLocaleDateString()}`
-    : `Posted: ${ts.toDate().toLocaleDateString()}`;
-}
-
-function formatPostDateCompact(post) {
-  const ts = post?.updatedAt || post?.createdAt;
-  if (!ts?.toDate) return "";
-  const d = ts.toDate().toLocaleDateString();
-  return post?.updatedAt ? `Edited: ${d}` : `Posted: ${d}`;
-}
 
 function getEditDaysLeft(createdAt) {
   if (!createdAt?.toDate) return null;
@@ -246,8 +232,12 @@ const PostCardDashboard = ({
         <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
           {/* date: dozvoli da se po potrebi skrati na 320px */}
           <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
-            <span className="sm:hidden">{formatPostDateCompact(post)}</span>
-            <span className="hidden sm:inline">{formatPostDate(post)}</span>
+            <span className="sm:hidden">
+              {formatPostDateLabel(post, { compact: true })}
+            </span>
+            <span className="hidden sm:inline">
+              {formatPostDateLabel(post, { compact: false })}
+            </span>
           </span>
 
           {post?.category ? (
