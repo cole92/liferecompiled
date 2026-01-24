@@ -229,6 +229,15 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
           )}
         </div>
 
+        {/* Description (reserved space for consistency) */}
+        {post?.description ? (
+          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem]">
+            {post.description}
+          </p>
+        ) : (
+          <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
+        )}
+
         {/* Bottom block pinned to the bottom */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
           {/* Tags row: always reserve one row so reactions align across cards */}
