@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useContext, useMemo } from "react";
+import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
@@ -9,6 +9,8 @@ import { useCheckSavedStatus } from "../../../../hooks/useCheckSavedStatus";
 
 import Badge from "../../../../components/ui/Bagde";
 import Avatar from "../../../../components/common/Avatar";
+import BadgeModal from "../../../../components/modals/BadgeModal";
+import ShieldIcon from "../../../../components/ui/ShieldIcon";
 
 import { toggleSavePost } from "../../../../utils/savedPostUtils";
 import { DEFAULT_PROFILE_PICTURE } from "../../../../constants/defaults";
@@ -29,6 +31,10 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
 
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState(null);
+  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
+
   const tags = Array.isArray(post?.tags) ? post.tags : [];
   const visibleTagsXs = tags.slice(0, 2);
   const visibleTagsSm = tags.slice(0, 3);
@@ -37,13 +43,22 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
 
   const badgesToShow = useMemo(() => {
     const out = [];
-    if (post?.badges?.mostInspiring)
+    if (post?.badges?.mostInspiring) {
       out.push({ key: "mostInspiring", text: "Most Inspiring" });
-    if (post?.badges?.trending) out.push({ key: "trending", text: "Trending" });
+    }
+    if (post?.badges?.trending) {
+      out.push({ key: "trending", text: "Trending" });
+    }
     return out.slice(0, 2);
   }, [post?.badges?.mostInspiring, post?.badges?.trending]);
 
   const handleCardClick = () => navigate(`/post/${post.id}`);
+
+  const handleBadgeClick = (e, badgeKey) => {
+    e.stopPropagation();
+    setSelectedBadge(badgeKey);
+    setShowBadgeModal(true);
+  };
 
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
@@ -165,173 +180,217 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
     : "";
 
   return (
-    <article
-      className={`${cardBase} ${cardInteractive} ${cardLocked}`}
-      onClick={handleCardClick}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <div
-            className="relative shrink-0"
-            onClick={(e) => e.stopPropagation()}
+    <>
+      <article
+        className={`${cardBase} ${cardInteractive} ${cardLocked}`}
+        onClick={handleCardClick}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="relative shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Avatar
+                src={post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE}
+                size={40}
+                zoomable
+                badge={post?.author?.badges?.topContributor}
+              />
+
+              {post?.author?.badges?.topContributor && (
+                <button
+                  type="button"
+                  className="group absolute -top-2 -right-1 z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTopContributorModal(true);
+                  }}
+                  aria-label="Top contributor info"
+                  title="Top Contributor"
+                >
+                  <ShieldIcon className="w-5 h-5 text-amber-300 group-hover:scale-110 transition-transform" />
+                </button>
+              )}
+            </div>
+
+            <span className="min-w-0">
+              <span className="font-semibold text-sm text-zinc-100 line-clamp-1">
+                {post?.author?.name || "Unknown"}
+              </span>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveToggle}
+            disabled={isPendingUndo}
+            aria-disabled={isPendingUndo}
+            className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition ${
+              isPendingUndo ? "opacity-50 cursor-not-allowed" : ""
+            } ${FOCUS_RING}`}
+            title={
+              isPendingUndo
+                ? "Undo pending..."
+                : isSaved
+                  ? "Remove from saved"
+                  : "Save this post"
+            }
           >
-            <Avatar
-              src={post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE}
-              size={40}
-              zoomable
-              badge={post?.author?.badges?.topContributor}
-            />
-          </div>
-
-          <span className="min-w-0">
-            <span className="font-semibold text-sm text-zinc-100 line-clamp-1">
-              {post?.author?.name || "Unknown"}
-            </span>
-          </span>
+            {isSaved ? (
+              <BsBookmarkFill className="h-4 w-4 text-sky-200" />
+            ) : (
+              <BsBookmark className="h-4 w-4" />
+            )}
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSaveToggle}
-          disabled={isPendingUndo}
-          aria-disabled={isPendingUndo}
-          className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition ${
-            isPendingUndo ? "opacity-50 cursor-not-allowed" : ""
-          } ${FOCUS_RING}`}
-          title={
-            isPendingUndo
-              ? "Undo pending..."
-              : isSaved
-                ? "Remove from saved"
-                : "Save this post"
-          }
-        >
-          {isSaved ? (
-            <BsBookmarkFill className="h-4 w-4 text-sky-200" />
+        <div className="mt-3 flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
+            {post?.title || ""}
+          </h2>
+
+          {badgesToShow.length > 0 ? (
+            <div className="shrink-0 flex items-center gap-1">
+              {badgesToShow.map((b) => (
+                <Badge
+                  key={b.key}
+                  text={b.text}
+                  onClick={(e) => handleBadgeClick(e, b.key)}
+                  locked={post?.locked}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Meta: XS-safe date + category */}
+        <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+          <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
+            <span className="sm:hidden">
+              {formatPostDateLabel(post, { compact: true })}
+            </span>
+            <span className="hidden sm:inline">
+              {formatPostDateLabel(post, { compact: false })}
+            </span>
+          </span>
+
+          {post?.category ? (
+            <span className="min-w-0 flex-1 flex justify-end">
+              <span
+                className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+                title={post.category}
+              >
+                <span className="min-w-0 truncate">{post.category}</span>
+              </span>
+            </span>
           ) : (
-            <BsBookmark className="h-4 w-4" />
+            <span className="flex-1" aria-hidden="true" />
           )}
-        </button>
-      </div>
+        </div>
 
-      <div className="mt-3 flex items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
-          {post?.title || ""}
-        </h2>
+        {(isUpdatedSinceSaved || post?.locked) && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {isUpdatedSinceSaved && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+                Updated since saved
+              </span>
+            )}
 
-        {badgesToShow.length > 0 ? (
-          <div className="shrink-0 flex items-center gap-1">
-            {badgesToShow.map((b) => (
-              <Badge key={b.key} text={b.text} />
-            ))}
+            {post?.locked && (
+              <span
+                className={`${PILL_META} inline-flex items-center gap-1`}
+                title={
+                  archivedAtLabel
+                    ? `Archived on: ${archivedAtLabel}`
+                    : "Archived"
+                }
+              >
+                <FiLock className="text-sm" />
+                <span className="truncate">
+                  {archivedAtLabel
+                    ? `Archived: ${archivedAtLabel}`
+                    : "Archived"}
+                </span>
+              </span>
+            )}
           </div>
-        ) : null}
-      </div>
-
-      {/* Meta: XS-safe date + category */}
-      <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
-        <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
-          <span className="sm:hidden">
-            {formatPostDateLabel(post, { compact: true })}
-          </span>
-          <span className="hidden sm:inline">
-            {formatPostDateLabel(post, { compact: false })}
-          </span>
-        </span>
-
-        {post?.category ? (
-          <span className="min-w-0 flex-1 flex justify-end">
-            <span
-              className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
-              title={post.category}
-            >
-              <span className="min-w-0 truncate">{post.category}</span>
-            </span>
-          </span>
-        ) : (
-          <span className="flex-1" aria-hidden="true" />
         )}
-      </div>
 
-      {(isUpdatedSinceSaved || post?.locked) && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {isUpdatedSinceSaved && (
-            <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
-              Updated since saved
-            </span>
-          )}
+        {previewText ? (
+          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
+            {previewText}
+            {post?.content &&
+            !post?.description &&
+            post.content.length > CONTENT_PREVIEW_MAX
+              ? "..."
+              : ""}
+          </p>
+        ) : (
+          <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
+        )}
 
-          {post?.locked && (
-            <span
-              className={`${PILL_META} inline-flex items-center gap-1`}
-              title={
-                archivedAtLabel ? `Archived on: ${archivedAtLabel}` : "Archived"
-              }
-            >
-              <FiLock className="text-sm" />
-              <span className="truncate">
-                {archivedAtLabel ? `Archived: ${archivedAtLabel}` : "Archived"}
-              </span>
-            </span>
-          )}
-        </div>
-      )}
+        <div className="mt-auto pt-3 border-t border-zinc-800/60">
+          <div className="min-h-[2.25rem]">
+            {/* XS: 2 tags */}
+            <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
+              {visibleTagsXs.map((tag, idx) => (
+                <span
+                  key={`${tag?.text || "tag"}-${idx}`}
+                  className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
+                  title={`#${tag?.text || ""}`}
+                >
+                  #{tag?.text || ""}
+                </span>
+              ))}
 
-      {previewText ? (
-        <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
-          {previewText}
-          {post?.content &&
-          !post?.description &&
-          post.content.length > CONTENT_PREVIEW_MAX
-            ? "..."
-            : ""}
-        </p>
-      ) : (
-        <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
-      )}
+              {extraTagsCountXs > 0 && (
+                <span className={`${PILL_META} shrink-0`}>
+                  +{extraTagsCountXs}
+                </span>
+              )}
+            </div>
 
-      <div className="mt-auto pt-3 border-t border-zinc-800/60">
-        <div className="min-h-[2.25rem]">
-          {/* XS: 2 tags */}
-          <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
-            {visibleTagsXs.map((tag, idx) => (
-              <span
-                key={`${tag?.text || "tag"}-${idx}`}
-                className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
-                title={`#${tag?.text || ""}`}
-              >
-                #{tag?.text || ""}
-              </span>
-            ))}
+            {/* SM+: 3 tags */}
+            <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
+              {visibleTagsSm.map((tag, idx) => (
+                <span
+                  key={`${tag?.text || "tag"}-${idx}`}
+                  className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
+                  title={`#${tag?.text || ""}`}
+                >
+                  #{tag?.text || ""}
+                </span>
+              ))}
 
-            {extraTagsCountXs > 0 && (
-              <span className={`${PILL_META} shrink-0`}>
-                +{extraTagsCountXs}
-              </span>
-            )}
-          </div>
-
-          {/* SM+: 3 tags */}
-          <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
-            {visibleTagsSm.map((tag, idx) => (
-              <span
-                key={`${tag?.text || "tag"}-${idx}`}
-                className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
-                title={`#${tag?.text || ""}`}
-              >
-                #{tag?.text || ""}
-              </span>
-            ))}
-
-            {extraTagsCountSm > 0 && (
-              <span className={`${PILL_META} shrink-0`}>
-                +{extraTagsCountSm}
-              </span>
-            )}
+              {extraTagsCountSm > 0 && (
+                <span className={`${PILL_META} shrink-0`}>
+                  +{extraTagsCountSm}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </article>
+      </article>
+
+      {showBadgeModal && (
+        <BadgeModal
+          isOpen={showBadgeModal}
+          badgeKey={selectedBadge}
+          locked={post?.locked}
+          onClose={() => setShowBadgeModal(false)}
+        />
+      )}
+
+      {showTopContributorModal && (
+        <BadgeModal
+          isOpen={showTopContributorModal}
+          locked={post?.locked}
+          authorBadge="topContributor"
+          onClose={() => setShowTopContributorModal(false)}
+        />
+      )}
+    </>
   );
 };
 

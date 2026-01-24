@@ -74,7 +74,6 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
           </span>
         </div>
 
-        {/* Locked pill (limit width on XS) */}
         {post?.locked && (
           <span
             className={`${PILL_META} inline-flex items-center gap-1 max-w-[45%] sm:max-w-none`}
@@ -95,7 +94,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
         </h2>
       </div>
 
-      {/* Meta (standard date+category row) */}
+      {/* Meta */}
       <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
         <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
           <span className="sm:hidden">
@@ -120,14 +119,13 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
         )}
       </div>
 
-      {/* TTL pill */}
+      {/* TTL */}
       {typeof daysLeft === "number" && (
         <div className="mt-2">
           <span
-            className={
-              `inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 ` +
-              `text-xs font-medium ${getTtlPillClasses(daysLeft)}`
-            }
+            className={`inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getTtlPillClasses(
+              daysLeft
+            )}`}
           >
             ⏳{" "}
             {daysLeft === 0
@@ -148,9 +146,8 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
 
       {/* Bottom */}
       <div className="mt-auto pt-3 border-t border-zinc-800/60">
-        {/* Tags: Pattern B (XS=2, SM+=3) */}
         <div className="min-h-[2.25rem]">
-          {/* XS: 2 tags */}
+          {/* XS */}
           <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
             {visibleTagsXs.map((tag, idx) => (
               <span
@@ -161,7 +158,6 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
                 #{tag?.text || ""}
               </span>
             ))}
-
             {extraTagsCountXs > 0 && (
               <span className={`${PILL_META} shrink-0`}>
                 +{extraTagsCountXs}
@@ -169,7 +165,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
             )}
           </div>
 
-          {/* SM+: 3 tags */}
+          {/* SM+ */}
           <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
             {visibleTagsSm.map((tag, idx) => (
               <span
@@ -180,7 +176,6 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
                 #{tag?.text || ""}
               </span>
             ))}
-
             {extraTagsCountSm > 0 && (
               <span className={`${PILL_META} shrink-0`}>
                 +{extraTagsCountSm}
@@ -189,7 +184,6 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
           </div>
         </div>
 
-        {/* Actions: left/right, smaller on XS */}
         <div className="mt-3 flex items-center justify-between gap-2">
           <button
             type="button"
