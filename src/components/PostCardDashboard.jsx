@@ -54,7 +54,8 @@ const PostCardDashboard = ({
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
-  const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
+  const postId = post?.id;
+  const { isSaved, setIsSaved } = useCheckSavedStatus(user, postId);
 
   const tags = Array.isArray(post?.tags) ? post.tags : [];
   const visibleTagsXs = tags.slice(0, 2);
@@ -83,7 +84,8 @@ const PostCardDashboard = ({
     : "";
 
   const handleCardClick = () => {
-    navigate(`/post/${post.id}`);
+    if (!postId) return;
+    navigate(`/post/${postId}`);
   };
 
   const handleBadgeClick = (e, badgeKey) => {
@@ -94,17 +96,21 @@ const PostCardDashboard = ({
 
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
-    if (!user) return;
+    if (!user || !postId) return;
 
-    const currentUpdated = post?.updatedAt || post?.createdAt;
+    try {
+      const currentUpdated = post?.updatedAt || post?.createdAt;
 
-    const snapshot = {
-      postUpdatedAtAtSave: currentUpdated || null,
-      postTitleAtSave: post?.title || "",
-    };
+      const snapshot = {
+        postUpdatedAtAtSave: currentUpdated || null,
+        postTitleAtSave: post?.title || "",
+      };
 
-    const nextState = await toggleSavePost(user, post.id, isSaved, snapshot);
-    setIsSaved(nextState);
+      const nextState = await toggleSavePost(user, postId, isSaved, snapshot);
+      setIsSaved(nextState);
+    } catch (err) {
+      console.error("Save toggle failed:", err);
+    }
   };
 
   const cardBase =
@@ -311,7 +317,7 @@ const PostCardDashboard = ({
           {/* Reactions */}
           <div className="mt-3" onClick={(e) => e.stopPropagation()}>
             <ReactionSummary
-              postId={post.id}
+              postId={postId}
               locked={post?.locked}
               reactionCounts={
                 post?.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
@@ -329,7 +335,7 @@ const PostCardDashboard = ({
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {canEdit && (
                   <Link
-                    to={`/dashboard/edit/${post.id}`}
+                    to={`/dashboard/edit/${postId}`}
                     className="ui-button-primary inline-flex justify-center text-xs px-4 py-1.5 min-w-[72px] sm:text-sm sm:px-4 sm:py-2"
                   >
                     Edit
@@ -395,7 +401,7 @@ const PostCardDashboard = ({
                   <button
                     type="button"
                     className="rounded-lg bg-rose-500/15 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition sm:px-3 sm:py-2 sm:text-sm"
-                    onClick={() => onLock?.(post.id)}
+                    onClick={() => onLock?.(postId)}
                   >
                     <span className="sm:hidden">Archive</span>
                     <span className="hidden sm:inline">Archive post</span>
@@ -406,7 +412,7 @@ const PostCardDashboard = ({
                   <button
                     type="button"
                     className="rounded-lg bg-rose-500/15 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition sm:px-3 sm:py-2 sm:text-sm"
-                    onClick={() => onDelete?.(post.id)}
+                    onClick={() => onDelete?.(postId)}
                   >
                     Delete
                   </button>
