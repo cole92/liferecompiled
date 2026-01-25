@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * TrashFilterBar
- * - XS: horizontal scroll (no wrap)
- * - SM+: normal wrap / no scroll
- * - XS indicator: moving thumb (no fade)
+ * - Base..md: horizontal scroll (no wrap)
+ * - LG+: normal wrap / no scroll
+ * - Scroll indicator: moving thumb (no fade), active while scroll is used
  */
 const TrashFilterBar = ({ filterRange, onFilterChange }) => {
   const scrollerRef = useRef(null);
@@ -54,7 +54,6 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
     const { scrollLeft, scrollWidth, clientWidth } = el;
     const maxScroll = scrollWidth - clientWidth;
 
-    // show indicator only if there is real overflow
     if (maxScroll <= 1) {
       setThumb({ visible: false, widthPct: 0, leftPct: 0 });
       return;
@@ -78,7 +77,6 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
 
     const onResize = () => updateThumb();
 
-    // passive scroll listener
     el.addEventListener("scroll", updateThumb, { passive: true });
     window.addEventListener("resize", onResize);
 
@@ -86,11 +84,10 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
       el.removeEventListener("scroll", updateThumb);
       window.removeEventListener("resize", onResize);
     };
-    // re-run when content could change width (labels are stable, but safe)
   }, [filters.length]);
 
   return (
-    <div className="relative sm:static">
+    <div className="relative lg:static">
       <div
         ref={scrollerRef}
         className={
@@ -98,7 +95,7 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
           "flex-nowrap overflow-x-auto " +
           "-mx-2 px-2 pt-1 pb-2 " +
           "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden " +
-          "sm:overflow-visible sm:flex-wrap sm:mx-0 sm:px-0 sm:py-0"
+          "lg:overflow-visible lg:flex-wrap lg:mx-0 lg:px-0 lg:py-0"
         }
       >
         {filters.map((f) => (
@@ -109,7 +106,7 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
             className={
               `${baseBtn} ${btnSize} ${f.className} ` +
               `${filterRange === f.value ? "ring-1 ring-zinc-100/40" : ""} ` +
-              "sm:hover:scale-105"
+              "lg:hover:scale-105"
             }
           >
             {f.label}
@@ -123,16 +120,16 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
             `${baseBtn} ${btnSize} border-zinc-800 bg-zinc-950/40 text-zinc-200 ` +
             "hover:bg-zinc-900/40 " +
             `${!filterRange ? "ring-1 ring-zinc-100/40" : ""} ` +
-            "sm:hover:scale-105"
+            "lg:hover:scale-105"
           }
         >
           Reset
         </button>
       </div>
 
-      {/* XS only: moving underline indicator (no fade) */}
+      {/* Moving underline indicator while scroll is active */}
       {thumb.visible && (
-        <div className="pointer-events-none sm:hidden">
+        <div className="pointer-events-none lg:hidden">
           <div className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full bg-zinc-800/70 overflow-hidden">
             <div
               className="absolute top-0 bottom-0 rounded-full bg-zinc-500/70"
