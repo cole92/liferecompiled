@@ -24,6 +24,7 @@ import {
   PILL_META,
 } from "../constants/uiClasses";
 
+const CONTENT_PREVIEW_MAX = 260;
 
 const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
   const navigate = useNavigate();
@@ -43,14 +44,27 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
 
   const badgesToShow = useMemo(() => {
     const out = [];
-    if (post?.badges?.mostInspiring) {
+    if (post?.badges?.mostInspiring)
       out.push({ key: "mostInspiring", text: "Most Inspiring" });
-    }
-    if (post?.badges?.trending) {
-      out.push({ key: "trending", text: "Trending" });
-    }
+    if (post?.badges?.trending) out.push({ key: "trending", text: "Trending" });
     return out.slice(0, 2);
   }, [post?.badges?.mostInspiring, post?.badges?.trending]);
+
+  const { descText, contentPreview, isContentTruncated } = useMemo(() => {
+    const normalize = (v) =>
+      typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
+
+    const desc = normalize(post?.description);
+    const content = normalize(post?.content);
+
+    const preview = content ? content.slice(0, CONTENT_PREVIEW_MAX) : "";
+
+    return {
+      descText: desc,
+      contentPreview: preview,
+      isContentTruncated: content.length > CONTENT_PREVIEW_MAX,
+    };
+  }, [post?.description, post?.content]);
 
   const handleCardClick = () => {
     navigate(`/post/${post.id}`);
@@ -78,7 +92,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
   };
 
   const cardBase =
-    "relative w-full h-full overflow-hidden p-4 " +
+    "relative w-full h-full overflow-hidden p-5 sm:p-4 " +
     "rounded-2xl border border-zinc-800/70 " +
     "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
     "ring-1 ring-sky-200/10 shadow-sm " +
@@ -133,7 +147,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
             {post?.author?.id ? (
               <span className="min-w-0" onClick={(e) => e.stopPropagation()}>
                 <AuthorLink author={post.author}>
-                  <span className="font-semibold text-sm text-zinc-100 line-clamp-1">
+                  <span className="font-semibold text-sm text-zinc-100 line-clamp-1 break-words">
                     {post.author.name}
                   </span>
                 </AuthorLink>
@@ -175,7 +189,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
           </div>
         </div>
 
-        {/* Title + badges (max 2, always visible) */}
+        {/* Title + badges */}
         <div className="mt-3 flex items-start justify-between gap-3">
           <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
             {post?.title || ""}
@@ -195,22 +209,22 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
         </div>
 
         {/* Meta: date + category */}
-        {/* Meta: date + category */}
         <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
-          {/* date: dozvoli da se skrati na XS ako treba */}
           <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
-            <span className="sm:hidden">{formatPostDateLabel(post, { compact: true })}</span>
-  <span className="hidden sm:inline">{formatPostDateLabel(post, { compact: false })}</span>
+            <span className="sm:hidden">
+              {formatPostDateLabel(post, { compact: true })}
+            </span>
+            <span className="hidden sm:inline">
+              {formatPostDateLabel(post, { compact: false })}
+            </span>
           </span>
 
           {post?.category ? (
             <span className="min-w-0 flex-1 flex justify-end">
-              {/* pill wrapper */}
               <span
                 className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
                 title={post.category}
               >
-                {/* tekst je taj koji trunca */}
                 <span className="min-w-0 truncate">{post.category}</span>
               </span>
             </span>
@@ -219,18 +233,28 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
           )}
         </div>
 
-        {/* Description (reserved space for consistency) */}
-        {post?.description ? (
-          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
-            {post.description}
-          </p>
-        ) : (
-          <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
-        )}
+        {/* Preview: description + content (slightly taller, but controlled) */}
+        <div className="mt-2 min-h-[5.75rem]">
+          {descText ? (
+            <p className="text-sm text-zinc-300 line-clamp-2 break-words">
+              {descText}
+            </p>
+          ) : (
+            <div className="min-h-[2.75rem]" aria-hidden="true" />
+          )}
 
-        {/* Bottom block pinned to the bottom */}
+          {contentPreview ? (
+            <p className="mt-1 text-[13px] leading-relaxed text-zinc-300/90 line-clamp-2 break-words">
+              {contentPreview}
+              {isContentTruncated ? "..." : ""}
+            </p>
+          ) : (
+            <div className="mt-1 min-h-[2.75rem]" aria-hidden="true" />
+          )}
+        </div>
+
+        {/* Bottom */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
-          {/* Tags row: always reserve one row so reactions align across cards */}
           <div className="min-h-[2.25rem]">
             {/* XS: 2 tags */}
             <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
@@ -271,7 +295,6 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
             </div>
           </div>
 
-          {/* Reactions */}
           <div className="mt-3" onClick={(e) => e.stopPropagation()}>
             <ReactionSummary
               postId={post.id}
