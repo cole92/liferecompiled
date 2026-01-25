@@ -58,10 +58,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
             />
 
             {post?.author?.badges?.topContributor && (
-              <span
-                className="absolute -top-2 -right-2"
-                title="Top Contributor"
-              >
+              <span className="absolute -top-2 -right-2" title="Top Contributor">
                 <ShieldIcon className="w-5 h-5 text-amber-300" />
               </span>
             )}
@@ -119,22 +116,6 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
         )}
       </div>
 
-      {/* TTL */}
-      {typeof daysLeft === "number" && (
-        <div className="mt-2">
-          <span
-            className={`inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getTtlPillClasses(
-              daysLeft
-            )}`}
-          >
-            ⏳{" "}
-            {daysLeft === 0
-              ? "Last chance to restore!"
-              : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left to restore`}
-          </span>
-        </div>
-      )}
-
       {/* Description */}
       {post?.description ? (
         <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
@@ -159,9 +140,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
               </span>
             ))}
             {extraTagsCountXs > 0 && (
-              <span className={`${PILL_META} shrink-0`}>
-                +{extraTagsCountXs}
-              </span>
+              <span className={`${PILL_META} shrink-0`}>+{extraTagsCountXs}</span>
             )}
           </div>
 
@@ -177,12 +156,29 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
               </span>
             ))}
             {extraTagsCountSm > 0 && (
-              <span className={`${PILL_META} shrink-0`}>
-                +{extraTagsCountSm}
-              </span>
+              <span className={`${PILL_META} shrink-0`}>+{extraTagsCountSm}</span>
             )}
           </div>
         </div>
+
+        {/* NEW divider: tags -> status/actions */}
+        <div className="mt-2 border-t border-zinc-800/50" />
+
+        {/* TTL (always left) */}
+        {typeof daysLeft === "number" && (
+          <div className="mt-2 flex justify-start">
+            <span
+              className={`inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getTtlPillClasses(
+                daysLeft
+              )}`}
+            >
+              ⏳{" "}
+              {daysLeft === 0
+                ? "Last chance to restore!"
+                : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left to restore`}
+            </span>
+          </div>
+        )}
 
         <div className="mt-3 flex items-center justify-between gap-2">
           <button
