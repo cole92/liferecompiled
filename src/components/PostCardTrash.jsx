@@ -58,7 +58,10 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
             />
 
             {post?.author?.badges?.topContributor && (
-              <span className="absolute -top-2 -right-2" title="Top Contributor">
+              <span
+                className="absolute -top-2 -right-2"
+                title="Top Contributor"
+              >
                 <ShieldIcon className="w-5 h-5 text-amber-300" />
               </span>
             )}
@@ -74,11 +77,11 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
         {post?.locked && (
           <span
             className={`${PILL_META} inline-flex items-center gap-1 max-w-[45%] sm:max-w-none`}
-            title={lockedAtLabel ? `Locked on: ${lockedAtLabel}` : "Locked"}
+            title={lockedAtLabel ? `Archived on: ${lockedAtLabel}` : "Archived"}
           >
             <FiLock className="text-sm shrink-0" />
             <span className="truncate">
-              {lockedAtLabel ? `Locked: ${lockedAtLabel}` : "Locked"}
+              {lockedAtLabel ? `Archived: ${lockedAtLabel}` : "Archived"}
             </span>
           </span>
         )}
@@ -140,7 +143,9 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
               </span>
             ))}
             {extraTagsCountXs > 0 && (
-              <span className={`${PILL_META} shrink-0`}>+{extraTagsCountXs}</span>
+              <span className={`${PILL_META} shrink-0`}>
+                +{extraTagsCountXs}
+              </span>
             )}
           </div>
 
@@ -156,7 +161,9 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
               </span>
             ))}
             {extraTagsCountSm > 0 && (
-              <span className={`${PILL_META} shrink-0`}>+{extraTagsCountSm}</span>
+              <span className={`${PILL_META} shrink-0`}>
+                +{extraTagsCountSm}
+              </span>
             )}
           </div>
         </div>
@@ -169,7 +176,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
           <div className="mt-2 flex justify-start">
             <span
               className={`inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getTtlPillClasses(
-                daysLeft
+                daysLeft,
               )}`}
             >
               ⏳{" "}

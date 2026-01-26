@@ -66,7 +66,7 @@ const PostFilterBar = ({
           "bg-emerald-500/12 text-emerald-200 ring-1 ring-inset ring-emerald-400/25",
       },
       {
-        label: "Locked",
+        label: "Archived",
         value: "locked",
         activeClass:
           "bg-rose-500/12 text-rose-200 ring-1 ring-inset ring-rose-400/25",
