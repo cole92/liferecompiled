@@ -211,7 +211,7 @@ const Stats = () => {
                 <XAxis
                   dataKey="month"
                   tickFormatter={monthTick}
-                  interval={0}              // <-- NO SKIP (mobile + desktop)
+                  interval={0} // <-- NO SKIP (mobile + desktop)
                   minTickGap={8}
                   tickMargin={8}
                   height={isLg ? 26 : 42}
@@ -223,6 +223,8 @@ const Stats = () => {
                 />
                 <YAxis
                   allowDecimals={false}
+                  width={isLg ? 42 : 30} // <-- OVO dodaj
+                  tickMargin={6} // <-- opcionalno, ali lepo legne
                   tick={{ fill: "#a1a1aa", fontSize: 12 }}
                   axisLine={{ stroke: "#3f3f46" }}
                   tickLine={{ stroke: "#3f3f46" }}
