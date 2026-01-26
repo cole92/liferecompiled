@@ -367,9 +367,9 @@ const MyPosts = () => {
 
       <ConfirmModal
         isOpen={isLockModalOpen}
-        title="Lock Post?"
-        confirmText={"Lock"}
-        message="Are you sure you want to lock this post? It will be archived and you wont be able to edit or comment anymore."
+        title="Archive Post?"
+        confirmText={"Archive"}
+        message="Are you sure you want to archive this post? You won't be able to edit or comment anymore."
         onCancel={() => {
           setIsLockModalOpen(false);
           setPostToLock(null);
