@@ -1,6 +1,7 @@
 // Paketi
 import { useContext, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import dayjs from "dayjs";
 import {
   collection,
   doc,
@@ -11,6 +12,7 @@ import {
   getDocs,
   limit,
   startAfter,
+  Timestamp,
 } from "firebase/firestore";
 
 // Konfiguracija i kontekst
@@ -30,6 +32,26 @@ import PostCardTrash from "../../components/PostCardTrash";
 import EmptyState from "./components/EmptyState";
 import SkeletonCard from "../../components/ui/skeletonLoader/SkeletonCard";
 
+const POST_PER_PAGE = 10;
+
+// Converts filterRange into Firestore where() constraints over deletedAt.
+// This makes filter work across ALL pages (not just loaded items).
+const getDeletedAtConstraints = (filterRange) => {
+  if (!filterRange) return [];
+
+  const now = dayjs();
+  const t10 = Timestamp.fromDate(now.subtract(10, "day").toDate());
+  const t20 = Timestamp.fromDate(now.subtract(20, "day").toDate());
+
+  // Mapping matches getDaysLeft() behavior (diff in days, then 30 - daysPassed).
+  if (filterRange === "21-30") return [where("deletedAt", ">", t10)];
+  if (filterRange === "11-20")
+    return [where("deletedAt", "<=", t10), where("deletedAt", ">", t20)];
+  if (filterRange === "0-10") return [where("deletedAt", "<=", t20)];
+
+  return [];
+};
+
 const Trash = () => {
   const { user } = useContext(AuthContext);
   const { filterRange } = useOutletContext();
@@ -48,8 +70,6 @@ const Trash = () => {
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
-  const POST_PER_PAGE = 10;
-
   const author = user
     ? {
         id: user.uid,
@@ -65,12 +85,10 @@ const Trash = () => {
   // Dashboard layout najverovatnije vec ima ui-shell oko Outlet-a,
   // zato ovde NE stavljamo ui-shell (da ne dobijemo dupli/narrow wrapper).
   const shell = "w-full pb-2";
-
   const wrap = "space-y-6 py-2";
 
   useEffect(() => {
     let canceled = false;
-
     if (!user) return;
 
     const fetchFirstPage = async () => {
@@ -82,12 +100,14 @@ const Trash = () => {
 
       try {
         const postRef = collection(db, "posts");
+        const constraints = getDeletedAtConstraints(filterRange);
 
         // Prefetch +1 (eliminise fake Load more kad ima tacno 10)
         const q = query(
           postRef,
           where("userId", "==", user.uid),
           where("deleted", "==", true),
+          ...constraints,
           orderBy("deletedAt", "desc"),
           limit(POST_PER_PAGE + 1),
         );
@@ -140,7 +160,7 @@ const Trash = () => {
       canceled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid]);
+  }, [user?.uid, filterRange]);
 
   const handleLoadMore = async () => {
     if (!user || !hasMore || isLoadingMore || !lastDoc) return;
@@ -148,12 +168,14 @@ const Trash = () => {
 
     try {
       const postRef = collection(db, "posts");
+      const constraints = getDeletedAtConstraints(filterRange);
 
       // Prefetch +1
       const q = query(
         postRef,
         where("userId", "==", user.uid),
         where("deleted", "==", true),
+        ...constraints,
         orderBy("deletedAt", "desc"),
         startAfter(lastDoc),
         limit(POST_PER_PAGE + 1),
@@ -263,53 +285,27 @@ const Trash = () => {
     }
   };
 
-  // Filter by days left
-  const filteredPosts = filterRange
-    ? deletedPosts.filter((post) => {
-        const days = getDaysLeft(post.deletedAt);
-        if (filterRange === "0-10") return days >= 0 && days <= 10;
-        if (filterRange === "11-20") return days >= 11 && days <= 20;
-        if (filterRange === "21-30") return days >= 21 && days <= 30;
-        return true;
-      })
-    : deletedPosts;
+  // Server-side filter already applied, so UI list is the filtered list.
+  const filteredPosts = deletedPosts;
 
-  // Auto-fill: ako si ispraznio stranu (restore/delete), a ima jos, povuci sledece
+  // Auto-fill: if page becomes empty (restore/delete), and there is more, pull next page
   useEffect(() => {
     if (isLoading) return;
     if (isLoadingMore) return;
     if (!hasMore) return;
     if (!lastDoc) return;
-
-    // Ako filterRange postoji, moguce je da je filteredPosts=0 ali deletedPosts>0 (nije "prazna strana")
-    if (filterRange) {
-      if (deletedPosts.length > 0) return;
-    } else {
-      if (filteredPosts.length > 0) return;
-    }
+    if (deletedPosts.length > 0) return;
 
     handleLoadMore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isLoading,
-    isLoadingMore,
-    hasMore,
-    lastDoc,
-    deletedPosts.length,
-    filteredPosts.length,
-    filterRange,
-  ]);
+  }, [isLoading, isLoadingMore, hasMore, lastDoc, deletedPosts.length]);
 
-  // EmptyState poruka (ne lazemo kad filter napravi 0)
-  const shouldShowEmpty =
-    !isLoading &&
-    ((filterRange && deletedPosts.length === 0 && !hasMore) ||
-      (!filterRange && filteredPosts.length === 0 && !hasMore));
+  // EmptyState
+  const shouldShowEmpty = !isLoading && deletedPosts.length === 0 && !hasMore;
 
-  const emptyMessage =
-    filterRange && deletedPosts.length > 0
-      ? "No posts match this filter."
-      : "You haven't deleted any posts yet.";
+  const emptyMessage = filterRange
+    ? "No posts match this filter."
+    : "You haven't deleted any posts yet.";
 
   return (
     <div className={shell}>
