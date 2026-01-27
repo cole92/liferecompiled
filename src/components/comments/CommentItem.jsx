@@ -56,7 +56,6 @@ const CommentItem = ({
   const [showEditHint, setShowEditHint] = useState(false);
 
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
-
   const [showReportModal, setShowReportModal] = useState(false);
 
   const { user: currentUserCtx } = useContext(AuthContext);
@@ -74,6 +73,10 @@ const CommentItem = ({
   const editId = `comment-edit-${commentId}`;
 
   const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
+
+  const disableReplyButton = locked || depth >= maxDepthForReply;
+  const blockRenderingChildren = depth >= maxDepthForRender;
+  const isDeleted = deleted;
 
   const onReportClick = () => {
     if (!currentUser) {
@@ -154,7 +157,13 @@ const CommentItem = ({
     return aT - bT; // oldest first inside thread
   });
 
-  const directReplies = sortedReplies.length;
+  const visibleReplies = sortedReplies.filter((r) => {
+    if (!r.deleted) return true;
+    const kids = childrenMap?.[r.id] || [];
+    return kids.some((k) => !k.deleted);
+  });
+
+  const directReplies = visibleReplies.length;
 
   const handleDelete = async (id) => {
     setIsDeleting(true);
@@ -197,10 +206,6 @@ const CommentItem = ({
     setIsEditing(false);
     setEditedContent(content);
   };
-
-  const disableReplyButton = locked || depth >= maxDepthForReply;
-  const blockRenderingChildren = depth >= maxDepthForRender;
-  const isDeleted = deleted;
 
   return (
     <>
@@ -332,7 +337,7 @@ const CommentItem = ({
 
                   <details className="relative">
                     <summary
-                      className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200 cursor-pointer select-none [&::-webkit-details-marker]:hidden"
+                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 [&::-webkit-details-marker]:hidden"
                       aria-label="More actions"
                     >
                       <FiMoreHorizontal />
@@ -415,7 +420,7 @@ const CommentItem = ({
 
                   {isRepliesOpen && (
                     <div className="mt-3 pl-4 sm:pl-5 border-l border-zinc-800/70 space-y-2">
-                      {sortedReplies.map((reply) => (
+                      {visibleReplies.map((reply) => (
                         <CommentItem
                           key={reply.id}
                           commentId={reply.id}

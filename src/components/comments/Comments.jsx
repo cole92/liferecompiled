@@ -14,11 +14,11 @@ import CommentItem from "./CommentItem";
 
 const Comments = ({
   postID,
-  userId,
+  userId, // kept for compatibility (not used here)
   showAll = false,
   locked = false,
   disableBadgeModal,
-  repliesPreviewCount = 1, // kept for compatibility (not used in new UX)
+  repliesPreviewCount = 1, // kept for compatibility (not used in this UX)
   renderOnlyForm = false,
 }) => {
   const [comments, setComments] = useState([]);
@@ -52,21 +52,28 @@ const Comments = ({
     return map;
   }, [comments]);
 
+  const totalCount = useMemo(() => {
+    // count only non-deleted (root + replies)
+    return comments.filter((c) => !c.deleted).length;
+  }, [comments]);
+
   const rootComments = useMemo(() => {
     const roots = comments.filter((c) => !c.parentID);
-    return [...roots].sort((a, b) => {
+
+    const keepThread = (c) => {
+      if (!c.deleted) return true;
+      const kids = childrenMap?.[c.id] || [];
+      return kids.some((k) => !k.deleted);
+    };
+
+    return roots.filter(keepThread).sort((a, b) => {
       const aT =
         a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
       const bT =
         b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
       return bT - aT; // newest first
     });
-  }, [comments]);
-
-  const totalCount = useMemo(() => {
-    // exclude deleted from the count (cleaner UX)
-    return comments.filter((c) => !c.deleted).length;
-  }, [comments]);
+  }, [comments, childrenMap]);
 
   if (renderOnlyForm) {
     return !locked ? (
@@ -80,17 +87,12 @@ const Comments = ({
 
   return (
     <div className="w-full">
-      <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-base sm:text-lg font-semibold text-zinc-100">
-            Comments
-          </h2>
-          <p className="mt-0.5 text-xs text-zinc-500">{totalCount} total</p>
-        </div>
-
-        <span className="text-sm text-zinc-400">
-          {slice.length > 0 ? "" : ""}
-        </span>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base sm:text-lg font-semibold text-zinc-100">
+          Comments
+        </h2>
+        <span className="text-sm text-zinc-400">{totalCount}</span>
       </div>
 
       {locked && (
@@ -103,6 +105,7 @@ const Comments = ({
         <CommentForm postId={postID} parentId={null} wrapperClassName="mt-4" />
       )}
 
+      {/* List */}
       <div className="mt-5">
         {slice.length > 0 ? (
           <div className="divide-y divide-zinc-800/70">
