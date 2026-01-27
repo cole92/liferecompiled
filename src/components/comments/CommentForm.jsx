@@ -1,32 +1,24 @@
 import PropTypes from "prop-types";
-import { useContext } from "react";
+import { useContext, useRef, useEffect, useState } from "react";
 import { auth } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
-import { useRef, useEffect, useState } from "react";
 import { addCommentSecure } from "../../firebase/functions";
 import { showErrorToast, showInfoToast } from "../../utils/toastUtils";
 
-/**
- * @component CommentForm
- * Komponenta za unos komentara (root ili reply).
- *
- * Props:
- * - postId: id posta
- * - parentId: id roditeljskog komentara (ako je reply)
- * - onSubmitSuccess: callback posle uspesnog submit-a
- * - autoFocus: fokusira textarea i scrolluje u centar
- */
 const CommentForm = ({
   postId,
   parentId,
   onSubmitSuccess,
   autoFocus = false,
+  wrapperClassName = "",
 }) => {
   const { currentUser } = useContext(AuthContext);
   const user = currentUser || auth.currentUser;
 
   const [commentContent, setCommentContent] = useState("");
   const [error, setError] = useState("");
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
   const textareaRef = useRef(null);
   const isCommentValid = commentContent.trim().length > 0;
 
@@ -43,6 +35,7 @@ const CommentForm = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    setHasSubmitted(true);
 
     try {
       if (!user) {
@@ -51,7 +44,7 @@ const CommentForm = ({
       }
 
       if (!commentContent.trim()) {
-        setError("Comment form cannot be empty.");
+        setError("Comment cannot be empty.");
         return;
       }
 
@@ -62,14 +55,14 @@ const CommentForm = ({
       });
 
       setCommentContent("");
+      setError("");
+      setHasSubmitted(false);
       onSubmitSuccess?.();
-    } catch (error) {
-      if (
-        error.message.includes("too quickly") ||
-        error.message.includes("resource-exhausted")
-      ) {
+    } catch (err) {
+      const msg = err?.message || "";
+      if (msg.includes("too quickly") || msg.includes("resource-exhausted")) {
         showErrorToast(
-          "You're sending comments too quickly. Please try again in a few seconds."
+          "You're sending comments too quickly. Please try again in a few seconds.",
         );
       } else {
         showErrorToast("An error occurred while submitting the comment.");
@@ -78,22 +71,21 @@ const CommentForm = ({
   };
 
   const remainingChars = 500 - commentContent.length;
-  const charCountColor =
-    remainingChars <= 50 ? "text-rose-300" : "text-zinc-500";
+  const showInlineError = hasSubmitted && (!isCommentValid || !!error);
 
   return (
     <form
       onSubmit={handleSubmit}
       onClick={(e) => e.stopPropagation()}
-      className="mt-6"
+      className={wrapperClassName}
     >
       <textarea
         id={`comment-${postId}${parentId ? `-${parentId}` : ""}`}
         name="comment"
         ref={textareaRef}
-        placeholder="Add comment..."
-        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 mb-2 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-        rows={3}
+        placeholder={parentId ? "Write a reply..." : "Add a comment..."}
+        className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        rows={parentId ? 2 : 3}
         value={commentContent}
         onChange={(e) => {
           setCommentContent(e.target.value);
@@ -103,27 +95,39 @@ const CommentForm = ({
         autoComplete="off"
       />
 
-      {(!isCommentValid || error) && (
-        <p className="text-zinc-400 text-sm mb-1">
+      {showInlineError && (
+        <p className="mt-2 text-sm text-rose-200">
           {error || "Comment cannot be empty."}
         </p>
       )}
 
-      <div className={`text-right text-sm ${charCountColor} mb-2`}>
-        {commentContent.length} / 500
-      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="text-xs text-zinc-500">
+          {commentContent.length > 0 ? (
+            <span
+              className={
+                remainingChars <= 50 ? "text-rose-300" : "text-zinc-500"
+              }
+            >
+              {commentContent.length} / 500
+            </span>
+          ) : (
+            <span>Max 500 chars</span>
+          )}
+        </div>
 
-      <button
-        type="submit"
-        disabled={!isCommentValid}
-        className={`ui-button ${
-          isCommentValid
-            ? "bg-sky-600 text-zinc-50 hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-            : "ui-button-secondary opacity-60 cursor-not-allowed"
-        }`}
-      >
-        Send comment
-      </button>
+        <button
+          type="submit"
+          disabled={!isCommentValid}
+          className={`ui-button ${
+            isCommentValid
+              ? "bg-sky-600 text-zinc-50 hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              : "ui-button-secondary opacity-60 cursor-not-allowed"
+          }`}
+        >
+          {parentId ? "Reply" : "Send"}
+        </button>
+      </div>
     </form>
   );
 };
@@ -133,6 +137,7 @@ CommentForm.propTypes = {
   parentId: PropTypes.string,
   onSubmitSuccess: PropTypes.func,
   autoFocus: PropTypes.bool,
+  wrapperClassName: PropTypes.string,
 };
 
 export default CommentForm;

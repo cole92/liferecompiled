@@ -61,8 +61,6 @@ const PostDetails = () => {
 
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
-  // Post subscription: source of truth je posts/{postId}
-  // getPostById ostaje da bi zadrzao isti normalize/shape kao svuda
   useEffect(() => {
     setIsLoading(true);
     let cancelled = false;
@@ -94,7 +92,7 @@ const PostDetails = () => {
         if (cancelled) return;
         console.error("PostDetails onSnapshot error:", error);
         setIsLoading(false);
-      }
+      },
     );
 
     return () => {
@@ -103,7 +101,6 @@ const PostDetails = () => {
     };
   }, [postId]);
 
-  // Author fetch: zavisi samo od userId (da ne refetchuje autora na svaku reakciju)
   useEffect(() => {
     if (!post?.userId) return;
 
@@ -183,9 +180,7 @@ const PostDetails = () => {
   const onCancelReport = () => setShowReportModal(false);
 
   const handleAdminHardDelete = async () => {
-    if (!isAdmin || isDeletingPost) {
-      return;
-    }
+    if (!isAdmin || isDeletingPost) return;
 
     try {
       setIsDeletingPost(true);
@@ -202,175 +197,246 @@ const PostDetails = () => {
     }
   };
 
-  // Ova funkcija ti vise realno ne treba za reakcije kad imas onSnapshot,
-  // ali je ostavljam da ne diramo ostalu logiku (moze da posluzi za manuelni refresh ako zelis).
+  const wrapperClass = "w-full max-w-6xl mx-auto my-6 sm:my-8";
+  const gridClass =
+    "grid gap-4 lg:gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start";
+  const cardClass =
+    "ui-card rounded-2xl border border-zinc-800/70 bg-zinc-950/40 ring-1 ring-zinc-100/5 shadow-sm overflow-hidden";
+
+  const postCardLockedFx = post.locked
+    ? "opacity-90 grayscale hover:opacity-100 transition duration-200"
+    : "";
+
   return (
-    <div
-      className={`${
-        post.locked
-          ? "opacity-80 grayscale hover:opacity-100 transition duration-200"
-          : ""
-      }`}
-    >
-      <div className="ui-shell max-w-5xl my-8 space-y-8">
-        {/* --- POST HEADER --- */}
-        <div
-          className={`ui-card p-6 ${
-            post.badges?.trending
-              ? "ring-2 ring-rose-500/60 border-rose-500/40"
-              : ""
-          }`}
-        >
-          {/* Naslov i statusne oznake */}
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-            <h1 className="text-3xl font-bold text-zinc-100">{post.title}</h1>
+    <div className={wrapperClass}>
+      <div className={gridClass}>
+        {/* MAIN */}
+        <div className="min-w-0 space-y-4">
+          {/* POST CARD */}
+          <div
+            className={[
+              cardClass,
+              "p-4 sm:p-6",
+              post.badges?.trending
+                ? "ring-2 ring-rose-500/60 border-rose-500/40"
+                : "",
+              postCardLockedFx,
+            ].join(" ")}
+          >
+            {/* Title + badges/status */}
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 break-words">
+                {post.title}
+              </h1>
 
-            {/* Bedzevi i status zakljucavanja */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-              {post?.badges?.mostInspiring && (
-                <Badge
-                  text="Most Inspiring"
-                  onClick={(e) => handleBadgeClick(e, "mostInspiring")}
-                />
-              )}
-              {post?.badges?.trending && (
-                <Badge
-                  text="Trending"
-                  onClick={(e) => handleBadgeClick(e, "trending")}
-                />
-              )}
-              {post.locked && lockedDate && (
-                <span
-                  title="This post is locked and cannot be edited or commented"
-                  className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
-                >
-                  <FiLock className="text-sm" />
-                  Locked: {lockedDate}
-                </span>
-              )}
-            </div>
-          </div>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                {post?.badges?.mostInspiring && (
+                  <Badge
+                    text="Most Inspiring"
+                    onClick={(e) => handleBadgeClick(e, "mostInspiring")}
+                  />
+                )}
+                {post?.badges?.trending && (
+                  <Badge
+                    text="Trending"
+                    onClick={(e) => handleBadgeClick(e, "trending")}
+                  />
+                )}
 
-          {/* Autor i meta podaci */}
-          <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-zinc-400 border-b border-zinc-800 pb-4">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Avatar
-                  src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
-                  size={40}
-                  zoomable
-                  badge={author?.badges?.topContributor ?? false}
-                  alt={author?.name ?? "Author"}
-                />
-                {author?.badges?.topContributor && (
-                  <div
-                    title="Top Contributor · Code-powered"
-                    className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowTopContributorModal(true);
-                    }}
+                {post.locked && lockedDate && (
+                  <span
+                    title="This post is archived and cannot be edited or commented"
+                    className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
                   >
-                    <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
-                  </div>
+                    <FiLock className="text-sm" />
+                    Archived: {lockedDate}
+                  </span>
                 )}
               </div>
-              {author?.id && <AuthorLink author={author} />}
             </div>
-            <span className="mx-1">·</span>
-            <span>{post?.createdAt?.toDate().toLocaleString()}</span>
-            <span className="mx-1">·</span>
-            <span className="text-zinc-300">📂 {post?.category}</span>
-          </div>
 
-          {/* Description (summary) */}
-          {post?.description && (
-            <p className="mt-5 text-zinc-200 text-base leading-relaxed break-words overflow-x-hidden">
-              {post.description}
-            </p>
-          )}
+            {/* Author + meta */}
+            <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-zinc-400 border-b border-zinc-800 pb-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="relative">
+                  <Avatar
+                    src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+                    size={40}
+                    zoomable
+                    badge={author?.badges?.topContributor ?? false}
+                    alt={author?.name ?? "Author"}
+                  />
+                  {author?.badges?.topContributor && (
+                    <div
+                      title="Top Contributor · Code-powered"
+                      className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowTopContributorModal(true);
+                      }}
+                    >
+                      <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
+                    </div>
+                  )}
+                </div>
 
-          {/* Content */}
-          <div className="mt-6 text-zinc-200 whitespace-pre-wrap break-words leading-relaxed overflow-x-hidden">
-            {post?.content}
-          </div>
+                <div className="min-w-0">
+                  {author?.id && <AuthorLink author={author} />}
+                </div>
+              </div>
 
-          {/* Tagovi */}
-          <div className="mt-4 flex flex-wrap gap-2">
-            {post.tags.map((tag, index) => (
-              <span
-                key={`${tag.text}-${index}`}
-                className="inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-200"
+              <span className="mx-1">·</span>
+              <span>{post?.createdAt?.toDate().toLocaleString()}</span>
+              <span className="mx-1">·</span>
+              <span className="text-zinc-300">📂 {post?.category}</span>
+            </div>
+
+            {/* Description */}
+            {post?.description && (
+              <p className="mt-5 text-zinc-200 text-base leading-relaxed break-words overflow-x-hidden">
+                {post.description}
+              </p>
+            )}
+
+            {/* Content */}
+            <div className="mt-6 text-zinc-200 whitespace-pre-wrap break-words leading-relaxed overflow-x-hidden">
+              {post?.content}
+            </div>
+
+            {/* Tags */}
+            {Array.isArray(post?.tags) && post.tags.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {post.tags.map((tag, index) => (
+                  <span
+                    key={`${tag.text}-${index}`}
+                    className="inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-200"
+                  >
+                    #{tag.text}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Reactions + Save */}
+            <div className="mt-6 flex items-center justify-between border-t border-zinc-800 pt-4">
+              <ReactionSummary
+                postId={post.id}
+                locked={post.locked}
+                reactionCounts={post.reactionCounts}
+              />
+
+              <button
+                onClick={handleSaveToggle}
+                title={isSaved ? "Remove from saved" : "Save this post"}
+                className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
               >
-                #{tag.text}
-              </span>
-            ))}
-          </div>
-
-          {/* Reakcije i dugme za snimanje */}
-          <div className="mt-6 flex items-center justify-between border-t border-zinc-800 pt-4">
-            <ReactionSummary
-              postId={post.id}
-              locked={post.locked}
-              reactionCounts={post.reactionCounts}
-            />
+                {isSaved ? (
+                  <BsBookmarkFill className="text-sky-200" />
+                ) : (
+                  <BsBookmark className="text-zinc-400" />
+                )}
+              </button>
+            </div>
 
             <button
-              onClick={handleSaveToggle}
-              title={isSaved ? "Remove from saved" : "Save this post"}
-              className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              type="button"
+              onClick={onReportClick}
+              className="mt-3 inline-flex text-sm text-blue-400 hover:text-blue-300 hover:underline"
+              aria-label="Report post"
             >
-              {isSaved ? (
-                <BsBookmarkFill className="text-sky-200" />
-              ) : (
-                <BsBookmark className="text-zinc-400" />
-              )}
+              Report
             </button>
+
+            {canManagePost && (
+              <div className="mt-4 flex gap-2 border-b border-zinc-800 pb-4">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalOpen(true)}
+                    disabled={isDeletingPost}
+                    className={`ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                      isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {isDeletingPost
+                      ? "Deleting..."
+                      : "Delete permanently (admin)"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Report dugme */}
-          <button
-            type="button"
-            onClick={onReportClick}
-            className="mt-3 inline-flex text-sm text-blue-400 hover:text-blue-300 hover:underline"
-            aria-label="Report post"
-          >
-            Report
-          </button>
-
-          {/* Admin / author controls (WIP) */}
-          {canManagePost && (
-            <div className="mt-4 flex gap-2 border-b border-zinc-800 pb-4">
-              {/* Ovde ce kasnije ici i owner kontrole, ako ih budemo dodavali */}
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setDeleteModalOpen(true)}
-                  disabled={isDeletingPost}
-                  className={`ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
-                    isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {isDeletingPost
-                    ? "Deleting..."
-                    : "Delete permanently (admin)"}
-                </button>
-              )}
-            </div>
-          )}
+          {/* COMMENTS CARD */}
+          <div className={[cardClass, "p-4 sm:p-6"].join(" ")}>
+            <Comments
+              postID={postId}
+              userId={currentUserId}
+              showAll={true}
+              locked={post.locked}
+              repliesPreviewCount={1}
+            />
+          </div>
         </div>
 
-        {/* Sekcija komentara */}
-        <Comments
-          postID={postId}
-          userId={currentUserId}
-          showAll={true}
-          locked={post.locked}
-          repliesPreviewCount={1}
-        />
+        {/* SIDEBAR (lg+) */}
+        <aside className="min-w-0">
+          <div
+            className={`hidden lg:block ${cardClass} p-4 sm:p-5 lg:sticky lg:top-24`}
+          >
+            <h3 className="text-sm font-semibold text-zinc-100">Post info</h3>
+
+            <div className="mt-3 space-y-2 text-sm text-zinc-300">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-zinc-400">Status</span>
+                <span className="text-zinc-100">
+                  {post.locked ? "Archived" : "Active"}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-zinc-400">Category</span>
+                <span className="text-zinc-100 text-right break-words">
+                  {post?.category || "—"}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-zinc-400">Created</span>
+                <span className="text-zinc-100 text-right">
+                  {post?.createdAt?.toDate?.().toLocaleDateString?.() || "—"}
+                </span>
+              </div>
+
+              {post.locked && lockedDate && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-zinc-400">Archived</span>
+                  <span className="text-zinc-100 text-right">{lockedDate}</span>
+                </div>
+              )}
+            </div>
+
+            {Array.isArray(post?.tags) && post.tags.length > 0 && (
+              <>
+                <div className="mt-4 border-t border-zinc-800 pt-4" />
+                <div className="text-xs text-zinc-400 mb-2">Tags</div>
+                <div className="flex flex-wrap gap-2">
+                  {post.tags.slice(0, 10).map((tag, idx) => (
+                    <span
+                      key={`${tag?.text || "tag"}-${idx}`}
+                      className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-xs text-zinc-200"
+                    >
+                      #{tag?.text || ""}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </aside>
       </div>
 
-      {/* Modali za bedzeve */}
+      {/* Badge modals */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
@@ -386,7 +452,7 @@ const PostDetails = () => {
         authorBadge="topContributor"
       />
 
-      {/* Modal za potvrdu prijave */}
+      {/* Report confirm */}
       <ConfirmModal
         isOpen={showReportModal}
         title="Are you sure you want to report this post?"
@@ -396,7 +462,7 @@ const PostDetails = () => {
         onConfirm={onConfirmReport}
       />
 
-      {/* Modal za admin hard delete posta */}
+      {/* Admin hard delete */}
       <ConfirmModal
         isOpen={deleteModalOpen}
         title="Delete Post Permanently"
@@ -407,9 +473,7 @@ const PostDetails = () => {
         }`}
         cancelButtonClass="ui-button-secondary"
         onCancel={() => {
-          if (!isDeletingPost) {
-            setDeleteModalOpen(false);
-          }
+          if (!isDeletingPost) setDeleteModalOpen(false);
         }}
         onConfirm={handleAdminHardDelete}
       />
