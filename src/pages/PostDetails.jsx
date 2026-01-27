@@ -1,7 +1,9 @@
 import { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
-import { FiLock } from "react-icons/fi";
+import { FiLock, FiMessageCircle } from "react-icons/fi";
+
+import CommentsSheet from "../components/comments/CommentsSheet";
 
 import { AuthContext } from "../context/AuthContext";
 
@@ -33,6 +35,34 @@ import {
   showSuccessToast,
 } from "../utils/toastUtils";
 
+const useMediaQuery = (q) => {
+  const getMatch = () =>
+    typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia(q).matches
+      : false;
+
+  const [matches, setMatches] = useState(getMatch);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+
+    const mql = window.matchMedia(q);
+    const onChange = (e) => setMatches(e.matches);
+
+    if (mql.addEventListener) mql.addEventListener("change", onChange);
+    else mql.addListener(onChange);
+
+    setMatches(mql.matches);
+
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener("change", onChange);
+      else mql.removeListener(onChange);
+    };
+  }, [q]);
+
+  return matches;
+};
+
 const PostDetails = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -60,6 +90,16 @@ const PostDetails = () => {
   const [selectedBadge, setSelectedBadge] = useState(null);
 
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
+
+  // Responsive comments behavior
+  const isLgUp = useMediaQuery("(min-width: 1024px)");
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [commentsCount, setCommentsCount] = useState(0);
+
+  useEffect(() => {
+    // If user resized to desktop, close sheet.
+    if (isLgUp) setIsCommentsOpen(false);
+  }, [isLgUp]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -317,7 +357,7 @@ const PostDetails = () => {
               </div>
             )}
 
-            {/* Reactions + Save */}
+            {/* Reactions + actions */}
             <div className="mt-6 flex items-center justify-between border-t border-zinc-800 pt-4">
               <ReactionSummary
                 postId={post.id}
@@ -325,17 +365,37 @@ const PostDetails = () => {
                 reactionCounts={post.reactionCounts}
               />
 
-              <button
-                onClick={handleSaveToggle}
-                title={isSaved ? "Remove from saved" : "Save this post"}
-                className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-              >
-                {isSaved ? (
-                  <BsBookmarkFill className="text-sky-200" />
-                ) : (
-                  <BsBookmark className="text-zinc-400" />
+              <div className="flex items-center gap-1">
+                {!isLgUp && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCommentsOpen(true)}
+                    title="Open comments"
+                    className="relative rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    aria-label="Open comments"
+                  >
+                    <FiMessageCircle className="text-[18px]" />
+                    {commentsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-sky-600 text-[11px] leading-[18px] text-white text-center">
+                        {commentsCount > 99 ? "99+" : commentsCount}
+                      </span>
+                    )}
+                  </button>
                 )}
-              </button>
+
+                <button
+                  onClick={handleSaveToggle}
+                  title={isSaved ? "Remove from saved" : "Save this post"}
+                  className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                  aria-label={isSaved ? "Unsave post" : "Save post"}
+                >
+                  {isSaved ? (
+                    <BsBookmarkFill className="text-sky-200" />
+                  ) : (
+                    <BsBookmark className="text-zinc-400" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <button
@@ -367,16 +427,18 @@ const PostDetails = () => {
             )}
           </div>
 
-          {/* COMMENTS CARD */}
-          <div className={[cardClass, "p-4 sm:p-6"].join(" ")}>
-            <Comments
-              postID={postId}
-              userId={currentUserId}
-              showAll={true}
-              locked={post.locked}
-              repliesPreviewCount={1}
-            />
-          </div>
+          {/* COMMENTS (desktop inline only) */}
+          {isLgUp && (
+            <div className={[cardClass, "p-4 sm:p-6"].join(" ")}>
+              <Comments
+                postID={postId}
+                showAll={true}
+                locked={post.locked}
+                repliesPreviewCount={1}
+                onCountChange={setCommentsCount}
+              />
+            </div>
+          )}
         </div>
 
         {/* SIDEBAR (lg+) */}
@@ -435,6 +497,27 @@ const PostDetails = () => {
           </div>
         </aside>
       </div>
+
+      {/* COMMENTS (mobile sheet only) */}
+      {!isLgUp && (
+        <CommentsSheet
+          isOpen={isCommentsOpen}
+          onClose={() => setIsCommentsOpen(false)}
+          title="Comments"
+          count={commentsCount}
+        >
+          <Comments
+            postID={postId}
+            showAll={true}
+            locked={post.locked}
+            repliesPreviewCount={1}
+            hideHeader
+            formWrapperClassName="mt-3"
+            listWrapperClassName="mt-4"
+            onCountChange={setCommentsCount}
+          />
+        </CommentsSheet>
+      )}
 
       {/* Badge modals */}
       {showBadgeModal && (

@@ -14,12 +14,17 @@ import CommentItem from "./CommentItem";
 
 const Comments = ({
   postID,
-  userId, // kept for compatibility (not used here)
   showAll = false,
   locked = false,
   disableBadgeModal,
-  repliesPreviewCount = 1, // kept for compatibility (not used in this UX)
+  repliesPreviewCount = 1, // kept for compatibility
   renderOnlyForm = false,
+
+  // new
+  onCountChange,
+  hideHeader = false,
+  formWrapperClassName = "mt-4",
+  listWrapperClassName = "mt-5",
 }) => {
   const [comments, setComments] = useState([]);
   const [visibleCount, setVisibleCount] = useState(10);
@@ -52,28 +57,24 @@ const Comments = ({
     return map;
   }, [comments]);
 
-  const totalCount = useMemo(() => {
-    // count only non-deleted (root + replies)
-    return comments.filter((c) => !c.deleted).length;
-  }, [comments]);
-
   const rootComments = useMemo(() => {
     const roots = comments.filter((c) => !c.parentID);
-
-    const keepThread = (c) => {
-      if (!c.deleted) return true;
-      const kids = childrenMap?.[c.id] || [];
-      return kids.some((k) => !k.deleted);
-    };
-
-    return roots.filter(keepThread).sort((a, b) => {
+    return [...roots].sort((a, b) => {
       const aT =
         a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
       const bT =
         b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
       return bT - aT; // newest first
     });
-  }, [comments, childrenMap]);
+  }, [comments]);
+
+  const totalCount = useMemo(() => {
+    return comments.filter((c) => !c.deleted).length;
+  }, [comments]);
+
+  useEffect(() => {
+    onCountChange?.(totalCount);
+  }, [totalCount, onCountChange]);
 
   if (renderOnlyForm) {
     return !locked ? (
@@ -87,26 +88,32 @@ const Comments = ({
 
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base sm:text-lg font-semibold text-zinc-100">
-          Comments
-        </h2>
-        <span className="text-sm text-zinc-400">{totalCount}</span>
-      </div>
+      {!hideHeader && (
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-semibold text-zinc-100">
+              Comments
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500">{totalCount} total</p>
+          </div>
+        </div>
+      )}
 
       {locked && (
-        <p className="mt-2 text-sm text-zinc-400">
+        <p className={`${hideHeader ? "" : "mt-2"} text-sm text-zinc-400`}>
           This post is archived. Commenting is disabled.
         </p>
       )}
 
       {!locked && (
-        <CommentForm postId={postID} parentId={null} wrapperClassName="mt-4" />
+        <CommentForm
+          postId={postID}
+          parentId={null}
+          wrapperClassName={formWrapperClassName}
+        />
       )}
 
-      {/* List */}
-      <div className="mt-5">
+      <div className={listWrapperClassName}>
         {slice.length > 0 ? (
           <div className="divide-y divide-zinc-800/70">
             {slice.map((comment) => (
@@ -151,12 +158,16 @@ const Comments = ({
 
 Comments.propTypes = {
   postID: PropTypes.string.isRequired,
-  userId: PropTypes.string,
   showAll: PropTypes.bool,
   locked: PropTypes.bool,
   disableBadgeModal: PropTypes.bool,
   repliesPreviewCount: PropTypes.number,
   renderOnlyForm: PropTypes.bool,
+
+  onCountChange: PropTypes.func,
+  hideHeader: PropTypes.bool,
+  formWrapperClassName: PropTypes.string,
+  listWrapperClassName: PropTypes.string,
 };
 
 export default Comments;
