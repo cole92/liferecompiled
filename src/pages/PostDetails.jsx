@@ -3,12 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock, FiMessageCircle } from "react-icons/fi";
 
-import CommentsSheet from "../components/comments/CommentsSheet";
-
 import { AuthContext } from "../context/AuthContext";
 
 import { httpsCallable } from "firebase/functions";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
 import { functions, db } from "../firebase";
 
 import { getUserById } from "../services/userService";
@@ -21,6 +19,7 @@ import { normalizePostDoc } from "../mappers/posts/normalizePostDoc";
 import AuthorLink from "../components/AuthorLink";
 import ReactionSummary from "../components/reactions/ReactionSummary";
 import Comments from "../components/comments/Comments";
+import CommentsSheet from "../components/comments/CommentsSheet";
 import Spinner from "../components/Spinner";
 import ShieldIcon from "../components/ui/ShieldIcon";
 import ConfirmModal from "../components/modals/ConfirmModal";
@@ -44,9 +43,9 @@ const useMediaQuery = (q) => {
   const [matches, setMatches] = useState(getMatch);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-
+    if (!window.matchMedia) return;
     const mql = window.matchMedia(q);
+
     const onChange = (e) => setMatches(e.matches);
 
     if (mql.addEventListener) mql.addEventListener("change", onChange);
@@ -91,16 +90,18 @@ const PostDetails = () => {
 
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
-  // Responsive comments behavior
+  // responsive
   const isLgUp = useMediaQuery("(min-width: 1024px)");
+
+  // mobile comments sheet
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentsCount, setCommentsCount] = useState(0);
 
   useEffect(() => {
-    // If user resized to desktop, close sheet.
     if (isLgUp) setIsCommentsOpen(false);
   }, [isLgUp]);
 
+  // post snapshot
   useEffect(() => {
     setIsLoading(true);
     let cancelled = false;
@@ -141,6 +142,7 @@ const PostDetails = () => {
     };
   }, [postId]);
 
+  // author fetch
   useEffect(() => {
     if (!post?.userId) return;
 
@@ -159,6 +161,24 @@ const PostDetails = () => {
       cancelled = true;
     };
   }, [post?.userId]);
+
+  // comments count (non-deleted) - needed for mobile button/sheet header
+  useEffect(() => {
+    if (!postId) return;
+
+    const q = query(collection(db, "comments"), where("postID", "==", postId));
+
+    const unsub = onSnapshot(q, (snap) => {
+      let count = 0;
+      snap.forEach((d) => {
+        const data = d.data();
+        if (!data?.deleted) count += 1;
+      });
+      setCommentsCount(count);
+    });
+
+    return unsub;
+  }, [postId]);
 
   if (isLoading) return <Spinner />;
   if (!post) return <p>Post not found.</p>;
@@ -237,7 +257,7 @@ const PostDetails = () => {
     }
   };
 
-  const wrapperClass = "w-full max-w-6xl mx-auto my-6 sm:my-8";
+  const wrapperClass = "w-full max-w-6xl mx-auto my-6 sm:my-8 pb-24 lg:pb-0";
   const gridClass =
     "grid gap-4 lg:gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start";
   const cardClass =
@@ -357,7 +377,7 @@ const PostDetails = () => {
               </div>
             )}
 
-            {/* Reactions + actions */}
+            {/* Reactions + Save */}
             <div className="mt-6 flex items-center justify-between border-t border-zinc-800 pt-4">
               <ReactionSummary
                 postId={post.id}
@@ -365,37 +385,17 @@ const PostDetails = () => {
                 reactionCounts={post.reactionCounts}
               />
 
-              <div className="flex items-center gap-1">
-                {!isLgUp && (
-                  <button
-                    type="button"
-                    onClick={() => setIsCommentsOpen(true)}
-                    title="Open comments"
-                    className="relative rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-                    aria-label="Open comments"
-                  >
-                    <FiMessageCircle className="text-[18px]" />
-                    {commentsCount > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-sky-600 text-[11px] leading-[18px] text-white text-center">
-                        {commentsCount > 99 ? "99+" : commentsCount}
-                      </span>
-                    )}
-                  </button>
+              <button
+                onClick={handleSaveToggle}
+                title={isSaved ? "Remove from saved" : "Save this post"}
+                className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              >
+                {isSaved ? (
+                  <BsBookmarkFill className="text-sky-200" />
+                ) : (
+                  <BsBookmark className="text-zinc-400" />
                 )}
-
-                <button
-                  onClick={handleSaveToggle}
-                  title={isSaved ? "Remove from saved" : "Save this post"}
-                  className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-                  aria-label={isSaved ? "Unsave post" : "Save post"}
-                >
-                  {isSaved ? (
-                    <BsBookmarkFill className="text-sky-200" />
-                  ) : (
-                    <BsBookmark className="text-zinc-400" />
-                  )}
-                </button>
-              </div>
+              </button>
             </div>
 
             <button
@@ -427,15 +427,15 @@ const PostDetails = () => {
             )}
           </div>
 
-          {/* COMMENTS (desktop inline only) */}
+          {/* COMMENTS INLINE (lg+) */}
           {isLgUp && (
             <div className={[cardClass, "p-4 sm:p-6"].join(" ")}>
               <Comments
                 postID={postId}
+                userId={currentUserId}
                 showAll={true}
                 locked={post.locked}
                 repliesPreviewCount={1}
-                onCountChange={setCommentsCount}
               />
             </div>
           )}
@@ -498,25 +498,34 @@ const PostDetails = () => {
         </aside>
       </div>
 
-      {/* COMMENTS (mobile sheet only) */}
+      {/* MOBILE FLOATING COMMENTS BUTTON (<lg) */}
+      {!isLgUp && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+          <button
+            type="button"
+            onClick={() => setIsCommentsOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/90 px-4 py-2 text-zinc-100 shadow-lg backdrop-blur hover:bg-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            aria-label="Open comments"
+          >
+            <FiMessageCircle className="text-lg" />
+            <span className="text-sm font-medium">Comments</span>
+            <span className="ml-1 inline-flex min-w-7 justify-center rounded-full border border-zinc-800 bg-zinc-950/60 px-2 py-0.5 text-xs text-zinc-300">
+              {commentsCount}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* MOBILE COMMENTS SHEET (<lg) */}
       {!isLgUp && (
         <CommentsSheet
           isOpen={isCommentsOpen}
           onClose={() => setIsCommentsOpen(false)}
-          title="Comments"
+          postId={postId}
+          currentUserId={currentUserId}
+          locked={post.locked}
           count={commentsCount}
-        >
-          <Comments
-            postID={postId}
-            showAll={true}
-            locked={post.locked}
-            repliesPreviewCount={1}
-            hideHeader
-            formWrapperClassName="mt-3"
-            listWrapperClassName="mt-4"
-            onCountChange={setCommentsCount}
-          />
-        </CommentsSheet>
+        />
       )}
 
       {/* Badge modals */}

@@ -78,6 +78,8 @@ const CommentItem = ({
   const blockRenderingChildren = depth >= maxDepthForRender;
   const isDeleted = deleted;
 
+  const isReply = depth > 0;
+
   const onReportClick = () => {
     if (!currentUser) {
       showInfoToast("Please login to report 😊");
@@ -157,6 +159,7 @@ const CommentItem = ({
     return aT - bT; // oldest first inside thread
   });
 
+  // keep deleted replies visible ONLY if they have non-deleted children
   const visibleReplies = sortedReplies.filter((r) => {
     if (!r.deleted) return true;
     const kids = childrenMap?.[r.id] || [];
@@ -213,14 +216,21 @@ const CommentItem = ({
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="py-4"
+        className={isReply ? "py-2" : "py-4"}
       >
-        <div className="group rounded-xl px-2 sm:px-3 py-3 hover:bg-zinc-950/20 transition">
+        <div
+          className={[
+            "group rounded-xl transition",
+            isReply
+              ? "px-2 sm:px-3 py-2 bg-zinc-950/25 border border-zinc-800/60"
+              : "px-2 sm:px-3 py-3 hover:bg-zinc-950/20",
+          ].join(" ")}
+        >
           <div className="flex items-start gap-3">
             <div className="relative shrink-0">
               <Avatar
                 src={user?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
-                size={32}
+                size={isReply ? 28 : 32}
                 zoomable
                 badge={user?.badges?.topContributor ?? false}
                 alt={`Profile picture of ${user?.name ?? "user"}`}
@@ -304,7 +314,12 @@ const CommentItem = ({
                   This comment has been removed.
                 </p>
               ) : (
-                <p className="mt-2 whitespace-pre-wrap text-[0.95rem] leading-relaxed text-zinc-100">
+                <p
+                  className={[
+                    "mt-2 whitespace-pre-wrap leading-relaxed text-zinc-100",
+                    isReply ? "text-[0.9rem]" : "text-[0.95rem]",
+                  ].join(" ")}
+                >
                   {!showAll && content.length > 150
                     ? content.slice(0, 150) + "…"
                     : content}
@@ -419,7 +434,7 @@ const CommentItem = ({
                   </button>
 
                   {isRepliesOpen && (
-                    <div className="mt-3 pl-4 sm:pl-5 border-l border-zinc-800/70 space-y-2">
+                    <div className="mt-3 rounded-xl border border-zinc-800/60 bg-zinc-950/20 p-2 space-y-2">
                       {visibleReplies.map((reply) => (
                         <CommentItem
                           key={reply.id}
