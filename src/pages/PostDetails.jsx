@@ -6,14 +6,7 @@ import { FiLock, FiMessageCircle } from "react-icons/fi";
 import { AuthContext } from "../context/AuthContext";
 
 import { httpsCallable } from "firebase/functions";
-import {
-  doc,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  orderBy,
-} from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where, orderBy } from "firebase/firestore";
 import { functions, db } from "../firebase";
 
 import { getUserById } from "../services/userService";
@@ -26,7 +19,6 @@ import { normalizePostDoc } from "../mappers/posts/normalizePostDoc";
 import AuthorLink from "../components/AuthorLink";
 import ReactionSummary from "../components/reactions/ReactionSummary";
 import Comments from "../components/comments/Comments";
-import CommentForm from "../components/comments/CommentForm";
 import CommentsSheet from "../components/comments/CommentsSheet";
 import Spinner from "../components/Spinner";
 import ShieldIcon from "../components/ui/ShieldIcon";
@@ -36,17 +28,11 @@ import Badge from "../components/ui/Bagde";
 import Avatar from "../components/common/Avatar";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
-import {
-  showErrorToast,
-  showInfoToast,
-  showSuccessToast,
-} from "../utils/toastUtils";
+import { showErrorToast, showInfoToast, showSuccessToast } from "../utils/toastUtils";
 
 const useMediaQuery = (q) => {
   const getMatch = () =>
-    typeof window !== "undefined" && window.matchMedia
-      ? window.matchMedia(q).matches
-      : false;
+    typeof window !== "undefined" && window.matchMedia ? window.matchMedia(q).matches : false;
 
   const [matches, setMatches] = useState(getMatch);
 
@@ -76,32 +62,32 @@ const PostDetails = () => {
 
   const [post, setPost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [author, setAuthor] = useState(null);
+
   const [showReportModal, setShowReportModal] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
 
-  const [author, setAuthor] = useState(null);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState(null);
 
   const { user } = useContext(AuthContext);
   const currentUserId = user?.uid ?? null;
   const postAuthorId = post?.userId ?? null;
   const isAdmin = user?.isAdmin === true;
-  const isAuthor =
-    currentUserId && postAuthorId && currentUserId === postAuthorId;
+
+  const isAuthor = currentUserId && postAuthorId && currentUserId === postAuthorId;
   const canManagePost = isAuthor || isAdmin;
 
   const lockedDate = post?.lockedAt?.toDate?.()?.toLocaleDateString?.() ?? null;
-
-  const [showBadgeModal, setShowBadgeModal] = useState(false);
-  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
-  const [selectedBadge, setSelectedBadge] = useState(null);
 
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
   const isLgUp = useMediaQuery("(min-width: 1024px)");
 
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-
   useEffect(() => {
     if (isLgUp) setIsCommentsOpen(false);
   }, [isLgUp]);
@@ -111,13 +97,13 @@ const PostDetails = () => {
   useEffect(() => {
     if (!postId) return;
 
-    const q = query(
+    const qRef = query(
       collection(db, "comments"),
       where("postID", "==", postId),
       orderBy("timestamp", "desc"),
     );
 
-    const unsub = onSnapshot(q, (snapshot) => {
+    const unsub = onSnapshot(qRef, (snapshot) => {
       const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setComments(results);
     });
@@ -264,127 +250,131 @@ const PostDetails = () => {
   };
 
   const wrapperClass = "w-full max-w-7xl mx-auto my-6 sm:my-8 pb-24 lg:pb-0";
-  const gridClass =
-    "grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start";
-  const cardClass =
-    "ui-card rounded-2xl border border-zinc-800/70 bg-zinc-950/40 ring-1 ring-zinc-100/5 shadow-sm overflow-hidden";
+  const gridClass = "grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start";
 
-  const postCardLockedFx = post.locked
-    ? "opacity-90 grayscale hover:opacity-100 transition duration-200"
-    : "";
+  const cardBase =
+    "ui-card rounded-2xl border border-zinc-800/70 bg-zinc-950/40 ring-1 ring-zinc-100/5 shadow-sm";
+
+  const postCardClass = [
+    cardBase,
+    "overflow-hidden p-4 sm:p-6",
+    post.badges?.trending ? "ring-2 ring-rose-500/60 border-rose-500/40" : "",
+    post.locked ? "opacity-90 grayscale hover:opacity-100 transition duration-200" : "",
+  ].join(" ");
+
+  const createdLabel = post?.createdAt?.toDate?.() ? post.createdAt.toDate().toLocaleString() : "";
 
   return (
     <div className={wrapperClass}>
       <div className={gridClass}>
-        {/* MAIN (post) */}
-        <div className="min-w-0">
-          <div
-            className={[
-              cardClass,
-              "p-4 sm:p-6",
-              post.badges?.trending
-                ? "ring-2 ring-rose-500/60 border-rose-500/40"
-                : "",
-              postCardLockedFx,
-            ].join(" ")}
-          >
-            {/* Title row */}
+        <div className="min-w-0 space-y-4">
+          <div className={postCardClass}>
             <div className="flex items-start justify-between gap-4">
-              <h1 className="min-w-0 text-2xl sm:text-3xl font-bold text-zinc-100 break-words">
-                {post.title}
-              </h1>
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 break-words">
+                  {post.title}
+                </h1>
 
-              <button
-                onClick={handleSaveToggle}
-                title={isSaved ? "Remove from saved" : "Save this post"}
-                className="shrink-0 rounded-xl p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-                aria-label={isSaved ? "Unsave post" : "Save post"}
-              >
-                {isSaved ? (
-                  <BsBookmarkFill className="text-sky-200" />
-                ) : (
-                  <BsBookmark className="text-zinc-400" />
-                )}
-              </button>
-            </div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-400">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="relative">
+                      <Avatar
+                        src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+                        size={36}
+                        zoomable
+                        badge={author?.badges?.topContributor ?? false}
+                        alt={author?.name ?? "Author"}
+                      />
 
-            {/* Badges + status */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {post?.badges?.mostInspiring && (
-                <Badge
-                  text="Most Inspiring"
-                  onClick={(e) => handleBadgeClick(e, "mostInspiring")}
-                />
-              )}
-              {post?.badges?.trending && (
-                <Badge
-                  text="Trending"
-                  onClick={(e) => handleBadgeClick(e, "trending")}
-                />
-              )}
-
-              {post.locked && lockedDate && (
-                <span
-                  title="This post is archived and cannot be edited or commented"
-                  className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
-                >
-                  <FiLock className="text-sm" />
-                  Archived: {lockedDate}
-                </span>
-              )}
-            </div>
-
-            {/* Author + meta */}
-            <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-zinc-400 border-b border-zinc-800 pb-4">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="relative">
-                  <Avatar
-                    src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
-                    size={40}
-                    zoomable
-                    badge={author?.badges?.topContributor ?? false}
-                    alt={author?.name ?? "Author"}
-                  />
-                  {author?.badges?.topContributor && (
-                    <div
-                      title="Top Contributor · Code-powered"
-                      className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowTopContributorModal(true);
-                      }}
-                    >
-                      <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
+                      {author?.badges?.topContributor && (
+                        <button
+                          type="button"
+                          title="Top Contributor · Code-powered"
+                          className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowTopContributorModal(true);
+                          }}
+                        >
+                          <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
+                        </button>
+                      )}
                     </div>
+
+                    <div className="min-w-0">
+                      {author?.id && (
+                        <AuthorLink
+                          author={author}
+                          className="!text-zinc-100 hover:!text-zinc-100 hover:underline underline-offset-4 decoration-zinc-500/70"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <span className="text-zinc-700">•</span>
+                  <span className="whitespace-nowrap">{createdLabel}</span>
+
+                  {post?.category && (
+                    <>
+                      <span className="text-zinc-700">•</span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-xs text-zinc-200">
+                        <span className="opacity-80">Category</span>
+                        <span className="text-zinc-100">{post.category}</span>
+                      </span>
+                    </>
                   )}
                 </div>
 
-                <div className="min-w-0">
-                  {author?.id && <AuthorLink author={author} />}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {post?.badges?.mostInspiring && (
+                    <Badge text="Most Inspiring" onClick={(e) => handleBadgeClick(e, "mostInspiring")} />
+                  )}
+                  {post?.badges?.trending && (
+                    <Badge text="Trending" onClick={(e) => handleBadgeClick(e, "trending")} />
+                  )}
+
+                  {post.locked && lockedDate && (
+                    <span
+                      title="This post is archived and cannot be edited or commented"
+                      className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
+                    >
+                      <FiLock className="text-sm" />
+                      Archived: {lockedDate}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <span className="mx-1">·</span>
-              <span>
-                {post?.createdAt?.toDate?.()?.toLocaleString?.() || ""}
-              </span>
-              <span className="mx-1">·</span>
-              <span className="text-zinc-300">📂 {post?.category}</span>
+              <div className="flex items-center gap-2 flex-none">
+                <button
+                  type="button"
+                  onClick={handleSaveToggle}
+                  title={isSaved ? "Remove from saved" : "Save this post"}
+                  className="rounded-xl p-2 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                >
+                  {isSaved ? <BsBookmarkFill className="text-sky-200" /> : <BsBookmark />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onReportClick}
+                  className="text-sm text-zinc-400 hover:text-zinc-200 hover:underline underline-offset-4"
+                >
+                  Report
+                </button>
+              </div>
             </div>
 
-            {/* Description */}
             {post?.description && (
-              <p className="mt-5 text-zinc-200 text-base leading-relaxed break-words overflow-x-hidden">
+              <p className="mt-6 text-zinc-200 text-base leading-relaxed break-words overflow-x-hidden">
                 {post.description}
               </p>
             )}
 
-            {/* Content */}
             <div className="mt-6 text-zinc-200 whitespace-pre-wrap break-words leading-relaxed overflow-x-hidden">
               {post?.content}
             </div>
 
-            {/* Tags (single source of truth) */}
             {Array.isArray(post?.tags) && post.tags.length > 0 && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {post.tags.map((tag, index) => (
@@ -398,8 +388,7 @@ const PostDetails = () => {
               </div>
             )}
 
-            {/* Reactions */}
-            <div className="mt-6 border-t border-zinc-800 pt-4">
+            <div className="mt-6 flex items-center justify-between border-t border-zinc-800 pt-4">
               <ReactionSummary
                 postId={post.id}
                 locked={post.locked}
@@ -407,17 +396,6 @@ const PostDetails = () => {
               />
             </div>
 
-            {/* Report */}
-            <button
-              type="button"
-              onClick={onReportClick}
-              className="mt-3 inline-flex text-sm text-blue-400 hover:text-blue-300 hover:underline"
-              aria-label="Report post"
-            >
-              Report
-            </button>
-
-            {/* Admin actions */}
             {canManagePost && (
               <div className="mt-4 flex gap-2 border-t border-zinc-800 pt-4">
                 {isAdmin && (
@@ -429,9 +407,7 @@ const PostDetails = () => {
                       isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
                     }`}
                   >
-                    {isDeletingPost
-                      ? "Deleting..."
-                      : "Delete permanently (admin)"}
+                    {isDeletingPost ? "Deleting..." : "Delete permanently (admin)"}
                   </button>
                 )}
               </div>
@@ -439,57 +415,42 @@ const PostDetails = () => {
           </div>
         </div>
 
-        {/* DESKTOP COMMENTS PANEL (lg+) */}
-        <aside className="hidden lg:block min-w-0">
-          <div
-            className={[
-              cardClass,
-              "lg:sticky lg:top-24",
-              "max-h-[calc(100vh-7rem)]",
-              "flex flex-col",
-            ].join(" ")}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800 flex-none">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-zinc-100">
-                  Comments
-                </h3>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  {commentsCount} total
-                </p>
+        {isLgUp && (
+          <aside className="hidden lg:block min-w-0">
+            <div className={`${cardBase} lg:sticky lg:top-24 flex flex-col h-[calc(100vh-9rem)]`}>
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800/70">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-zinc-100">Comments</h2>
+                  <p className="mt-0.5 text-xs text-zinc-500">{commentsCount} total</p>
+                </div>
               </div>
-            </div>
 
-            {/* Scroll list */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              <Comments
-                postID={postId}
-                comments={comments}
-                showAll
-                locked={post.locked}
-                hideHeader
-                hideForm
-                formWrapperClassName="mt-0"
-                listWrapperClassName="mt-0"
-              />
-            </div>
-
-            {/* Sticky input */}
-            {!post.locked && (
-              <div className="flex-none border-t border-zinc-800 bg-zinc-950/70 px-4 py-3">
-                <CommentForm
-                  postId={postId}
-                  parentId={null}
-                  wrapperClassName=""
+              <div className="flex-1 overflow-y-auto px-4 py-4 ui-scrollbar">
+                <Comments
+                  postID={postId}
+                  comments={comments}
+                  showAll
+                  locked={post.locked}
+                  hideHeader
+                  hideForm
+                  formWrapperClassName="mt-0"
+                  listWrapperClassName="mt-0"
                 />
               </div>
-            )}
-          </div>
-        </aside>
+
+              <div className="flex-none border-t border-zinc-800/70 bg-zinc-950/20 px-4 py-3">
+                <Comments
+                  postID={postId}
+                  locked={post.locked}
+                  renderOnlyForm
+                  formWrapperClassName=""
+                />
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
 
-      {/* MOBILE FLOATING COMMENTS BUTTON (<lg) */}
       {!isLgUp && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
           <button
@@ -507,7 +468,6 @@ const PostDetails = () => {
         </div>
       )}
 
-      {/* MOBILE COMMENTS SHEET (<lg) */}
       {!isLgUp && (
         <CommentsSheet
           isOpen={isCommentsOpen}
@@ -519,7 +479,6 @@ const PostDetails = () => {
         />
       )}
 
-      {/* Badge modals */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
@@ -528,6 +487,7 @@ const PostDetails = () => {
           onClose={() => setShowBadgeModal(false)}
         />
       )}
+
       <BadgeModal
         isOpen={showTopContributorModal}
         locked={post.locked}
@@ -535,7 +495,6 @@ const PostDetails = () => {
         authorBadge="topContributor"
       />
 
-      {/* Report confirm */}
       <ConfirmModal
         isOpen={showReportModal}
         title="Are you sure you want to report this post?"
@@ -545,7 +504,6 @@ const PostDetails = () => {
         onConfirm={onConfirmReport}
       />
 
-      {/* Admin hard delete */}
       <ConfirmModal
         isOpen={deleteModalOpen}
         title="Delete Post Permanently"

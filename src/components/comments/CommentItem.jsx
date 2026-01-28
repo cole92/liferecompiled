@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef, useContext } from "react";
+import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { motion } from "framer-motion";
 import { FiMoreHorizontal } from "react-icons/fi";
+import { createPortal } from "react-dom";
 
 import { auth, db } from "../../firebase";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
@@ -26,6 +27,12 @@ import ShieldIcon from "../ui/ShieldIcon";
 import Avatar from "../common/Avatar";
 
 dayjs.extend(relativeTime);
+
+const getPortalRoot = () =>
+  document.getElementById("modal-root") || document.body;
+
+const MENU_WIDTH = 176;
+const MENU_MARGIN = 12;
 
 const CommentItem = ({
   userId,
@@ -58,7 +65,15 @@ const CommentItem = ({
   const [showReportModal, setShowReportModal] = useState(false);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const menuBtnRef = useRef(null);
+  const hintShownRef = useRef(false);
+
+  const portalRoot = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    return getPortalRoot();
+  }, []);
 
   const { user: currentUserCtx } = useContext(AuthContext);
   const currentUser = currentUserCtx || auth.currentUser;
@@ -67,8 +82,6 @@ const CommentItem = ({
   const isAuthor = !!currentUserId && currentUserId === userId;
   const isAdmin = currentUserCtx?.isAdmin === true;
   const canManageComment = isAuthor || isAdmin;
-
-  const hintShownRef = useRef(false);
 
   const tsDate = timestamp?.toDate?.();
   const editedDate = editedAt?.toDate?.();
@@ -150,25 +163,21 @@ const CommentItem = ({
     return () => clearTimeout(timerId);
   }, [userId, canEdit]);
 
-  // close menu on click-away / ESC
   useEffect(() => {
     if (!isMenuOpen) return;
-
-    const onPointerDown = (e) => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(e.target)) setIsMenuOpen(false);
-    };
 
     const onKeyDown = (e) => {
       if (e.key === "Escape") setIsMenuOpen(false);
     };
 
-    document.addEventListener("mousedown", onPointerDown);
+    const onAnyScroll = () => setIsMenuOpen(false);
+
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onAnyScroll, true);
 
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onAnyScroll, true);
     };
   }, [isMenuOpen]);
 
@@ -178,10 +187,9 @@ const CommentItem = ({
       a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
     const bT =
       b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
-    return aT - bT; // oldest first inside thread
+    return aT - bT;
   });
 
-  // show deleted reply only if it has at least one non-deleted child
   const visibleReplies = sortedReplies.filter((r) => {
     if (!r.deleted) return true;
     const kids = childrenMap?.[r.id] || [];
@@ -232,6 +240,30 @@ const CommentItem = ({
     setEditedContent(content);
   };
 
+  const openMenu = (e) => {
+    e.stopPropagation();
+    const btn = menuBtnRef.current;
+    if (!btn) return;
+
+    const r = btn.getBoundingClientRect();
+    const left = Math.min(
+      window.innerWidth - MENU_WIDTH - MENU_MARGIN,
+      Math.max(MENU_MARGIN, r.right - MENU_WIDTH),
+    );
+
+    const menuHeightGuess = 140;
+    const spaceBelow = window.innerHeight - r.bottom;
+    const top =
+      spaceBelow > menuHeightGuess + 12
+        ? r.bottom + 8
+        : Math.max(MENU_MARGIN, r.top - 8 - menuHeightGuess);
+
+    setMenuPos({ top, left });
+    setIsMenuOpen(true);
+  };
+
+  const closeMenu = () => setIsMenuOpen(false);
+
   return (
     <>
       <motion.div
@@ -240,7 +272,6 @@ const CommentItem = ({
         transition={{ duration: 0.2, ease: "easeOut" }}
         className="py-4"
       >
-        {/* MAIN COMMENT ROW */}
         <div className="rounded-xl px-2 sm:px-3 py-3 hover:bg-zinc-950/20 transition">
           <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-3 items-start">
             <div className="relative">
@@ -305,7 +336,7 @@ const CommentItem = ({
                     name="editedComment"
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-2 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-2 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 resize-none"
                     aria-label="Edit comment"
                   />
                   <div className="flex gap-3 mt-2 text-sm">
@@ -339,94 +370,47 @@ const CommentItem = ({
                 </p>
               )}
 
-              {/* ACTIONS */}
               {showAll && !isDeleted && (
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-zinc-400">
-                  <button
-                    type="button"
-                    onClick={() => setIsReplying((v) => !v)}
-                    className={
-                      disableReplyButton
-                        ? "cursor-not-allowed opacity-50 text-zinc-500"
-                        : "text-sky-300 hover:text-sky-200 hover:underline"
-                    }
-                    disabled={disableReplyButton}
-                    aria-label={
-                      disableReplyButton ? "Reply disabled" : "Reply to comment"
-                    }
-                  >
-                    Reply
-                  </button>
-
-                  <CommentReaction
-                    commentId={commentId}
-                    currentUserId={auth.currentUser?.uid}
-                    locked={locked}
-                  />
-
-                  <div className="relative" ref={menuRef}>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen((v) => !v);
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-                      aria-label="More actions"
-                      aria-expanded={isMenuOpen}
+                      onClick={() => setIsReplying((v) => !v)}
+                      className={
+                        disableReplyButton
+                          ? "cursor-not-allowed opacity-50 text-zinc-500"
+                          : "text-sky-300 hover:text-sky-200 hover:underline"
+                      }
+                      disabled={disableReplyButton}
+                      aria-label={
+                        disableReplyButton
+                          ? "Reply disabled"
+                          : "Reply to comment"
+                      }
                     >
-                      <FiMoreHorizontal />
-                      <span className="sr-only">More</span>
+                      Reply
                     </button>
 
-                    {isMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-44 rounded-xl border border-zinc-800 bg-zinc-950/95 p-1 shadow-lg z-10">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMenuOpen(false);
-                            onReportClick();
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 rounded-lg"
-                        >
-                          Report
-                        </button>
-
-                        {isAuthor && !locked && !isEditing && canEdit && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsMenuOpen(false);
-                              setIsEditing(true);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 rounded-lg"
-                          >
-                            Edit
-                          </button>
-                        )}
-
-                        {canManageComment && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsMenuOpen(false);
-                              setShowConfirmModal(true);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/10 rounded-lg"
-                          >
-                            {isDeleting ? "Deleting..." : "Delete"}
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <CommentReaction
+                      commentId={commentId}
+                      currentUserId={auth.currentUser?.uid}
+                      locked={locked}
+                    />
                   </div>
+
+                  <button
+                    ref={menuBtnRef}
+                    type="button"
+                    onClick={openMenu}
+                    className="inline-flex items-center justify-center rounded-lg p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    aria-label="More actions"
+                    aria-expanded={isMenuOpen}
+                  >
+                    <FiMoreHorizontal />
+                  </button>
                 </div>
               )}
 
-              {/* REPLY FORM */}
               {isReplying && !locked && !isDeleted && (
                 <CommentForm
                   postId={postID}
@@ -437,7 +421,6 @@ const CommentItem = ({
                 />
               )}
 
-              {/* REPLIES TOGGLE */}
               {showAll && !blockRenderingChildren && directReplies > 0 && (
                 <div className="mt-3">
                   <button
@@ -456,7 +439,6 @@ const CommentItem = ({
           </div>
         </div>
 
-        {/* REPLIES LIST (NO INDENT) + minimal thread hint */}
         {showAll &&
           !blockRenderingChildren &&
           isRepliesOpen &&
@@ -484,6 +466,73 @@ const CommentItem = ({
             </div>
           )}
       </motion.div>
+
+      {isMenuOpen &&
+        portalRoot &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[80]"
+            onMouseDown={closeMenu}
+            aria-hidden="true"
+          >
+            <div
+              className="fixed"
+              style={{
+                top: menuPos.top,
+                left: menuPos.left,
+                width: MENU_WIDTH,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              role="menu"
+            >
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl ring-1 ring-zinc-100/10 p-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeMenu();
+                    onReportClick();
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/60 rounded-lg"
+                  role="menuitem"
+                >
+                  Report
+                </button>
+
+                {isAuthor && !locked && !isEditing && canEdit && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeMenu();
+                      setIsEditing(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/60 rounded-lg"
+                    role="menuitem"
+                  >
+                    Edit
+                  </button>
+                )}
+
+                {canManageComment && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeMenu();
+                      setShowConfirmModal(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/10 rounded-lg"
+                    role="menuitem"
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>,
+          portalRoot,
+        )}
 
       <ConfirmModal
         isOpen={showConfirmModal}
