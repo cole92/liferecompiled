@@ -34,7 +34,6 @@ const CommentItem = ({
   editedAt,
   postID,
   commentId,
-  comments,
   childrenMap,
   depth = 0,
   showAll = false,
@@ -58,6 +57,9 @@ const CommentItem = ({
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
   const { user: currentUserCtx } = useContext(AuthContext);
   const currentUser = currentUserCtx || auth.currentUser;
 
@@ -74,9 +76,9 @@ const CommentItem = ({
 
   const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
 
-  const disableReplyButton = locked || depth >= maxDepthForReply;
-  const blockRenderingChildren = depth >= maxDepthForRender;
   const isDeleted = deleted;
+  const disableReplyButton = locked || isDeleted || depth >= maxDepthForReply;
+  const blockRenderingChildren = depth >= maxDepthForRender;
 
   const onReportClick = () => {
     if (!currentUser) {
@@ -147,6 +149,28 @@ const CommentItem = ({
     const timerId = setTimeout(() => setShowEditHint(false), 10_000);
     return () => clearTimeout(timerId);
   }, [userId, canEdit]);
+
+  // close menu on click-away / ESC
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const onPointerDown = (e) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target)) setIsMenuOpen(false);
+    };
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setIsMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isMenuOpen]);
 
   const rawReplies = childrenMap?.[commentId] || [];
   const sortedReplies = [...rawReplies].sort((a, b) => {
@@ -340,69 +364,70 @@ const CommentItem = ({
                     locked={locked}
                   />
 
-                  <details className="relative">
-                    <summary
-                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 [&::-webkit-details-marker]:hidden"
+                  <div className="relative" ref={menuRef}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMenuOpen((v) => !v);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                       aria-label="More actions"
+                      aria-expanded={isMenuOpen}
                     >
                       <FiMoreHorizontal />
                       <span className="sr-only">More</span>
-                    </summary>
+                    </button>
 
-                    <div className="absolute right-0 mt-2 w-44 rounded-xl border border-zinc-800 bg-zinc-950/95 p-1 shadow-lg z-10">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.ensureStop?.();
-                          e.stopPropagation();
-                          e.currentTarget
-                            .closest("details")
-                            ?.removeAttribute("open");
-                          onReportClick();
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 rounded-lg"
-                      >
-                        Report
-                      </button>
-
-                      {isAuthor && !locked && !isEditing && canEdit && (
+                    {isMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-44 rounded-xl border border-zinc-800 bg-zinc-950/95 p-1 shadow-lg z-10">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            e.currentTarget
-                              .closest("details")
-                              ?.removeAttribute("open");
-                            setIsEditing(true);
+                            setIsMenuOpen(false);
+                            onReportClick();
                           }}
                           className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 rounded-lg"
                         >
-                          Edit
+                          Report
                         </button>
-                      )}
 
-                      {canManageComment && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.currentTarget
-                              .closest("details")
-                              ?.removeAttribute("open");
-                            setShowConfirmModal(true);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/10 rounded-lg"
-                        >
-                          {isDeleting ? "Deleting..." : "Delete"}
-                        </button>
-                      )}
-                    </div>
-                  </details>
+                        {isAuthor && !locked && !isEditing && canEdit && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsMenuOpen(false);
+                              setIsEditing(true);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 rounded-lg"
+                          >
+                            Edit
+                          </button>
+                        )}
+
+                        {canManageComment && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsMenuOpen(false);
+                              setShowConfirmModal(true);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/10 rounded-lg"
+                          >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* REPLY FORM */}
-              {isReplying && !locked && (
+              {isReplying && !locked && !isDeleted && (
                 <CommentForm
                   postId={postID}
                   parentId={commentId}
@@ -431,12 +456,12 @@ const CommentItem = ({
           </div>
         </div>
 
-        {/* REPLIES LIST (NO INDENT) */}
+        {/* REPLIES LIST (NO INDENT) + minimal thread hint */}
         {showAll &&
           !blockRenderingChildren &&
           isRepliesOpen &&
           directReplies > 0 && (
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-2 border-l-2 border-zinc-800/40">
               {visibleReplies.map((reply) => (
                 <CommentItem
                   key={reply.id}
@@ -446,7 +471,6 @@ const CommentItem = ({
                   content={reply.content}
                   timestamp={reply.timestamp}
                   editedAt={reply.editedAt}
-                  comments={comments}
                   childrenMap={childrenMap}
                   depth={depth + 1}
                   showAll={showAll}
@@ -493,7 +517,6 @@ const CommentItem = ({
   );
 };
 
-// helper to keep original behavior without duplicating logic in JSX
 function seeAllTruncation(text) {
   return typeof text === "string" && text.length > 150;
 }
@@ -505,18 +528,6 @@ CommentItem.propTypes = {
   editedAt: PropTypes.object,
   postID: PropTypes.string.isRequired,
   commentId: PropTypes.string.isRequired,
-  comments: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      userID: PropTypes.string.isRequired,
-      content: PropTypes.string.isRequired,
-      timestamp: PropTypes.object,
-      postID: PropTypes.string.isRequired,
-      parentID: PropTypes.string,
-      editedAt: PropTypes.object,
-      deleted: PropTypes.bool,
-    }),
-  ).isRequired,
   childrenMap: PropTypes.object,
   depth: PropTypes.number,
   showAll: PropTypes.bool,

@@ -14,23 +14,27 @@ import CommentItem from "./CommentItem";
 
 const Comments = ({
   postID,
+  comments: commentsProp,
   showAll = false,
   locked = false,
   disableBadgeModal,
-  repliesPreviewCount = 1, // kept for compatibility
   renderOnlyForm = false,
 
-  // new
   onCountChange,
   hideHeader = false,
+  hideForm = false,
   formWrapperClassName = "mt-4",
   listWrapperClassName = "mt-5",
 }) => {
-  const [comments, setComments] = useState([]);
+  const [localComments, setLocalComments] = useState([]);
+  const comments = commentsProp ?? localComments;
+
   const [visibleCount, setVisibleCount] = useState(10);
 
+  const shouldSubscribe = !commentsProp;
+
   useEffect(() => {
-    if (!postID) return;
+    if (!postID || !shouldSubscribe) return;
 
     const q = query(
       collection(db, "comments"),
@@ -40,11 +44,11 @@ const Comments = ({
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setComments(results);
+      setLocalComments(results);
     });
 
     return unsubscribe;
-  }, [postID]);
+  }, [postID, shouldSubscribe]);
 
   const childrenMap = useMemo(() => {
     const map = {};
@@ -78,7 +82,11 @@ const Comments = ({
 
   if (renderOnlyForm) {
     return !locked ? (
-      <CommentForm postId={postID} parentId={null} wrapperClassName="mt-4" />
+      <CommentForm
+        postId={postID}
+        parentId={null}
+        wrapperClassName={formWrapperClassName}
+      />
     ) : null;
   }
 
@@ -105,7 +113,7 @@ const Comments = ({
         </p>
       )}
 
-      {!locked && (
+      {!locked && !hideForm && (
         <CommentForm
           postId={postID}
           parentId={null}
@@ -125,7 +133,6 @@ const Comments = ({
                 timestamp={comment.timestamp}
                 editedAt={comment.editedAt}
                 postID={comment.postID}
-                comments={comments}
                 childrenMap={childrenMap}
                 showAll={showAll}
                 deleted={comment.deleted}
@@ -158,14 +165,15 @@ const Comments = ({
 
 Comments.propTypes = {
   postID: PropTypes.string.isRequired,
+  comments: PropTypes.array,
   showAll: PropTypes.bool,
   locked: PropTypes.bool,
   disableBadgeModal: PropTypes.bool,
-  repliesPreviewCount: PropTypes.number,
   renderOnlyForm: PropTypes.bool,
 
   onCountChange: PropTypes.func,
   hideHeader: PropTypes.bool,
+  hideForm: PropTypes.bool,
   formWrapperClassName: PropTypes.string,
   listWrapperClassName: PropTypes.string,
 };

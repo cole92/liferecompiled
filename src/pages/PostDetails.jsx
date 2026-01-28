@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock, FiMessageCircle } from "react-icons/fi";
@@ -6,7 +6,14 @@ import { FiLock, FiMessageCircle } from "react-icons/fi";
 import { AuthContext } from "../context/AuthContext";
 
 import { httpsCallable } from "firebase/functions";
-import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  where,
+  orderBy,
+} from "firebase/firestore";
 import { functions, db } from "../firebase";
 
 import { getUserById } from "../services/userService";
@@ -95,11 +102,34 @@ const PostDetails = () => {
 
   // mobile comments sheet
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-  const [commentsCount, setCommentsCount] = useState(0);
 
   useEffect(() => {
     if (isLgUp) setIsCommentsOpen(false);
   }, [isLgUp]);
+
+  // single source: comments snapshot (for inline + sheet + count)
+  const [comments, setComments] = useState([]);
+
+  useEffect(() => {
+    if (!postId) return;
+
+    const q = query(
+      collection(db, "comments"),
+      where("postID", "==", postId),
+      orderBy("timestamp", "desc"),
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setComments(results);
+    });
+
+    return unsub;
+  }, [postId]);
+
+  const commentsCount = useMemo(() => {
+    return comments.reduce((acc, c) => (c?.deleted ? acc : acc + 1), 0);
+  }, [comments]);
 
   // post snapshot
   useEffect(() => {
@@ -161,24 +191,6 @@ const PostDetails = () => {
       cancelled = true;
     };
   }, [post?.userId]);
-
-  // comments count (non-deleted) - needed for mobile button/sheet header
-  useEffect(() => {
-    if (!postId) return;
-
-    const q = query(collection(db, "comments"), where("postID", "==", postId));
-
-    const unsub = onSnapshot(q, (snap) => {
-      let count = 0;
-      snap.forEach((d) => {
-        const data = d.data();
-        if (!data?.deleted) count += 1;
-      });
-      setCommentsCount(count);
-    });
-
-    return unsub;
-  }, [postId]);
 
   if (isLoading) return <Spinner />;
   if (!post) return <p>Post not found.</p>;
@@ -432,10 +444,9 @@ const PostDetails = () => {
             <div className={[cardClass, "p-4 sm:p-6"].join(" ")}>
               <Comments
                 postID={postId}
-                userId={currentUserId}
-                showAll={true}
+                comments={comments}
+                showAll
                 locked={post.locked}
-                repliesPreviewCount={1}
               />
             </div>
           )}
@@ -522,9 +533,9 @@ const PostDetails = () => {
           isOpen={isCommentsOpen}
           onClose={() => setIsCommentsOpen(false)}
           postId={postId}
-          currentUserId={currentUserId}
           locked={post.locked}
           count={commentsCount}
+          comments={comments}
         />
       )}
 
@@ -550,7 +561,7 @@ const PostDetails = () => {
         title="Are you sure you want to report this post?"
         message="This will notify moderators about this post."
         confirmText="Yes"
-        onCancel={onCancelReport}
+        onCancel={() => setShowReportModal(false)}
         onConfirm={onConfirmReport}
       />
 
