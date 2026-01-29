@@ -263,18 +263,22 @@ const PostDetails = () => {
     }
   };
 
-  const wrapperClass = "w-full max-w-7xl mx-auto my-6 sm:my-8 pb-24 lg:pb-0";
+  const wrapperClass =
+    "w-full max-w-7xl mx-auto my-0 sm:my-8 pb-[calc(1.25rem+env(safe-area-inset-bottom))] lg:pb-0";
+
   const gridClass =
     "grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-start";
 
   const cardBase =
-    "ui-card rounded-2xl border border-zinc-800/70 bg-zinc-950/40 ring-1 ring-zinc-100/5 shadow-sm";
+    "rounded-none border-0 bg-transparent ring-0 shadow-none " +
+    "sm:rounded-2xl sm:border sm:border-zinc-800/70 sm:bg-zinc-950/40 sm:ring-1 sm:ring-zinc-100/5 sm:shadow-sm";
 
   const postCardClass = [
     cardBase,
-    "overflow-hidden p-4 sm:p-6",
+    "overflow-hidden p-1 sm:p-6",
     "lg:h-[calc(100vh-9rem)] lg:flex lg:flex-col",
-    post.badges?.trending ? "ring-2 ring-rose-500/60 border-rose-500/40" : "",
+    post.badges?.trending ? "sm:bg-zinc-950/55" : "",
+
     post.locked
       ? "opacity-90 grayscale hover:opacity-100 transition duration-200"
       : "",
@@ -497,19 +501,21 @@ const PostDetails = () => {
       </div>
 
       {!isLgUp && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
-          <button
-            type="button"
-            onClick={() => setIsCommentsOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/90 px-4 py-2 text-zinc-100 shadow-lg backdrop-blur hover:bg-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-            aria-label="Open comments"
-          >
-            <FiMessageCircle className="text-lg" />
-            <span className="text-sm font-medium">Comments</span>
-            <span className="ml-1 inline-flex min-w-7 justify-center rounded-full border border-zinc-800 bg-zinc-950/60 px-2 py-0.5 text-xs text-zinc-300">
-              {commentsCount}
-            </span>
-          </button>
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur">
+          <div className="mx-auto w-full max-w-7xl px-3 py-3">
+            <button
+              type="button"
+              onClick={() => setIsCommentsOpen(true)}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/90 px-4 py-3 text-zinc-100 shadow-lg hover:bg-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              aria-label="Open comments"
+            >
+              <FiMessageCircle className="text-lg" />
+              <span className="text-sm font-medium">Comments</span>
+              <span className="ml-1 inline-flex min-w-7 justify-center rounded-full border border-zinc-800 bg-zinc-950/60 px-2 py-0.5 text-xs text-zinc-300">
+                {commentsCount}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
