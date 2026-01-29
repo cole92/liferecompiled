@@ -1,5 +1,6 @@
+// components/comments/Comments.jsx
 import PropTypes from "prop-types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   collection,
   query,
@@ -36,13 +37,13 @@ const Comments = ({
   useEffect(() => {
     if (!postID || !shouldSubscribe) return;
 
-    const q = query(
+    const qRef = query(
       collection(db, "comments"),
       where("postID", "==", postID),
       orderBy("timestamp", "desc"),
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(qRef, (snapshot) => {
       const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setLocalComments(results);
     });
@@ -72,6 +73,7 @@ const Comments = ({
     });
   }, [comments]);
 
+  // Count shown in header: only non-deleted (same as before)
   const totalCount = useMemo(() => {
     return comments.filter((c) => !c.deleted).length;
   }, [comments]);
@@ -79,6 +81,38 @@ const Comments = ({
   useEffect(() => {
     onCountChange?.(totalCount);
   }, [totalCount, onCountChange]);
+
+  // NEW: hide deleted root comments that have no visible descendants
+  const hasVisibleDescendant = useCallback(
+    (id, memo = {}) => {
+      if (memo[id] !== undefined) return memo[id];
+
+      const kids = childrenMap?.[id] || [];
+      for (const k of kids) {
+        // if child is not deleted -> visible descendant exists
+        if (!k.deleted) {
+          memo[id] = true;
+          return true;
+        }
+        // child deleted, but maybe it has its own visible descendants
+        if (hasVisibleDescendant(k.id, memo)) {
+          memo[id] = true;
+          return true;
+        }
+      }
+
+      memo[id] = false;
+      return false;
+    },
+    [childrenMap],
+  );
+
+  const visibleRootComments = useMemo(() => {
+    const memo = {};
+    return rootComments.filter(
+      (c) => !c.deleted || hasVisibleDescendant(c.id, memo),
+    );
+  }, [rootComments, hasVisibleDescendant]);
 
   if (renderOnlyForm) {
     return !locked ? (
@@ -91,8 +125,8 @@ const Comments = ({
   }
 
   const slice = showAll
-    ? rootComments.slice(0, visibleCount)
-    : rootComments.slice(0, 2);
+    ? visibleRootComments.slice(0, visibleCount)
+    : visibleRootComments.slice(0, 2);
 
   return (
     <div className="w-full">
@@ -147,7 +181,7 @@ const Comments = ({
           </p>
         )}
 
-        {showAll && visibleCount < rootComments.length && (
+        {showAll && visibleCount < visibleRootComments.length && (
           <div className="text-center mt-5">
             <button
               type="button"

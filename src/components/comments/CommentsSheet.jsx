@@ -1,3 +1,4 @@
+// components/comments/CommentsSheet.jsx
 import { useEffect, useMemo, useRef } from "react";
 import PropTypes from "prop-types";
 import { createPortal } from "react-dom";
@@ -9,7 +10,14 @@ import CommentForm from "./CommentForm";
 const getPortalRoot = () =>
   document.getElementById("modal-root") || document.body;
 
-const CommentsSheet = ({ isOpen, onClose, postId, locked, count, comments }) => {
+const CommentsSheet = ({
+  isOpen,
+  onClose,
+  postId,
+  locked,
+  count,
+  comments,
+}) => {
   const root = useMemo(() => {
     if (typeof document === "undefined") return null;
     return getPortalRoot();
@@ -87,7 +95,6 @@ const CommentsSheet = ({ isOpen, onClose, postId, locked, count, comments }) => 
           aria-label="Comments"
           className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-xl overflow-hidden flex flex-col"
         >
-          {/* HEADER */}
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800 flex-none">
             <div className="flex items-baseline gap-2 min-w-0">
               <div className="h-1 w-10 rounded-full bg-zinc-700/70 mr-1 hidden sm:block" />
@@ -106,7 +113,6 @@ const CommentsSheet = ({ isOpen, onClose, postId, locked, count, comments }) => 
             </button>
           </div>
 
-          {/* LIST SCROLL */}
           <div className="flex-1 overflow-y-auto px-4 py-4">
             <Comments
               postID={postId}
@@ -120,10 +126,13 @@ const CommentsSheet = ({ isOpen, onClose, postId, locked, count, comments }) => 
             />
           </div>
 
-          {/* STICKY INPUT */}
           {!locked && (
             <div className="flex-none border-t border-zinc-800 bg-zinc-950/95 px-4 py-3">
-              <CommentForm postId={postId} parentId={null} wrapperClassName="" />
+              <CommentForm
+                postId={postId}
+                parentId={null}
+                wrapperClassName=""
+              />
             </div>
           )}
         </div>

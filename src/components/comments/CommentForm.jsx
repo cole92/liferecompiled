@@ -1,8 +1,9 @@
+// components/comments/CommentForm.jsx
 import PropTypes from "prop-types";
 import { useContext, useRef, useEffect, useState } from "react";
 import { auth } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
-import { addCommentSecure } from "../../firebase/functions";
+import { addComment } from "./commentsService";
 import { showErrorToast, showInfoToast } from "../../utils/toastUtils";
 
 const CommentForm = ({
@@ -12,8 +13,9 @@ const CommentForm = ({
   autoFocus = false,
   wrapperClassName = "",
 }) => {
-  const { currentUser } = useContext(AuthContext);
-  const user = currentUser || auth.currentUser;
+  // Standardize: AuthContext provides { user }
+  const { user: ctxUser } = useContext(AuthContext);
+  const user = ctxUser || auth.currentUser;
 
   const [commentContent, setCommentContent] = useState("");
   const [error, setError] = useState("");
@@ -48,11 +50,7 @@ const CommentForm = ({
         return;
       }
 
-      await addCommentSecure({
-        postId,
-        content: commentContent,
-        parentId,
-      });
+      await addComment(postId, commentContent, parentId ?? null);
 
       setCommentContent("");
       setError("");

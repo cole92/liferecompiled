@@ -1,3 +1,4 @@
+// components/comments/CommentItem.jsx
 import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
@@ -75,12 +76,13 @@ const CommentItem = ({
     return getPortalRoot();
   }, []);
 
-  const { user: currentUserCtx } = useContext(AuthContext);
-  const currentUser = currentUserCtx || auth.currentUser;
+  // Standardize: AuthContext provides { user }
+  const { user: ctxUser } = useContext(AuthContext);
+  const currentUser = ctxUser || auth.currentUser;
 
   const currentUserId = currentUser?.uid ?? null;
   const isAuthor = !!currentUserId && currentUserId === userId;
-  const isAdmin = currentUserCtx?.isAdmin === true;
+  const isAdmin = ctxUser?.isAdmin === true;
   const canManageComment = isAuthor || isAdmin;
 
   const tsDate = timestamp?.toDate?.();
@@ -393,7 +395,7 @@ const CommentItem = ({
 
                     <CommentReaction
                       commentId={commentId}
-                      currentUserId={auth.currentUser?.uid}
+                      currentUserId={currentUser?.uid}
                       locked={locked}
                     />
                   </div>
