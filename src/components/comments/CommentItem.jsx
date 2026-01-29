@@ -1,4 +1,3 @@
-// components/comments/CommentItem.jsx
 import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
@@ -286,12 +285,10 @@ const CommentItem = ({
               />
 
               {user?.badges?.topContributor && (
-                <div
+                <button
+                  type="button"
                   title="Top Contributor · Code-powered"
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Show Top Contributor badge info"
-                  className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                  className="absolute top-0 right-1.5 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (disableBadgeModal) return;
@@ -304,9 +301,10 @@ const CommentItem = ({
                       setShowTopContributorModal(true);
                     }
                   }}
+                  aria-label="Show Top Contributor badge info"
                 >
                   <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
-                </div>
+                </button>
               )}
             </div>
 
@@ -338,7 +336,7 @@ const CommentItem = ({
                     name="editedComment"
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-2 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 resize-none"
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-2 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 resize-none max-h-40 overflow-y-auto"
                     aria-label="Edit comment"
                   />
                   <div className="flex gap-3 mt-2 text-sm">
@@ -417,6 +415,10 @@ const CommentItem = ({
                 <CommentForm
                   postId={postID}
                   parentId={commentId}
+                  replyingTo={{
+                    id: userId,
+                    name: user?.name || "user",
+                  }}
                   onSubmitSuccess={() => setIsReplying(false)}
                   autoFocus
                   wrapperClassName="mt-3"

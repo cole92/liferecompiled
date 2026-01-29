@@ -1,6 +1,7 @@
-// components/comments/CommentForm.jsx
 import PropTypes from "prop-types";
 import { useContext, useRef, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
 import { auth } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
 import { addComment } from "./commentsService";
@@ -12,6 +13,7 @@ const CommentForm = ({
   onSubmitSuccess,
   autoFocus = false,
   wrapperClassName = "",
+  replyingTo = null, // { id: string, name: string } optional
 }) => {
   // Standardize: AuthContext provides { user }
   const { user: ctxUser } = useContext(AuthContext);
@@ -71,18 +73,34 @@ const CommentForm = ({
   const remainingChars = 500 - commentContent.length;
   const showInlineError = hasSubmitted && (!isCommentValid || !!error);
 
+  const showReplyingTo = !!parentId && !!replyingTo?.id;
+
   return (
     <form
       onSubmit={handleSubmit}
       onClick={(e) => e.stopPropagation()}
       className={wrapperClassName}
     >
+      {showReplyingTo && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
+          <span className="opacity-80">Replying to</span>
+          <Link
+            to={`/profile/${replyingTo.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-zinc-200 hover:text-zinc-100 hover:underline underline-offset-4 decoration-zinc-500/70"
+            aria-label={`Replying to ${replyingTo.name || "user"}`}
+          >
+            @{replyingTo.name || "user"}
+          </Link>
+        </div>
+      )}
+
       <textarea
         id={`comment-${postId}${parentId ? `-${parentId}` : ""}`}
         name="comment"
         ref={textareaRef}
         placeholder={parentId ? "Write a reply..." : "Add a comment..."}
-        className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 resize-none max-h-40 overflow-y-auto"
         rows={parentId ? 2 : 3}
         value={commentContent}
         onChange={(e) => {
@@ -136,6 +154,10 @@ CommentForm.propTypes = {
   onSubmitSuccess: PropTypes.func,
   autoFocus: PropTypes.bool,
   wrapperClassName: PropTypes.string,
+  replyingTo: PropTypes.shape({
+    id: PropTypes.string,
+    name: PropTypes.string,
+  }),
 };
 
 export default CommentForm;
