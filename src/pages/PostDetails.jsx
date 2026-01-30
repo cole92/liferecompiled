@@ -101,8 +101,6 @@ const PostDetails = () => {
 
   const isLgUp = useMediaQuery("(min-width: 1024px)");
 
-
-
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   useEffect(() => {
     if (isLgUp) setIsCommentsOpen(false);
@@ -286,7 +284,7 @@ const PostDetails = () => {
 
   const postCardClass = [
     cardBase,
-    "overflow-hidden p-1 sm:p-6",
+    "overflow-visible sm:overflow-hidden p-1 sm:p-6",
     "lg:h-[calc(100vh-9rem)] lg:flex lg:flex-col",
     post.locked
       ? "opacity-90 grayscale hover:opacity-100 transition duration-200"
@@ -316,13 +314,17 @@ const PostDetails = () => {
                       <button
                         type="button"
                         title="Top Contributor · Code-powered"
-                        className="absolute top-0 right-1.5 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                        className="
+    absolute top-0 right-1
+    translate-x-1/3 -translate-y-[45%]
+    cursor-pointer group
+  "
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowTopContributorModal(true);
                         }}
                       >
-                        <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
+                        <ShieldIcon className="w-5 h-5 sm:w-5 sm:h-5 text-sky-200 group-hover:scale-110 transition-transform" />
                       </button>
                     )}
                   </div>
