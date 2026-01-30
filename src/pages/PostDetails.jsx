@@ -1,7 +1,7 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
-import { FiLock, FiMessageCircle } from "react-icons/fi";
+import { FiLock, FiMessageCircle, FiFlag } from "react-icons/fi";
 
 import { AuthContext } from "../context/AuthContext";
 
@@ -100,6 +100,8 @@ const PostDetails = () => {
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
   const isLgUp = useMediaQuery("(min-width: 1024px)");
+
+
 
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   useEffect(() => {
@@ -263,8 +265,17 @@ const PostDetails = () => {
     }
   };
 
+  const createdLabelShort = post?.createdAt?.toDate?.()
+    ? post.createdAt.toDate().toLocaleDateString()
+    : "";
+
+  const createdLabelLong = post?.createdAt?.toDate?.()
+    ? post.createdAt.toDate().toLocaleString()
+    : "";
+
   const wrapperClass =
-    "w-full max-w-7xl mx-auto my-0 sm:my-8 pb-[calc(1.25rem+env(safe-area-inset-bottom))] lg:pb-0";
+    "w-full max-w-7xl mx-auto my-0 sm:my-8 " +
+    "pb-[calc(1.25rem+env(safe-area-inset-bottom))] lg:pb-0";
 
   const gridClass =
     "grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-start";
@@ -277,16 +288,10 @@ const PostDetails = () => {
     cardBase,
     "overflow-hidden p-1 sm:p-6",
     "lg:h-[calc(100vh-9rem)] lg:flex lg:flex-col",
-    post.badges?.trending ? "sm:bg-zinc-950/55" : "",
-
     post.locked
       ? "opacity-90 grayscale hover:opacity-100 transition duration-200"
       : "",
   ].join(" ");
-
-  const createdLabel = post?.createdAt?.toDate?.()
-    ? post.createdAt.toDate().toLocaleString()
-    : "";
 
   return (
     <div className={wrapperClass}>
@@ -295,14 +300,48 @@ const PostDetails = () => {
           <div className={postCardClass}>
             {/* HEADER */}
             <div className="flex-none">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 [overflow-wrap:anywhere]">
-                    {post.title}
-                  </h1>
+              {/* Top row: Author + actions */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <div className="relative flex-none">
+                    <Avatar
+                      src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+                      size={36}
+                      zoomable
+                      badge={author?.badges?.topContributor ?? false}
+                      alt={author?.name ?? "Author"}
+                    />
+
+                    {author?.badges?.topContributor && (
+                      <button
+                        type="button"
+                        title="Top Contributor · Code-powered"
+                        className="absolute top-0 right-1.5 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowTopContributorModal(true);
+                        }}
+                      >
+                        <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    {author?.id && <AuthorLink author={author} />}
+
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+                      <span className="whitespace-nowrap sm:hidden">
+                        {createdLabelShort}
+                      </span>
+                      <span className="hidden whitespace-nowrap sm:inline">
+                        {createdLabelLong}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-none">
+                <div className="flex items-center gap-1.5 flex-none">
                   <button
                     type="button"
                     onClick={handleSaveToggle}
@@ -319,59 +358,36 @@ const PostDetails = () => {
                   <button
                     type="button"
                     onClick={onReportClick}
-                    className="rounded-xl px-2.5 py-2 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    aria-label="Report"
+                    className="rounded-xl px-2.5 py-2 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                   >
-                    Report
+                    <FiFlag className="text-lg sm:hidden" />
+                    <span className="hidden sm:inline">Report</span>
                   </button>
                 </div>
               </div>
 
-              {/* META ROW */}
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-400">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="relative">
-                    <Avatar
-                      src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
-                      size={36}
-                      zoomable
-                      badge={author?.badges?.topContributor ?? false}
-                      alt={author?.name ?? "Author"}
-                    />
+              {/* Title */}
+              <h1 className="mt-3 text-[1.45rem] leading-tight sm:text-3xl font-bold text-zinc-100 [overflow-wrap:anywhere]">
+                {post.title}
+              </h1>
 
-                    {author?.badges?.topContributor && (
-                      <button
-                        type="button"
-                        title="Top Contributor · Code-powered"
-                        className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowTopContributorModal(true);
-                        }}
-                      >
-                        <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    {author?.id && <AuthorLink author={author} />}
-                  </div>
-                </div>
-
-                <span className="text-zinc-700">•</span>
-                <span className="whitespace-nowrap">{createdLabel}</span>
-
+              {/* Badges + Lock (left) + Category (right) */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 {post?.category && (
-                  <span className="lg:ml-auto inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-xs text-zinc-200">
-                    <span className="opacity-80">Category</span>
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-xs text-zinc-200"
+                    aria-label={`Category: ${post.category}`}
+                    title={`Category: ${post.category}`}
+                  >
+                    <span className="hidden sm:inline opacity-80">
+                      Category
+                    </span>
                     <span className="text-zinc-100">{post.category}</span>
                   </span>
                 )}
-              </div>
 
-              {/* BADGES + LOCK (right on lg+) */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                <div className="flex flex-wrap items-center gap-2 ml-auto justify-end">
                   {post?.badges?.mostInspiring && (
                     <Badge
                       text="Most Inspiring"
@@ -400,7 +416,7 @@ const PostDetails = () => {
 
             {/* BODY (scroll on lg+) */}
             <div className="mt-6 flex-1 min-h-0 overflow-y-visible lg:overflow-y-auto lg:pr-1 ui-scrollbar">
-              <div className="space-y-6">
+              <div className="space-y-6 ">
                 {post?.description && (
                   <p className="text-zinc-200 text-base leading-relaxed [overflow-wrap:anywhere]">
                     {post.description}
