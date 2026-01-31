@@ -59,7 +59,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
 
             {post?.author?.badges?.topContributor && (
               <span
-                className="absolute -top-2 -right-2"
+                className="absolute -top-2 -right-1"
                 title="Top Contributor"
               >
                 <ShieldIcon className="w-5 h-5 text-amber-300" />

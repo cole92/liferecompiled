@@ -315,16 +315,21 @@ const PostDetails = () => {
                         type="button"
                         title="Top Contributor · Code-powered"
                         className="
-    absolute top-0 right-1
-    translate-x-1/3 -translate-y-[45%]
-    cursor-pointer group
-  "
+                          absolute top-0 right-1
+                          translate-x-1/3 -translate-y-[45%]
+                          cursor-pointer group
+                          z-10
+                          rounded-md
+                          focus:outline-none
+                          focus-visible:ring-2 focus-visible:ring-sky-400
+                          focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
+                        "
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowTopContributorModal(true);
                         }}
                       >
-                        <ShieldIcon className="w-5 h-5 sm:w-5 sm:h-5 text-sky-200 group-hover:scale-110 transition-transform" />
+                        <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
                       </button>
                     )}
                   </div>
@@ -418,7 +423,7 @@ const PostDetails = () => {
 
             {/* BODY (scroll on lg+) */}
             <div className="mt-6 flex-1 min-h-0 overflow-y-visible lg:overflow-y-auto lg:pr-1 ui-scrollbar">
-              <div className="space-y-6 ">
+              <div className="space-y-6">
                 {post?.description && (
                   <p className="text-zinc-200 text-base leading-relaxed [overflow-wrap:anywhere]">
                     {post.description}
