@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   doc,
@@ -8,32 +8,27 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { db } from "../firebase";
 import { getAuth } from "firebase/auth";
+import { useParams } from "react-router-dom";
+import dayjs from "dayjs";
+
+import { db } from "../firebase";
+
 import ShieldIcon from "../components/ui/ShieldIcon";
 import BioSection from "../components/profile/BioSection";
 import StatsRow from "../components/profile/StatsRow";
-import { useParams } from "react-router-dom";
 import TopPostCard from "../components/TopPostCard";
 import SkeletonGrid from "../components/ui/skeletonLoader/SkeletonGrid";
-import dayjs from "dayjs";
 import {
   SkeletonCircle,
   SkeletonLine,
 } from "../components/ui/skeletonLoader/SkeletonBits";
 
-/**
- * @component Profile
- *
- * Public ili own profil korisnika uz metrike:
- * - Users doc: ime, email, status, createdAt, bio, profilePicture, badges
- * - Posts count: count aktivnih postova (deleted == false)
- * - Reactions received: sabiranje iz posts.reactionCounts (authoritative backend)
- * - Top 3 posts: sortiranje po ukupnim reakcijama iz posts.reactionCounts
- */
+import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+
 const Profile = () => {
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   const [postCount, setPostsCount] = useState(null);
   const [isCounting, setIsCounting] = useState(false);
@@ -51,6 +46,8 @@ const Profile = () => {
   const { uid } = useParams();
   const targetUid = uid || ownUid;
 
+  const isOwnProfile = !!targetUid && !!ownUid && targetUid === ownUid;
+
   const getPostReactionsTotal = (postData) => {
     const rc = postData?.reactionCounts || {};
     return (rc.idea || 0) + (rc.hot || 0) + (rc.powerup || 0);
@@ -58,31 +55,51 @@ const Profile = () => {
 
   // Fetch user doc
   useEffect(() => {
-    if (!targetUid) {
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
 
-    const fetchUserData = async () => {
+    async function fetchUserData() {
+      if (!targetUid) {
+        if (!cancelled) {
+          setUserData(null);
+          setLoadingUser(false);
+        }
+        return;
+      }
+
+      if (!cancelled) setLoadingUser(true);
+
       try {
         const docRef = doc(db, "users", targetUid);
         const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-          setUserData({ ...docSnap.data(), id: docSnap.id });
-        } else {
-          setUserData(null);
+        if (!cancelled) {
+          if (docSnap.exists()) {
+            setUserData({ ...docSnap.data(), id: docSnap.id });
+          } else {
+            setUserData(null);
+          }
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
-        setUserData(null);
+        if (!cancelled) setUserData(null);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoadingUser(false);
       }
-    };
+    }
 
     fetchUserData();
+    return () => {
+      cancelled = true;
+    };
   }, [targetUid]);
+
+  const isTopContributor = useMemo(() => {
+    return Boolean(userData?.badges?.topContributor);
+  }, [userData]);
+
+  const avatarSrc = useMemo(() => {
+    return userData?.profilePicture || DEFAULT_PROFILE_PICTURE;
+  }, [userData]);
 
   // Count active posts
   useEffect(() => {
@@ -104,14 +121,12 @@ const Profile = () => {
         const q = query(
           postsCol,
           where("userId", "==", targetUid),
-          where("deleted", "==", false)
+          where("deleted", "==", false),
         );
 
         const snap = await getCountFromServer(q);
 
-        if (!cancelled) {
-          setPostsCount(snap.data().count || 0);
-        }
+        if (!cancelled) setPostsCount(snap.data().count || 0);
       } catch (err) {
         console.error("Count failed", err);
         if (!cancelled) setPostsCount(0);
@@ -126,7 +141,7 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Total reactions received (from posts.reactionCounts)
+  // Total reactions received
   useEffect(() => {
     let cancelled = false;
 
@@ -145,7 +160,7 @@ const Profile = () => {
         const postQ = query(
           collection(db, "posts"),
           where("userId", "==", targetUid),
-          where("deleted", "==", false)
+          where("deleted", "==", false),
         );
 
         const postSnap = await getDocs(postQ);
@@ -169,7 +184,7 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Top 3 posts (by total reactions from posts.reactionCounts)
+  // Top 3 posts
   useEffect(() => {
     let cancelled = false;
 
@@ -189,7 +204,7 @@ const Profile = () => {
         const postsQuery = query(
           collection(db, "posts"),
           where("userId", "==", targetUid),
-          where("deleted", "==", false)
+          where("deleted", "==", false),
         );
 
         const postSnap = await getDocs(postsQuery);
@@ -197,12 +212,7 @@ const Profile = () => {
         const posts = postSnap.docs.map((d) => {
           const data = d.data();
           const reactionsTotal = getPostReactionsTotal(data);
-
-          return {
-            id: d.id,
-            ...data,
-            reactionsCount: reactionsTotal,
-          };
+          return { id: d.id, ...data, reactionsCount: reactionsTotal };
         });
 
         posts.sort((a, b) => (b.reactionsCount || 0) - (a.reactionsCount || 0));
@@ -222,131 +232,196 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  if (!loading && !userData) return <p>No user data found!</p>;
+  if (!loadingUser && !userData) {
+    return (
+      <div className="w-full px-4 sm:px-6 lg:px-10 py-6">
+        <div className="ui-card p-6 text-center">
+          <p className="text-sm text-zinc-300">No user data found.</p>
+        </div>
+      </div>
+    );
+  }
 
-  const isTopContributor = !!userData?.badges?.topContributor;
+  const memberSinceText = userData?.createdAt?.toDate?.()
+    ? dayjs(userData.createdAt.toDate()).format("DD MMM YYYY")
+    : "---";
 
   return (
-    <div className="mb-4 text-center">
-      {/* HEADER: avatar + badge */}
-      <div className="relative inline-block">
-        {loading ? (
-          <SkeletonCircle size={150} />
-        ) : (
-          <img
-            src={userData.profilePicture}
-            alt="Profile pic"
-            className={`rounded-full object-cover border-2 border-zinc-700 ${
-              isTopContributor ? "ring-2 ring-purple-600" : ""
-            }`}
-            style={{ width: "150px", height: "150px" }}
-          />
-        )}
+    <div className="w-full min-h-screen px-4 sm:px-6 lg:px-10 2xl:px-16 py-6">
+      <div className="flex flex-col gap-6">
+        {/* HERO: full width profile section */}
+        <section className="ui-card p-5 sm:p-6 lg:p-8">
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+            {/* Left: avatar + identity */}
+            <div className="lg:col-span-4">
+              <div className="flex items-start gap-4 sm:gap-5">
+                <div className="relative shrink-0">
+                  {loadingUser ? (
+                    <SkeletonCircle size={144} />
+                  ) : (
+                    <img
+                      src={avatarSrc}
+                      alt="Profile picture"
+                      className={[
+                        "h-28 w-28 sm:h-36 sm:w-36 rounded-full object-cover border border-zinc-700",
+                        isTopContributor
+                          ? "ring-2 ring-purple-500/70 ring-offset-2 ring-offset-zinc-950"
+                          : "",
+                      ].join(" ")}
+                      loading="lazy"
+                    />
+                  )}
 
-        {!loading && isTopContributor && (
-          <>
-            <ShieldIcon className="absolute -top-2 -right-2 h-6 w-6 text-purple-400" />
-            <p
-              className="mt-2 cursor-default select-none text-sm font-semibold italic text-purple-400"
-              title="Top Contributor"
-            >
-              .code-powered
-            </p>
-          </>
-        )}
-      </div>
+                  {!loadingUser && isTopContributor && (
+                    <div className="absolute -top-2 -right-2">
+                      <ShieldIcon className="h-7 w-7 text-purple-300" />
+                    </div>
+                  )}
+                </div>
 
-      {/* BASIC INFO */}
-      <div className="mb-4 mt-4 flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="w-full text-center md:w-1/2 md:text-left">
-          {loading ? (
-            <>
-              <div className="mt-2">
-                <SkeletonLine w="w-48" h="h-6" />
-              </div>
-              <div className="mt-2">
-                <SkeletonLine w="w-56" h="h-4" />
-              </div>
-            </>
-          ) : (
-            <>
-              <h4 className="text-lg font-semibold text-zinc-100">
-                {userData.name}
-              </h4>
-              <p className="break-all text-sm text-zinc-400">
-                {userData.email}
-              </p>
-            </>
-          )}
-        </div>
+                <div className="min-w-0 flex-1">
+                  {loadingUser ? (
+                    <div className="space-y-2">
+                      <SkeletonLine w="w-52" h="h-7" />
+                      <SkeletonLine w="w-64" h="h-4" />
+                      <SkeletonLine w="w-40" h="h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="text-xl sm:text-2xl font-semibold text-zinc-100">
+                          {userData?.name || "Unnamed user"}
+                        </h1>
 
-        <div className="w-full text-center md:w-1/2 md:text-right">
-          {loading ? (
-            <>
-              <div className="mt-2">
-                <SkeletonLine w="w-64" h="h-4" />
-              </div>
-              <div className="mt-2">
-                <SkeletonLine w="w-32" h="h-4" />
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="cursor-default select-none text-sm italic text-zinc-400">
-                Member since:{" "}
-                {userData.createdAt
-                  ? dayjs(userData.createdAt.toDate()).format("DD MMMM 'YYYY")
-                  : "---"}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
+                        {isOwnProfile ? (
+                          <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] font-medium text-zinc-400">
+                            You
+                          </span>
+                        ) : null}
 
-      {/* BIO */}
-      <div className="text-center">
-        <h5 className="cursor-default select-none text-sm font-medium text-zinc-200">
-          Bio:
-        </h5>
-        {loading ? (
-          <div className="mx-auto mt-2 max-w-xl space-y-2">
-            <SkeletonLine w="w-full" h="h-4" />
-            <SkeletonLine w="w-5/6" h="h-4" />
-            <SkeletonLine w="w-2/3" h="h-4" />
+                        {isTopContributor ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[11px] font-semibold text-purple-200"
+                            title="Top Contributor"
+                          >
+                            <ShieldIcon className="h-3.5 w-3.5" />
+                            Top Contributor
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-1 break-all text-sm text-zinc-400">
+                        {userData?.email || ""}
+                      </p>
+
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Member since:{" "}
+                        <span className="text-zinc-400">{memberSinceText}</span>
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats: keep under identity on desktop to fill the left column */}
+              <div className="mt-5">
+                <StatsRow
+                  variant="cards"
+                  posts={postCount}
+                  reactions={reactionsCount}
+                  loadingPosts={isCounting || postCount == null}
+                  loadingReactions={
+                    isCountingReactions || reactionsCount == null
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Middle: Bio block */}
+            <div className="lg:col-span-5">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
+                </div>
+
+                {loadingUser ? (
+                  <div className="mt-3 space-y-2">
+                    <SkeletonLine w="w-full" h="h-4" />
+                    <SkeletonLine w="w-5/6" h="h-4" />
+                    <SkeletonLine w="w-2/3" h="h-4" />
+                  </div>
+                ) : (
+                  <BioSection bio={userData?.bio} />
+                )}
+              </div>
+            </div>
+
+            {/* Right: quick meta / optional space filler (keeps hero balanced) */}
+            <div className="lg:col-span-3">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
+                <h3 className="text-sm font-semibold text-zinc-100">
+                  Profile overview
+                </h3>
+                <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
+                  This section intentionally keeps the hero balanced on large
+                  screens. Later we can place badges, links, or additional stats
+                  here if you want.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-400">
+                    Public profile
+                  </span>
+                  <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-400">
+                    Top posts: {top3?.length || 0}/3
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <BioSection bio={userData.bio} />
-        )}
-      </div>
+        </section>
 
-      {/* STATS */}
-      <StatsRow
-        posts={postCount}
-        reactions={reactionsCount}
-        loadingPosts={isCounting || postCount == null}
-        loadingReactions={isCountingReactions || reactionsCount == null}
-      />
-
-      {/* TOP 3 */}
-      <div>
-        <h2 className="mb-4 cursor-default select-none text-xl font-semibold text-zinc-100">
-          Top posts by this author
-        </h2>
-
-        {isLoadingTop3 && <SkeletonGrid count={3} />}
-        {errorTop3 && <p className="text-red-500">{String(errorTop3)}</p>}
-        {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
-          <p className="text-sm text-zinc-400">
-            This author has no public posts yet.
-          </p>
-        )}
-        {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
-            {top3.map((post) => (
-              <TopPostCard key={post.id} post={post} />
-            ))}
+        {/* TOP POSTS: full width section */}
+        <section className="ui-card p-5 sm:p-6 lg:p-8">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
+                Top posts
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Most reacted posts by this author (up to 3).
+              </p>
+            </div>
           </div>
-        )}
+
+          <div className="mt-6">
+            {isLoadingTop3 && <SkeletonGrid count={3} />}
+
+            {errorTop3 && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                {String(errorTop3)}
+              </div>
+            )}
+
+            {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-8 text-center">
+                <p className="text-sm text-zinc-400">
+                  This author has no public posts yet.
+                </p>
+              </div>
+            )}
+
+            {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
+              <div className="grid auto-rows-fr gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {top3.map((post) => (
+                  <div key={post.id} className="h-full">
+                    <TopPostCard post={post} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
