@@ -14,6 +14,8 @@ const CommentForm = ({
   autoFocus = false,
   wrapperClassName = "",
   replyingTo = null, // { id: string, name: string } optional
+  rows, // NEW
+  textareaClassName = "", // NEW
 }) => {
   // Standardize: AuthContext provides { user }
   const { user: ctxUser } = useContext(AuthContext);
@@ -100,8 +102,13 @@ const CommentForm = ({
         name="comment"
         ref={textareaRef}
         placeholder={parentId ? "Write a reply..." : "Add a comment..."}
-        className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 resize-none max-h-40 overflow-y-auto"
-        rows={parentId ? 2 : 3}
+        className={[
+          "w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-zinc-100 placeholder:text-zinc-500",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+          "resize-none max-h-40 overflow-y-auto",
+          textareaClassName,
+        ].join(" ")}
+        rows={rows ?? (parentId ? 2 : 3)}
         value={commentContent}
         onChange={(e) => {
           setCommentContent(e.target.value);
@@ -158,6 +165,8 @@ CommentForm.propTypes = {
     id: PropTypes.string,
     name: PropTypes.string,
   }),
+  rows: PropTypes.number,
+  textareaClassName: PropTypes.string,
 };
 
 export default CommentForm;
