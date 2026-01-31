@@ -447,7 +447,12 @@ const CommentItem = ({
           !blockRenderingChildren &&
           isRepliesOpen &&
           directReplies > 0 && (
-            <div className="mt-3 space-y-2 border-l-2 border-zinc-800/40">
+            <div
+              className={[
+                "mt-3 space-y-2",
+                depth === 0 ? "border-l-2 border-zinc-800/40" : "",
+              ].join(" ")}
+            >
               {visibleReplies.map((reply) => (
                 <CommentItem
                   key={reply.id}
