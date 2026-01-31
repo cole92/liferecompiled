@@ -394,7 +394,8 @@ const PostDetails = () => {
                   </span>
                 )}
 
-                <div className="flex flex-wrap items-center gap-2 ml-auto justify-end">
+                {/* Right side: badges stay as before (do not change unlocked behavior) */}
+                <div className="ml-auto flex flex-wrap items-center gap-2 justify-end">
                   {post?.badges?.mostInspiring && (
                     <Badge
                       text="Most Inspiring"
@@ -407,8 +408,11 @@ const PostDetails = () => {
                       onClick={(e) => handleBadgeClick(e, "trending")}
                     />
                   )}
+                </div>
 
-                  {post.locked && lockedDate && (
+                {/* Locked pill: separate item, only affects locked posts */}
+                {post.locked && lockedDate && (
+                  <div className="flex justify-end max-[360px]:w-full max-[360px]:justify-start max-[360px]:mt-1">
                     <span
                       title="This post is archived and cannot be edited or commented"
                       className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
@@ -416,8 +420,8 @@ const PostDetails = () => {
                       <FiLock className="text-sm" />
                       Archived: {lockedDate}
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
 
