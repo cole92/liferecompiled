@@ -412,15 +412,15 @@ const PostDetails = () => {
 
                 {/* Locked pill: separate item, only affects locked posts */}
                 {post.locked && lockedDate && (
-                  <div className="flex justify-end max-[360px]:w-full max-[360px]:justify-start max-[360px]:mt-1">
-                    <span
-                      title="This post is archived and cannot be edited or commented"
-                      className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
-                    >
-                      <FiLock className="text-sm" />
+                  <span
+                    title="This post is archived and cannot be edited or commented"
+                    className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 text-xs text-zinc-200"
+                  >
+                    <FiLock className="w-4 h-4 shrink-0" />
+                    <span className="relative top-px">
                       Archived: {lockedDate}
                     </span>
-                  </div>
+                  </span>
                 )}
               </div>
             </div>
