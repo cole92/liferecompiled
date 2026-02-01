@@ -26,6 +26,12 @@ function TopPostCard({ post }) {
   const category = (post?.category || "Uncategorized").trim();
   const reactionsTotal = post?.reactionsCount ?? 0;
 
+  const shorten = (s, n = 22) => {
+    const str = String(s ?? "");
+    if (!str) return "";
+    return str.length > n ? str.slice(0, n - 1) + "…" : str;
+  };
+
   return (
     <button
       type="button"
@@ -38,10 +44,10 @@ function TopPostCard({ post }) {
       ].join(" ")}
       aria-label={`Open post: ${post?.title ?? "Untitled"}`}
     >
-      <div className="flex h-full flex-col">
+      <div className="flex h-full min-w-0 flex-col">
         {/* Header */}
-        <div>
-          <h3 className="text-base font-semibold text-zinc-100 line-clamp-2">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-zinc-100 line-clamp-2 break-words">
             {post?.title ?? "Untitled"}
           </h3>
 
@@ -50,19 +56,24 @@ function TopPostCard({ post }) {
           </p>
         </div>
 
-        {/* Footer pinned to bottom for consistent height */}
+        {/* Footer pinned */}
         <div className="mt-auto pt-4">
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-300">
-              {category}
+          {/* Stable pills area */}
+          <div className="flex flex-wrap gap-2 max-h-[56px] overflow-hidden">
+            <span
+              className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-300 whitespace-nowrap truncate max-w-[220px]"
+              title={category}
+            >
+              {shorten(category, 26)}
             </span>
 
             {tags.map((t) => (
               <span
                 key={t}
-                className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400"
+                className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400 whitespace-nowrap truncate max-w-[180px]"
+                title={t}
               >
-                {t}
+                {shorten(t, 22)}
               </span>
             ))}
           </div>

@@ -94,6 +94,7 @@ const Profile = () => {
   }, [targetUid]);
 
   const isTopContributor = useMemo(() => {
+    // Single source of truth:
     return Boolean(userData?.badges?.topContributor);
   }, [userData]);
 
@@ -247,12 +248,13 @@ const Profile = () => {
     : "---";
 
   return (
-    <div className="w-full min-h-screen px-4 sm:px-6 lg:px-10 2xl:px-16 py-6">
+    // NOTE: removed min-h-screen to avoid "empty gap before footer"
+    <div className="w-full px-4 sm:px-6 lg:px-10 2xl:px-16 py-6 pb-10">
       <div className="flex flex-col gap-6">
-        {/* HERO: full width profile section */}
+        {/* HERO */}
         <section className="ui-card p-5 sm:p-6 lg:p-8">
           <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
-            {/* Left: avatar + identity */}
+            {/* Left */}
             <div className="lg:col-span-4">
               <div className="flex items-start gap-4 sm:gap-5">
                 <div className="relative shrink-0">
@@ -290,7 +292,7 @@ const Profile = () => {
                     <>
                       <div className="flex flex-wrap items-center gap-2">
                         <h1 className="text-xl sm:text-2xl font-semibold text-zinc-100">
-                          {userData?.name || "Unnamed user"}
+                          {userData?.name || "Unknown author"}
                         </h1>
 
                         {isOwnProfile ? (
@@ -323,7 +325,6 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Stats: keep under identity on desktop to fill the left column */}
               <div className="mt-5">
                 <StatsRow
                   variant="cards"
@@ -337,7 +338,7 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Middle: Bio block */}
+            {/* Middle */}
             <div className="lg:col-span-5">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
                 <div className="flex items-center justify-between">
@@ -356,13 +357,15 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Right: quick meta / optional space filler (keeps hero balanced) */}
+            {/* Right */}
             <div className="lg:col-span-3">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
                 <h3 className="text-sm font-semibold text-zinc-100">
                   Profile overview
                 </h3>
-                <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
+
+                {/* Clamp placeholder so it stays "quiet" */}
+                <p className="mt-2 text-sm text-zinc-400 leading-relaxed line-clamp-4">
                   This section intentionally keeps the hero balanced on large
                   screens. Later we can place badges, links, or additional stats
                   here if you want.
@@ -381,7 +384,7 @@ const Profile = () => {
           </div>
         </section>
 
-        {/* TOP POSTS: full width section */}
+        {/* TOP POSTS */}
         <section className="ui-card p-5 sm:p-6 lg:p-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -412,7 +415,8 @@ const Profile = () => {
             )}
 
             {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-              <div className="grid auto-rows-fr gap-4 md:grid-cols-2 lg:grid-cols-3">
+              // auto-fit so 1-2 cards expand naturally on desktop
+              <div className="grid auto-rows-fr gap-4 sm:grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
                 {top3.map((post) => (
                   <div key={post.id} className="h-full">
                     <TopPostCard post={post} />
