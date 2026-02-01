@@ -234,7 +234,7 @@ const Profile = () => {
 
   if (!loadingUser && !userData) {
     return (
-      <div className="w-full px-3 sm:px-6 lg:px-10 py-6">
+      <div className="w-full px-2 max-[360px]:px-1 sm:px-6 lg:px-10 2xl:px-16 py-6">
         <div className="ui-card p-6 text-center">
           <p className="text-sm text-zinc-300">No user data found.</p>
         </div>
@@ -250,10 +250,10 @@ const Profile = () => {
   const displayEmail = userData?.email || "";
 
   return (
-    <div className="w-full px-3 sm:px-6 lg:px-10 2xl:px-16 py-5 sm:py-6">
+    <div className="w-full px-2 max-[360px]:px-1 sm:px-6 lg:px-10 2xl:px-16 py-5 sm:py-6">
       <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
-        <section className="ui-card p-4 sm:p-6 lg:p-8">
+        <section className="ui-card p-3 sm:p-6 lg:p-8">
           <div className="grid gap-5 sm:gap-6 lg:grid-cols-12 lg:items-start">
             {/* Left: avatar + identity */}
             <div className="lg:col-span-4">
@@ -354,7 +354,7 @@ const Profile = () => {
 
             {/* Middle: Bio */}
             <div className="lg:col-span-5">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
 
                 {loadingUser ? (
@@ -371,7 +371,7 @@ const Profile = () => {
 
             {/* Right: overview */}
             <div className="lg:col-span-3">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
                 <h3 className="text-sm font-semibold text-zinc-100">
                   Profile overview
                 </h3>
@@ -395,7 +395,7 @@ const Profile = () => {
         </section>
 
         {/* TOP POSTS */}
-        <section className="ui-card p-4 sm:p-6 lg:p-8">
+        <section className="ui-card p-3 sm:p-6 lg:p-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
