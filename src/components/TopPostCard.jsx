@@ -37,7 +37,7 @@ function TopPostCard({ post }) {
       type="button"
       onClick={goToPost}
       className={[
-        "ui-card w-full h-full p-4 text-left",
+        "ui-card w-full h-full p-4 text-left overflow-hidden",
         "transition duration-200 hover:bg-zinc-900/40",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
         "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
@@ -47,21 +47,34 @@ function TopPostCard({ post }) {
       <div className="flex h-full min-w-0 flex-col">
         {/* Header */}
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-zinc-100 line-clamp-2 break-words">
+          <h3
+            className={[
+              "min-w-0 text-base font-semibold text-zinc-100",
+              "line-clamp-2",
+              "[overflow-wrap:anywhere]",
+            ].join(" ")}
+            title={post?.title ?? "Untitled"}
+          >
             {post?.title ?? "Untitled"}
           </h3>
 
-          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 break-words">
+          <p
+            className={[
+              "mt-2 min-w-0 text-sm text-zinc-300",
+              "line-clamp-3",
+              "[overflow-wrap:anywhere]",
+            ].join(" ")}
+          >
             {previewText}
           </p>
         </div>
 
         {/* Footer pinned */}
-        <div className="mt-auto pt-4">
+        <div className="mt-auto pt-4 min-w-0">
           {/* Stable pills area */}
-          <div className="flex flex-wrap gap-2 max-h-[56px] overflow-hidden">
+          <div className="flex flex-wrap gap-2 max-h-[56px] overflow-hidden min-w-0">
             <span
-              className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-300 whitespace-nowrap truncate max-w-[220px]"
+              className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-300 whitespace-nowrap truncate max-w-full"
               title={category}
             >
               {shorten(category, 26)}
@@ -70,7 +83,7 @@ function TopPostCard({ post }) {
             {tags.map((t) => (
               <span
                 key={t}
-                className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400 whitespace-nowrap truncate max-w-[180px]"
+                className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400 whitespace-nowrap truncate max-w-full"
                 title={t}
               >
                 {shorten(t, 22)}
