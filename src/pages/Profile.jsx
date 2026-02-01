@@ -94,7 +94,6 @@ const Profile = () => {
   }, [targetUid]);
 
   const isTopContributor = useMemo(() => {
-    // Single source of truth:
     return Boolean(userData?.badges?.topContributor);
   }, [userData]);
 
@@ -235,7 +234,7 @@ const Profile = () => {
 
   if (!loadingUser && !userData) {
     return (
-      <div className="w-full px-4 sm:px-6 lg:px-10 py-6">
+      <div className="w-full px-3 sm:px-6 lg:px-10 py-6">
         <div className="ui-card p-6 text-center">
           <p className="text-sm text-zinc-300">No user data found.</p>
         </div>
@@ -247,16 +246,19 @@ const Profile = () => {
     ? dayjs(userData.createdAt.toDate()).format("DD MMM YYYY")
     : "---";
 
+  const displayName = userData?.name || "Unknown author";
+  const displayEmail = userData?.email || "";
+
   return (
-    // NOTE: removed min-h-screen to avoid "empty gap before footer"
-    <div className="w-full px-4 sm:px-6 lg:px-10 2xl:px-16 py-6 pb-10">
-      <div className="flex flex-col gap-6">
+    <div className="w-full px-3 sm:px-6 lg:px-10 2xl:px-16 py-5 sm:py-6">
+      <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
-        <section className="ui-card p-5 sm:p-6 lg:p-8">
-          <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
-            {/* Left */}
+        <section className="ui-card p-4 sm:p-6 lg:p-8">
+          <div className="grid gap-5 sm:gap-6 lg:grid-cols-12 lg:items-start">
+            {/* Left: avatar + identity */}
             <div className="lg:col-span-4">
-              <div className="flex items-start gap-4 sm:gap-5">
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-5">
+                {/* Avatar */}
                 <div className="relative shrink-0">
                   {loadingUser ? (
                     <SkeletonCircle size={144} />
@@ -281,7 +283,8 @@ const Profile = () => {
                   )}
                 </div>
 
-                <div className="min-w-0 flex-1">
+                {/* Identity */}
+                <div className="min-w-0 flex-1 text-center sm:text-left">
                   {loadingUser ? (
                     <div className="space-y-2">
                       <SkeletonLine w="w-52" h="h-7" />
@@ -290,11 +293,16 @@ const Profile = () => {
                     </div>
                   ) : (
                     <>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h1 className="text-xl sm:text-2xl font-semibold text-zinc-100">
-                          {userData?.name || "Unknown author"}
-                        </h1>
+                      {/* Name (prevent overflow on long single-word names) */}
+                      <h1
+                        className="min-w-0 max-w-full truncate text-xl sm:text-2xl font-semibold text-zinc-100"
+                        title={displayName}
+                      >
+                        {displayName}
+                      </h1>
 
+                      {/* Pills row */}
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                         {isOwnProfile ? (
                           <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] font-medium text-zinc-400">
                             You
@@ -312,10 +320,15 @@ const Profile = () => {
                         ) : null}
                       </div>
 
-                      <p className="mt-1 break-all text-sm text-zinc-400">
-                        {userData?.email || ""}
+                      {/* Email */}
+                      <p
+                        className="mt-2 text-sm text-zinc-400 break-all"
+                        title={displayEmail}
+                      >
+                        {displayEmail}
                       </p>
 
+                      {/* Member since */}
                       <p className="mt-2 text-xs text-zinc-500">
                         Member since:{" "}
                         <span className="text-zinc-400">{memberSinceText}</span>
@@ -325,6 +338,7 @@ const Profile = () => {
                 </div>
               </div>
 
+              {/* Stats */}
               <div className="mt-5">
                 <StatsRow
                   variant="cards"
@@ -338,12 +352,10 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Middle */}
+            {/* Middle: Bio */}
             <div className="lg:col-span-5">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
-                </div>
+                <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
 
                 {loadingUser ? (
                   <div className="mt-3 space-y-2">
@@ -357,15 +369,13 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Right */}
+            {/* Right: overview */}
             <div className="lg:col-span-3">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 sm:p-5">
                 <h3 className="text-sm font-semibold text-zinc-100">
                   Profile overview
                 </h3>
-
-                {/* Clamp placeholder so it stays "quiet" */}
-                <p className="mt-2 text-sm text-zinc-400 leading-relaxed line-clamp-4">
+                <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
                   This section intentionally keeps the hero balanced on large
                   screens. Later we can place badges, links, or additional stats
                   here if you want.
@@ -385,7 +395,7 @@ const Profile = () => {
         </section>
 
         {/* TOP POSTS */}
-        <section className="ui-card p-5 sm:p-6 lg:p-8">
+        <section className="ui-card p-4 sm:p-6 lg:p-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
@@ -415,8 +425,7 @@ const Profile = () => {
             )}
 
             {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-              // auto-fit so 1-2 cards expand naturally on desktop
-              <div className="grid auto-rows-fr gap-4 sm:grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
+              <div className="grid auto-rows-fr gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {top3.map((post) => (
                   <div key={post.id} className="h-full">
                     <TopPostCard post={post} />
