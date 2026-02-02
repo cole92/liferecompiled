@@ -1,6 +1,9 @@
 import PropTypes from "prop-types";
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+const MAX_TAGS_IN_APP = 5;
+const MAX_ROWS = 2;
 
 function TopPostCard({ post }) {
   const navigate = useNavigate();
@@ -15,14 +18,6 @@ function TopPostCard({ post }) {
     return content.length > 160 ? content.slice(0, 160) + "..." : content;
   }, [post?.description, post?.content]);
 
-  const tags = useMemo(() => {
-    if (!Array.isArray(post?.tags)) return [];
-    return post.tags
-      .slice(0, 3)
-      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "tag")))
-      .filter(Boolean);
-  }, [post?.tags]);
-
   const category = (post?.category || "Uncategorized").trim();
   const reactionsTotal = post?.reactionsCount ?? 0;
 
@@ -31,6 +26,138 @@ function TopPostCard({ post }) {
     if (!str) return "";
     return str.length > n ? str.slice(0, n - 1) + "…" : str;
   };
+
+  const allTags = useMemo(() => {
+    if (!Array.isArray(post?.tags)) return [];
+    return post.tags
+      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "tag")))
+      .map((t) => String(t ?? "").trim())
+      .filter(Boolean)
+      .slice(0, MAX_TAGS_IN_APP);
+  }, [post?.tags]);
+
+  const pillsWrapRef = useRef(null);
+  const measureRef = useRef(null);
+
+  const [visibleTagCount, setVisibleTagCount] = useState(() =>
+    Math.min(allTags.length, 2),
+  );
+
+  useLayoutEffect(() => {
+    const wrap = pillsWrapRef.current;
+    const measurer = measureRef.current;
+    if (!wrap || !measurer) return;
+
+    const readGapPx = () => {
+      const cs = window.getComputedStyle(wrap);
+      const gap = cs.columnGap || cs.gap || "0px";
+      const n = Number.parseFloat(gap);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const getWidth = (el) => {
+      if (!el) return 0;
+      return Math.ceil(el.getBoundingClientRect().width);
+    };
+
+    const recalc = () => {
+      const wrapW = wrap.clientWidth || 0;
+      if (!wrapW) return;
+
+      measurer.style.width = `${wrapW}px`;
+
+      const gapPx = readGapPx();
+
+      const catEl = measurer.querySelector('[data-pill="category"]');
+      const tagEls = Array.from(measurer.querySelectorAll('[data-pill="tag"]'));
+      const moreEls = Array.from(
+        measurer.querySelectorAll('[data-pill="more"]'),
+      );
+
+      const categoryW = getWidth(catEl);
+      const tagWidths = tagEls.map(getWidth);
+
+      const moreWidthMap = new Map();
+      for (const el of moreEls) {
+        const c = Number(el.getAttribute("data-count"));
+        moreWidthMap.set(c, getWidth(el));
+      }
+
+      const fits = (k) => {
+        const total = allTags.length;
+        const hidden = total - k;
+
+        const widths = [categoryW];
+        for (let i = 0; i < k; i++) widths.push(tagWidths[i] ?? 0);
+        if (hidden > 0) widths.push(moreWidthMap.get(hidden) ?? 0);
+
+        let row = 1;
+        let used = 0;
+
+        for (const w of widths) {
+          const ww = Math.max(0, w);
+
+          if (used === 0) {
+            used = ww;
+            continue;
+          }
+
+          if (used + gapPx + ww <= wrapW) {
+            used = used + gapPx + ww;
+          } else {
+            row += 1;
+            if (row > MAX_ROWS) return false;
+            used = ww;
+          }
+        }
+
+        return true;
+      };
+
+      let best = 0;
+      for (let k = allTags.length; k >= 0; k--) {
+        if (fits(k)) {
+          best = k;
+          break;
+        }
+      }
+
+      setVisibleTagCount(best);
+    };
+
+    recalc();
+
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => recalc());
+      ro.observe(wrap);
+    }
+
+    window.addEventListener("resize", recalc);
+
+    return () => {
+      window.removeEventListener("resize", recalc);
+      if (ro) ro.disconnect();
+    };
+  }, [allTags.length, category, allTags]);
+
+  const visibleTags = allTags.slice(0, visibleTagCount);
+  const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
+
+  const pillCategory =
+    "inline-flex items-center rounded-full border border-zinc-800 " +
+    "bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-300 " +
+    "whitespace-nowrap truncate max-w-full";
+
+  const pillTag =
+    "inline-flex items-center rounded-full border border-zinc-800 " +
+    "bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400 " +
+    "whitespace-nowrap truncate max-w-full";
+
+  const pillMore =
+    "inline-flex items-center rounded-full border border-zinc-800 " +
+    "bg-zinc-950/20 px-2.5 py-1 text-[11px] text-zinc-400 " +
+    "whitespace-nowrap";
 
   return (
     <button
@@ -45,7 +172,6 @@ function TopPostCard({ post }) {
       aria-label={`Open post: ${post?.title ?? "Untitled"}`}
     >
       <div className="flex h-full min-w-0 flex-col">
-        {/* Header */}
         <div className="min-w-0">
           <h3
             className={[
@@ -69,26 +195,23 @@ function TopPostCard({ post }) {
           </p>
         </div>
 
-        {/* Footer pinned */}
         <div className="mt-auto pt-4 min-w-0">
-          {/* Stable pills area */}
-          <div className="flex flex-wrap gap-2 max-h-[56px] overflow-hidden min-w-0">
-            <span
-              className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-300 whitespace-nowrap truncate max-w-full"
-              title={category}
-            >
+          <div ref={pillsWrapRef} className="flex flex-wrap gap-2 min-w-0">
+            <span className={pillCategory} title={category}>
               {shorten(category, 26)}
             </span>
 
-            {tags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400 whitespace-nowrap truncate max-w-full"
-                title={t}
-              >
+            {visibleTags.map((t) => (
+              <span key={t} className={pillTag} title={t}>
                 {shorten(t, 22)}
               </span>
             ))}
+
+            {hiddenCount > 0 && (
+              <span className={pillMore} title={`${hiddenCount} more`}>
+                +{hiddenCount}
+              </span>
+            )}
           </div>
 
           <div className="mt-3 flex items-center justify-between">
@@ -97,6 +220,34 @@ function TopPostCard({ post }) {
               👍 {reactionsTotal}
             </span>
           </div>
+        </div>
+      </div>
+
+      <div
+        ref={measureRef}
+        className="pointer-events-none absolute left-0 top-0 -z-10 h-0 overflow-hidden opacity-0"
+      >
+        <div className="flex flex-wrap gap-2 min-w-0">
+          <span data-pill="category" className={pillCategory}>
+            {shorten(category, 26)}
+          </span>
+
+          {allTags.map((t) => (
+            <span data-pill="tag" key={`m_${t}`} className={pillTag}>
+              {shorten(t, 22)}
+            </span>
+          ))}
+
+          {Array.from({ length: allTags.length }, (_, i) => i + 1).map((n) => (
+            <span
+              data-pill="more"
+              data-count={n}
+              key={`more_${n}`}
+              className={pillMore}
+            >
+              +{n}
+            </span>
+          ))}
         </div>
       </div>
     </button>
