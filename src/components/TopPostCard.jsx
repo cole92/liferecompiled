@@ -27,13 +27,43 @@ function TopPostCard({ post }) {
     return str.length > n ? str.slice(0, n - 1) + "…" : str;
   };
 
+  const normalizeTagText = (t) => {
+    const raw = String(t ?? "").trim();
+    if (!raw) return "";
+    // Remove leading hashes to avoid ##tag
+    return raw.replace(/^#+/, "").trim();
+  };
+
+  const formatTagLabel = (t, maxLen = 22) => {
+    const clean = normalizeTagText(t);
+    if (!clean) return "";
+    const withHash = `#${clean}`;
+    return withHash.length > maxLen
+      ? withHash.slice(0, maxLen - 1) + "…"
+      : withHash;
+  };
+
   const allTags = useMemo(() => {
-    if (!Array.isArray(post?.tags)) return [];
-    return post.tags
-      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "tag")))
-      .map((t) => String(t ?? "").trim())
-      .filter(Boolean)
-      .slice(0, MAX_TAGS_IN_APP);
+    const raw = Array.isArray(post?.tags) ? post.tags : [];
+
+    const normalized = raw
+      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
+      .map((t) => normalizeTagText(t))
+      .filter(Boolean);
+
+    // De-dupe case-insensitive, keep original casing of first occurrence
+    const seen = new Set();
+    const unique = [];
+
+    for (const t of normalized) {
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(t);
+      if (unique.length >= MAX_TAGS_IN_APP) break;
+    }
+
+    return unique;
   }, [post?.tags]);
 
   const pillsWrapRef = useRef(null);
@@ -48,25 +78,20 @@ function TopPostCard({ post }) {
     const measurer = measureRef.current;
     if (!wrap || !measurer) return;
 
-    const readGapPx = () => {
-      const cs = window.getComputedStyle(wrap);
-      const gap = cs.columnGap || cs.gap || "0px";
-      const n = Number.parseFloat(gap);
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    const getWidth = (el) => {
-      if (!el) return 0;
-      return Math.ceil(el.getBoundingClientRect().width);
+    const getRowCount = (els) => {
+      const tops = new Set();
+      for (const el of els) {
+        if (!el) continue;
+        tops.add(el.offsetTop);
+      }
+      return tops.size;
     };
 
     const recalc = () => {
-      const wrapW = wrap.clientWidth || 0;
+      const wrapW = wrap.getBoundingClientRect().width;
       if (!wrapW) return;
 
       measurer.style.width = `${wrapW}px`;
-
-      const gapPx = readGapPx();
 
       const catEl = measurer.querySelector('[data-pill="category"]');
       const tagEls = Array.from(measurer.querySelectorAll('[data-pill="tag"]'));
@@ -74,44 +99,31 @@ function TopPostCard({ post }) {
         measurer.querySelectorAll('[data-pill="more"]'),
       );
 
-      const categoryW = getWidth(catEl);
-      const tagWidths = tagEls.map(getWidth);
-
-      const moreWidthMap = new Map();
-      for (const el of moreEls) {
-        const c = Number(el.getAttribute("data-count"));
-        moreWidthMap.set(c, getWidth(el));
-      }
+      if (!catEl) return;
 
       const fits = (k) => {
         const total = allTags.length;
         const hidden = total - k;
 
-        const widths = [categoryW];
-        for (let i = 0; i < k; i++) widths.push(tagWidths[i] ?? 0);
-        if (hidden > 0) widths.push(moreWidthMap.get(hidden) ?? 0);
+        catEl.style.display = "";
 
-        let row = 1;
-        let used = 0;
-
-        for (const w of widths) {
-          const ww = Math.max(0, w);
-
-          if (used === 0) {
-            used = ww;
-            continue;
-          }
-
-          if (used + gapPx + ww <= wrapW) {
-            used = used + gapPx + ww;
-          } else {
-            row += 1;
-            if (row > MAX_ROWS) return false;
-            used = ww;
-          }
+        for (let i = 0; i < tagEls.length; i++) {
+          tagEls[i].style.display = i < k ? "" : "none";
         }
 
-        return true;
+        let activeMoreEl = null;
+        for (const el of moreEls) {
+          const c = Number(el.getAttribute("data-count"));
+          const on = hidden > 0 && c === hidden;
+          el.style.display = on ? "" : "none";
+          if (on) activeMoreEl = el;
+        }
+
+        const visibleEls = [catEl, ...tagEls.slice(0, k)];
+        if (hidden > 0 && activeMoreEl) visibleEls.push(activeMoreEl);
+
+        const rows = getRowCount(visibleEls);
+        return rows <= MAX_ROWS;
       };
 
       let best = 0;
@@ -122,7 +134,7 @@ function TopPostCard({ post }) {
         }
       }
 
-      setVisibleTagCount(best);
+      setVisibleTagCount((prev) => (prev === best ? prev : best));
     };
 
     recalc();
@@ -139,9 +151,13 @@ function TopPostCard({ post }) {
       window.removeEventListener("resize", recalc);
       if (ro) ro.disconnect();
     };
-  }, [allTags.length, category, allTags]);
+  }, [allTags, category]);
 
-  const visibleTags = allTags.slice(0, visibleTagCount);
+  const safeVisibleTagCount = Math.max(
+    0,
+    Math.min(visibleTagCount, allTags.length),
+  );
+  const visibleTags = allTags.slice(0, safeVisibleTagCount);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
   const pillCategory =
@@ -164,7 +180,7 @@ function TopPostCard({ post }) {
       type="button"
       onClick={goToPost}
       className={[
-        "ui-card w-full h-full p-4 text-left overflow-hidden",
+        "relative ui-card w-full h-full p-4 text-left overflow-hidden",
         "transition duration-200 hover:bg-zinc-900/40",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
         "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
@@ -201,9 +217,9 @@ function TopPostCard({ post }) {
               {shorten(category, 26)}
             </span>
 
-            {visibleTags.map((t) => (
-              <span key={t} className={pillTag} title={t}>
-                {shorten(t, 22)}
+            {visibleTags.map((t, i) => (
+              <span key={`${t}_${i}`} className={pillTag} title={`#${t}`}>
+                {formatTagLabel(t, 22)}
               </span>
             ))}
 
@@ -232,9 +248,9 @@ function TopPostCard({ post }) {
             {shorten(category, 26)}
           </span>
 
-          {allTags.map((t) => (
-            <span data-pill="tag" key={`m_${t}`} className={pillTag}>
-              {shorten(t, 22)}
+          {allTags.map((t, i) => (
+            <span data-pill="tag" key={`m_${t}_${i}`} className={pillTag}>
+              {formatTagLabel(t, 22)}
             </span>
           ))}
 
