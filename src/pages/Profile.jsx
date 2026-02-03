@@ -254,10 +254,9 @@ const Profile = () => {
       <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
         <section className="ui-card p-3 sm:p-6 lg:p-8">
-          {/* NOTE: grid tek od xl da izbegnemo squeeze zonu oko ~1024-1279 */}
-          <div className="grid gap-5 sm:gap-6 xl:grid-cols-12 xl:items-start">
-            {/* Left: avatar + identity */}
-            <div className="xl:col-span-5">
+          <div className="grid gap-5 sm:gap-6 2xl:grid-cols-12 2xl:items-start">
+            {/* Left: avatar + identity + stats */}
+            <div className="2xl:col-span-4">
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-5">
                 {/* Avatar */}
                 <div className="relative shrink-0">
@@ -284,8 +283,8 @@ const Profile = () => {
                   )}
                 </div>
 
-                {/* Identity */}
-                <div className="min-w-0 flex-1 text-center sm:text-left">
+                {/* Identity (center on mid widths, left on 2xl) */}
+                <div className="min-w-0 flex-1 text-center 2xl:text-left">
                   {loadingUser ? (
                     <div className="space-y-2">
                       <SkeletonLine w="w-52" h="h-7" />
@@ -294,22 +293,20 @@ const Profile = () => {
                     </div>
                   ) : (
                     <>
-                      {/* Name (prevent overflow on long single-word names) */}
                       <h1
                         className={[
                           "min-w-0 max-w-full text-xl sm:text-2xl font-semibold text-zinc-100",
-                          // Mobile: allow 2 lines + break even a single long word
+                          // Mobile: allow 2 lines + break long single-word names
                           "[overflow-wrap:anywhere] line-clamp-2",
-                          // Sm+: compact 1 line
-                          "sm:line-clamp-1 sm:truncate",
+                          // Sm+: disable line-clamp and use single-line truncation (prevents stray char)
+                          "sm:line-clamp-none sm:truncate sm:[overflow-wrap:normal]",
                         ].join(" ")}
                         title={displayName}
                       >
                         {displayName}
                       </h1>
 
-                      {/* Pills row */}
-                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 2xl:justify-start">
                         {isOwnProfile ? (
                           <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] font-medium text-zinc-400">
                             You
@@ -327,15 +324,13 @@ const Profile = () => {
                         ) : null}
                       </div>
 
-                      {/* Email */}
                       <p
-                        className="mt-2 text-sm text-zinc-400 break-all"
+                        className="mt-2 text-sm text-zinc-400 [overflow-wrap:anywhere]"
                         title={displayEmail}
                       >
                         {displayEmail}
                       </p>
 
-                      {/* Member since */}
                       <p className="mt-2 text-xs text-zinc-500">
                         Member since:{" "}
                         <span className="text-zinc-400">{memberSinceText}</span>
@@ -359,8 +354,8 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Middle: Bio */}
-            <div className="xl:col-span-4">
+            {/* Bio */}
+            <div className="2xl:col-span-5">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
 
@@ -376,8 +371,8 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Right: overview */}
-            <div className="xl:col-span-3">
+            {/* Overview */}
+            <div className="2xl:col-span-3">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
                 <h3 className="text-sm font-semibold text-zinc-100">
                   Profile overview
@@ -432,7 +427,7 @@ const Profile = () => {
             )}
 
             {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-              <div className="grid auto-rows-fr gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
                 {top3.map((post) => (
                   <div key={post.id} className="h-full">
                     <TopPostCard post={post} />
