@@ -254,9 +254,10 @@ const Profile = () => {
       <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
         <section className="ui-card p-3 sm:p-6 lg:p-8">
-          <div className="grid gap-5 sm:gap-6 lg:grid-cols-12 lg:items-start">
+          {/* NOTE: grid tek od xl da izbegnemo squeeze zonu oko ~1024-1279 */}
+          <div className="grid gap-5 sm:gap-6 xl:grid-cols-12 xl:items-start">
             {/* Left: avatar + identity */}
-            <div className="lg:col-span-4">
+            <div className="xl:col-span-5">
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-5">
                 {/* Avatar */}
                 <div className="relative shrink-0">
@@ -297,9 +298,9 @@ const Profile = () => {
                       <h1
                         className={[
                           "min-w-0 max-w-full text-xl sm:text-2xl font-semibold text-zinc-100",
-                          // Mobile: dozvoli 2 reda + normalno prelamanje i reci da sme da lomi i jednu rec
+                          // Mobile: allow 2 lines + break even a single long word
                           "[overflow-wrap:anywhere] line-clamp-2",
-                          // Sm+: vrati u 1 liniju (kompaktnije) i secenje
+                          // Sm+: compact 1 line
                           "sm:line-clamp-1 sm:truncate",
                         ].join(" ")}
                         title={displayName}
@@ -359,7 +360,7 @@ const Profile = () => {
             </div>
 
             {/* Middle: Bio */}
-            <div className="lg:col-span-5">
+            <div className="xl:col-span-4">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
 
@@ -376,7 +377,7 @@ const Profile = () => {
             </div>
 
             {/* Right: overview */}
-            <div className="lg:col-span-3">
+            <div className="xl:col-span-3">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
                 <h3 className="text-sm font-semibold text-zinc-100">
                   Profile overview
