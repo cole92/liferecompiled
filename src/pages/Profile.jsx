@@ -295,7 +295,13 @@ const Profile = () => {
                     <>
                       {/* Name (prevent overflow on long single-word names) */}
                       <h1
-                        className="min-w-0 max-w-full truncate text-xl sm:text-2xl font-semibold text-zinc-100"
+                        className={[
+                          "min-w-0 max-w-full text-xl sm:text-2xl font-semibold text-zinc-100",
+                          // Mobile: dozvoli 2 reda + normalno prelamanje i reci da sme da lomi i jednu rec
+                          "[overflow-wrap:anywhere] line-clamp-2",
+                          // Sm+: vrati u 1 liniju (kompaktnije) i secenje
+                          "sm:line-clamp-1 sm:truncate",
+                        ].join(" ")}
                         title={displayName}
                       >
                         {displayName}
