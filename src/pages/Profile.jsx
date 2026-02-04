@@ -303,21 +303,6 @@ const Profile = () => {
                       </div>
                     </>
                   )}
-
-                  {!loadingUser && isTopContributor && (
-                    <button
-                      type="button"
-                      className="group absolute -top-2 -right-1 z-10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowTopContributorModal(true);
-                      }}
-                      aria-label="Top contributor info"
-                      title="Top Contributor"
-                    >
-                      <ShieldIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
-                    </button>
-                  )}
                 </div>
 
                 {/* Identity */}
@@ -418,26 +403,36 @@ const Profile = () => {
             {/* Highlights */}
             <div className="2xl:col-span-3">
               <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-3 sm:p-5">
-                <h3 className="text-sm font-semibold text-zinc-100">
-                  Highlights
-                </h3>
+                {/* Title row + (mobile/tablet) chip on the right */}
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-zinc-100">
+                    Highlights
+                  </h3>
+
+                  <span className="2xl:hidden rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400">
+                    Public profile
+                  </span>
+                </div>
 
                 <div className="mt-3 space-y-2 text-sm text-zinc-400">
                   <div className="flex items-center justify-between gap-3">
                     <span>Visibility</span>
                     <span className="text-zinc-200">Public</span>
                   </div>
+
                   <div className="flex items-center justify-between gap-3">
                     <span>Top posts</span>
                     <span className="text-zinc-200">{top3?.length || 0}/3</span>
                   </div>
+
                   <div className="flex items-center justify-between gap-3">
                     <span>Engagement</span>
                     <span className="text-zinc-200">{engagement} / post</span>
                   </div>
                 </div>
 
-                <div className="mt-4 flex justify-center">
+                {/* Desktop (2xl) footer chip centered */}
+                <div className="mt-4 hidden 2xl:flex justify-center">
                   <span className="rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400">
                     Public profile
                   </span>
