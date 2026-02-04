@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import {
   collection,
   doc,
@@ -8,14 +8,13 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { useParams } from "react-router-dom";
 import dayjs from "dayjs";
 
 import { db } from "../firebase";
+import { AuthContext } from "../context/AuthContext";
 
 import ShieldIcon from "../components/ui/ShieldIcon";
-import Avatar from "../components/common/Avatar";
 import BioSection from "../components/profile/BioSection";
 import StatsRow from "../components/profile/StatsRow";
 import TopPostCard from "../components/TopPostCard";
@@ -26,7 +25,11 @@ import {
 } from "../components/ui/skeletonLoader/SkeletonBits";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
-import { PILL_META, PILL_BADGE_TOP } from "../constants/uiClasses";
+import {
+  AVATAR_FRAME_BASE,
+  AVATAR_RING_DEFAULT,
+  AVATAR_RING_TOP,
+} from "../constants/uiClasses";
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);
@@ -42,8 +45,8 @@ const Profile = () => {
   const [top3, setTop3] = useState([]);
   const [errorTop3, setErrorTop3] = useState(null);
 
-  const auth = getAuth();
-  const ownUid = auth.currentUser?.uid || null;
+  const { user: authUser } = useContext(AuthContext);
+  const ownUid = authUser?.uid || null;
 
   const { uid } = useParams();
   const targetUid = uid || ownUid;
@@ -55,6 +58,7 @@ const Profile = () => {
     return (rc.idea || 0) + (rc.hot || 0) + (rc.powerup || 0);
   };
 
+  // Fetch user doc
   useEffect(() => {
     let cancelled = false;
 
@@ -102,6 +106,7 @@ const Profile = () => {
     return userData?.profilePicture || DEFAULT_PROFILE_PICTURE;
   }, [userData]);
 
+  // Count active posts
   useEffect(() => {
     let cancelled = false;
 
@@ -125,6 +130,7 @@ const Profile = () => {
         );
 
         const snap = await getCountFromServer(q);
+
         if (!cancelled) setPostsCount(snap.data().count || 0);
       } catch (err) {
         console.error("Count failed", err);
@@ -140,6 +146,7 @@ const Profile = () => {
     };
   }, [targetUid]);
 
+  // Total reactions received
   useEffect(() => {
     let cancelled = false;
 
@@ -182,6 +189,7 @@ const Profile = () => {
     };
   }, [targetUid]);
 
+  // Top 3 posts
   useEffect(() => {
     let cancelled = false;
 
@@ -246,25 +254,26 @@ const Profile = () => {
   const displayName = userData?.name || "Unknown author";
   const displayEmail = userData?.email || "";
 
-  const heroPanel =
-    "rounded-2xl border border-zinc-800/80 bg-zinc-950/30 ring-1 ring-zinc-100/5";
+  const avatarRing = isTopContributor ? AVATAR_RING_TOP : AVATAR_RING_DEFAULT;
+
+  const engagement =
+    postCount && postCount > 0 && reactionsCount != null
+      ? Math.round((reactionsCount / postCount) * 10) / 10
+      : 0;
 
   return (
     <div className="w-full px-2 max-[360px]:px-1 sm:px-6 lg:px-10 2xl:px-16 py-5 sm:py-6">
       <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
         <section className="ui-card relative overflow-hidden p-3 sm:p-6 lg:p-8">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-zinc-950/0 via-zinc-950/0 to-sky-500/5"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-amber-400/5 blur-3xl"
-          />
+          {/* subtle glow like feed */}
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_10%_0%,rgba(56,189,248,0.10),transparent_55%),radial-gradient(100%_70%_at_90%_10%,rgba(34,197,94,0.08),transparent_55%)]" />
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/20 to-transparent" />
+          </div>
 
           <div className="relative grid gap-5 sm:gap-6 2xl:grid-cols-12 2xl:items-start">
-            {/* Left */}
+            {/* Left: avatar + identity + stats */}
             <div className="2xl:col-span-4">
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-5">
                 {/* Avatar */}
@@ -272,26 +281,17 @@ const Profile = () => {
                   {loadingUser ? (
                     <SkeletonCircle size={144} />
                   ) : (
-                    <>
-                      <div className="sm:hidden">
-                        <Avatar
-                          src={avatarSrc}
-                          size={112}
-                          zoomable
-                          badge={isTopContributor}
-                          alt="Profile picture"
-                        />
-                      </div>
-                      <div className="hidden sm:block">
-                        <Avatar
-                          src={avatarSrc}
-                          size={144}
-                          zoomable
-                          badge={isTopContributor}
-                          alt="Profile picture"
-                        />
-                      </div>
-                    </>
+                    <img
+                      src={avatarSrc}
+                      alt="Profile picture"
+                      className={[
+                        "h-28 w-28 sm:h-36 sm:w-36 rounded-full object-cover select-none",
+                        AVATAR_FRAME_BASE,
+                        avatarRing,
+                      ].join(" ")}
+                      loading="lazy"
+                      draggable={false}
+                    />
                   )}
 
                   {!loadingUser && isTopContributor && (
@@ -302,7 +302,7 @@ const Profile = () => {
                 </div>
 
                 {/* Identity */}
-                <div className="min-w-0 flex-1 text-center 2xl:text-left">
+                <div className="min-w-0 flex-1 text-center sm:text-left">
                   {loadingUser ? (
                     <div className="space-y-2">
                       <SkeletonLine w="w-52" h="h-7" />
@@ -322,24 +322,16 @@ const Profile = () => {
                         {displayName}
                       </h1>
 
-                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 2xl:justify-start">
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                         {isOwnProfile ? (
-                          <span
-                            className={[
-                              PILL_META,
-                              "text-[11px] px-2.5 py-1 font-medium text-zinc-300",
-                            ].join(" ")}
-                          >
+                          <span className="rounded-full border border-zinc-800/90 bg-zinc-950/40 px-2.5 py-1 text-[11px] font-medium text-zinc-300">
                             You
                           </span>
                         ) : null}
 
                         {isTopContributor ? (
                           <span
-                            className={[
-                              PILL_BADGE_TOP,
-                              "inline-flex items-center gap-1 text-[11px] px-2.5 py-1 font-semibold",
-                            ].join(" ")}
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200"
                             title="Top Contributor"
                           >
                             <ShieldIcon className="h-3.5 w-3.5" />
@@ -380,7 +372,7 @@ const Profile = () => {
 
             {/* Bio */}
             <div className="2xl:col-span-5">
-              <div className={`${heroPanel} p-3 sm:p-5`}>
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
 
                 {loadingUser ? (
@@ -395,37 +387,37 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Overview */}
+            {/* Highlights (instead of placeholder) */}
             <div className="2xl:col-span-3">
-              <div className={`${heroPanel} p-3 sm:p-5`}>
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-3 sm:p-5">
                 <h3 className="text-sm font-semibold text-zinc-100">
-                  Profile overview
+                  Highlights
                 </h3>
 
-                <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
-                  This section intentionally keeps the hero balanced on large
-                  screens. Later we can place badges, links, or additional stats
-                  here if you want.
-                </p>
+                <div className="mt-3 space-y-2 text-sm text-zinc-400">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Visibility</span>
+                    <span className="text-zinc-200">Public</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Top posts</span>
+                    <span className="text-zinc-200">{top3?.length || 0}/3</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Engagement</span>
+                    <span className="text-zinc-200">{engagement} / post</span>
+                  </div>
+                </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span
-                    className={[
-                      PILL_META,
-                      "text-[11px] px-2.5 py-1 font-medium text-zinc-300",
-                    ].join(" ")}
-                  >
+                  <span className="rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400">
                     Public profile
                   </span>
-
-                  <span
-                    className={[
-                      PILL_META,
-                      "text-[11px] px-2.5 py-1 font-medium text-zinc-300",
-                    ].join(" ")}
-                  >
-                    Top posts: {top3?.length || 0}/3
-                  </span>
+                  {isTopContributor ? (
+                    <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-200">
+                      Top Contributor
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -434,50 +426,47 @@ const Profile = () => {
 
         {/* TOP POSTS */}
         <section className="ui-card relative overflow-hidden p-3 sm:p-6 lg:p-8">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-zinc-950/0 via-zinc-950/0 to-sky-500/5"
-          />
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/15 to-transparent" />
+          </div>
 
-          <div className="relative">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
-                  Top posts
-                </h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Most reacted posts by this author (up to 3).
+          <div className="relative flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
+                Top posts
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Most reacted posts by this author (up to 3).
+              </p>
+            </div>
+          </div>
+
+          <div className="relative mt-6">
+            {isLoadingTop3 && <SkeletonGrid count={3} />}
+
+            {errorTop3 && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                {String(errorTop3)}
+              </div>
+            )}
+
+            {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/20 p-8 text-center">
+                <p className="text-sm text-zinc-400">
+                  This author has no public posts yet.
                 </p>
               </div>
-            </div>
+            )}
 
-            <div className="mt-6">
-              {isLoadingTop3 && <SkeletonGrid count={3} />}
-
-              {errorTop3 && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-                  {String(errorTop3)}
-                </div>
-              )}
-
-              {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
-                <div className={`${heroPanel} p-8 text-center`}>
-                  <p className="text-sm text-zinc-400">
-                    This author has no public posts yet.
-                  </p>
-                </div>
-              )}
-
-              {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-                <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
-                  {top3.map((post) => (
-                    <div key={post.id} className="h-full">
-                      <TopPostCard post={post} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
+              <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
+                {top3.map((post) => (
+                  <div key={post.id} className="h-full">
+                    <TopPostCard post={post} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </div>

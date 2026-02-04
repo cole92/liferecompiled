@@ -188,13 +188,30 @@ function TopPostCard({ post }) {
       className={cx(
         CARD_BASE,
         CARD_HOVER,
-        "h-full text-left",
-        "hover:bg-zinc-900/30 active:translate-y-px",
+        "group h-full text-left",
+        "relative overflow-hidden",
+        "bg-zinc-950/25 border border-zinc-800/80 ring-1 ring-zinc-100/5",
+        "hover:border-zinc-700/80 hover:bg-zinc-950/20",
+        "active:translate-y-px",
         FOCUS_RING,
       )}
       aria-label={`Open post: ${post?.title ?? "Untitled"}`}
     >
-      <div className="flex h-full min-w-0 flex-col">
+      {/* base glow (always on, subtle) */}
+      <div className="pointer-events-none absolute inset-0 opacity-100">
+        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-sky-500/5 blur-3xl" />
+        <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-emerald-500/5 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/15 to-transparent" />
+      </div>
+
+      {/* hover boost */}
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/25 to-transparent" />
+      </div>
+
+      <div className="relative flex h-full min-w-0 flex-col">
         <div className="min-w-0">
           <h3
             className={cx(
