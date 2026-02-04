@@ -24,12 +24,11 @@ import {
   SkeletonLine,
 } from "../components/ui/skeletonLoader/SkeletonBits";
 
+import Avatar from "../components/common/Avatar";
+import BadgeModal from "../components/modals/BadgeModal";
+
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
-import {
-  AVATAR_FRAME_BASE,
-  AVATAR_RING_DEFAULT,
-  AVATAR_RING_TOP,
-} from "../constants/uiClasses";
+import { FOCUS_RING } from "../constants/uiClasses";
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);
@@ -40,6 +39,8 @@ const Profile = () => {
 
   const [reactionsCount, setReactionsCount] = useState(null);
   const [isCountingReactions, setIsCountingReactions] = useState(false);
+
+  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
   const [isLoadingTop3, setIsLoadingTop3] = useState(false);
   const [top3, setTop3] = useState([]);
@@ -130,7 +131,6 @@ const Profile = () => {
         );
 
         const snap = await getCountFromServer(q);
-
         if (!cancelled) setPostsCount(snap.data().count || 0);
       } catch (err) {
         console.error("Count failed", err);
@@ -254,8 +254,6 @@ const Profile = () => {
   const displayName = userData?.name || "Unknown author";
   const displayEmail = userData?.email || "";
 
-  const avatarRing = isTopContributor ? AVATAR_RING_TOP : AVATAR_RING_DEFAULT;
-
   const engagement =
     postCount && postCount > 0 && reactionsCount != null
       ? Math.round((reactionsCount / postCount) * 10) / 10
@@ -281,23 +279,44 @@ const Profile = () => {
                   {loadingUser ? (
                     <SkeletonCircle size={144} />
                   ) : (
-                    <img
-                      src={avatarSrc}
-                      alt="Profile picture"
-                      className={[
-                        "h-28 w-28 sm:h-36 sm:w-36 rounded-full object-cover select-none",
-                        AVATAR_FRAME_BASE,
-                        avatarRing,
-                      ].join(" ")}
-                      loading="lazy"
-                      draggable={false}
-                    />
+                    <>
+                      {/* xs */}
+                      <div className="sm:hidden">
+                        <Avatar
+                          src={avatarSrc}
+                          size={112}
+                          zoomable
+                          badge={isTopContributor}
+                          alt="Profile picture"
+                        />
+                      </div>
+
+                      {/* sm+ */}
+                      <div className="hidden sm:block">
+                        <Avatar
+                          src={avatarSrc}
+                          size={144}
+                          zoomable
+                          badge={isTopContributor}
+                          alt="Profile picture"
+                        />
+                      </div>
+                    </>
                   )}
 
                   {!loadingUser && isTopContributor && (
-                    <div className="absolute -top-2 -right-2">
-                      <ShieldIcon className="h-7 w-7 text-amber-200" />
-                    </div>
+                    <button
+                      type="button"
+                      className="group absolute -top-2 -right-1 z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowTopContributorModal(true);
+                      }}
+                      aria-label="Top contributor info"
+                      title="Top Contributor"
+                    >
+                      <ShieldIcon className="h-6 w-6 text-amber-300 group-hover:scale-110 transition-transform" />
+                    </button>
                   )}
                 </div>
 
@@ -330,13 +349,22 @@ const Profile = () => {
                         ) : null}
 
                         {isTopContributor ? (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200"
+                          <button
+                            type="button"
+                            onClick={() => setShowTopContributorModal(true)}
+                            className={[
+                              "inline-flex items-center gap-1 rounded-full",
+                              "border border-amber-400/25 bg-amber-400/10",
+                              "px-2.5 py-1 text-[11px] font-semibold text-amber-200",
+                              "hover:bg-amber-400/15 transition",
+                              FOCUS_RING,
+                            ].join(" ")}
                             title="Top Contributor"
+                            aria-label="Open Top Contributor badge info"
                           >
                             <ShieldIcon className="h-3.5 w-3.5" />
                             Top Contributor
-                          </span>
+                          </button>
                         ) : null}
                       </div>
 
@@ -387,7 +415,7 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Highlights (instead of placeholder) */}
+            {/* Highlights */}
             <div className="2xl:col-span-3">
               <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-3 sm:p-5">
                 <h3 className="text-sm font-semibold text-zinc-100">
@@ -409,20 +437,25 @@ const Profile = () => {
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 flex justify-center">
                   <span className="rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400">
                     Public profile
                   </span>
-                  {isTopContributor ? (
-                    <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-200">
-                      Top Contributor
-                    </span>
-                  ) : null}
                 </div>
               </div>
             </div>
           </div>
         </section>
+
+        {/* Top Contributor badge modal (same as feed pattern) */}
+        {showTopContributorModal && isTopContributor && (
+          <BadgeModal
+            isOpen={showTopContributorModal}
+            locked={false}
+            authorBadge="topContributor"
+            onClose={() => setShowTopContributorModal(false)}
+          />
+        )}
 
         {/* TOP POSTS */}
         <section className="ui-card relative overflow-hidden p-3 sm:p-6 lg:p-8">
