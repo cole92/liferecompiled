@@ -306,7 +306,15 @@ const Profile = () => {
                 </div>
 
                 {/* Identity */}
-                <div className="min-w-0 flex-1 text-center sm:text-left">
+                <div
+                  className={[
+                    "min-w-0 flex-1 text-center",
+                    // sm+ avatar is left (row), but identity is centered due to empty space
+                    "sm:flex sm:flex-col sm:items-center sm:text-center",
+                    // 2xl: back to left, since it becomes a true column layout
+                    "2xl:items-start 2xl:text-left",
+                  ].join(" ")}
+                >
                   {loadingUser ? (
                     <div className="space-y-2">
                       <SkeletonLine w="w-52" h="h-7" />
@@ -326,7 +334,7 @@ const Profile = () => {
                         {displayName}
                       </h1>
 
-                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-center 2xl:justify-start">
                         {isOwnProfile ? (
                           <span className="rounded-full border border-zinc-800/90 bg-zinc-950/40 px-2.5 py-1 text-[11px] font-medium text-zinc-300">
                             You
@@ -337,22 +345,23 @@ const Profile = () => {
                           <button
                             type="button"
                             onClick={() => setShowTopContributorModal(true)}
-                            className={[
-                              "inline-flex items-center gap-1 rounded-full",
-                              "border border-amber-400/25 bg-amber-400/10",
-                              "px-2.5 py-1 text-[11px] font-semibold text-amber-200",
-                              "hover:bg-amber-400/15 transition",
-                              FOCUS_RING,
-                            ].join(" ")}
+                            className={`inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200 hover:bg-amber-400/15 transition ${FOCUS_RING}`}
                             title="Top Contributor"
                             aria-label="Open Top Contributor badge info"
                           >
                             <ShieldIcon className="h-3.5 w-3.5" />
                             Top Contributor
                           </button>
-                        ) : null}
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-zinc-800/90 bg-zinc-950/30 px-2.5 py-1 text-[11px] font-medium text-zinc-300"
+                            title="Community member"
+                          >
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-zinc-500" />
+                            Member
+                          </span>
+                        )}
                       </div>
-
                       <p
                         className="mt-2 text-sm text-zinc-400 [overflow-wrap:anywhere]"
                         title={displayEmail}
