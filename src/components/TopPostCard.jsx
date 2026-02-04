@@ -2,6 +2,16 @@ import PropTypes from "prop-types";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import {
+  CARD_BASE,
+  CARD_HOVER,
+  FOCUS_RING,
+  PILL_CATEGORY,
+  PILL_TAG,
+  PILL_META,
+  cx,
+} from "../constants/uiClasses";
+
 const MAX_TAGS_IN_APP = 5;
 const MAX_ROWS = 2;
 
@@ -30,7 +40,6 @@ function TopPostCard({ post }) {
   const normalizeTagText = (t) => {
     const raw = String(t ?? "").trim();
     if (!raw) return "";
-    // Remove leading hashes to avoid ##tag
     return raw.replace(/^#+/, "").trim();
   };
 
@@ -51,7 +60,6 @@ function TopPostCard({ post }) {
       .map((t) => normalizeTagText(t))
       .filter(Boolean);
 
-    // De-dupe case-insensitive, keep original casing of first occurrence
     const seen = new Set();
     const unique = [];
 
@@ -160,52 +168,51 @@ function TopPostCard({ post }) {
   const visibleTags = allTags.slice(0, safeVisibleTagCount);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
-  const pillCategory =
-    "inline-flex items-center rounded-full border border-zinc-800 " +
-    "bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-300 " +
-    "whitespace-nowrap truncate max-w-full";
-
-  const pillTag =
-    "inline-flex items-center rounded-full border border-zinc-800 " +
-    "bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400 " +
-    "whitespace-nowrap truncate max-w-full";
-
-  const pillMore =
-    "inline-flex items-center rounded-full border border-zinc-800 " +
-    "bg-zinc-950/20 px-2.5 py-1 text-[11px] text-zinc-400 " +
-    "whitespace-nowrap";
+  const pillCategory = cx(
+    PILL_CATEGORY,
+    "text-[11px] px-2.5 py-1 font-medium max-w-full",
+  );
+  const pillTag = cx(
+    PILL_TAG,
+    "text-[11px] px-2.5 py-1 font-medium max-w-full",
+  );
+  const pillMore = cx(
+    PILL_META,
+    "text-[11px] px-2.5 py-1 font-medium text-zinc-300 whitespace-nowrap",
+  );
 
   return (
     <button
       type="button"
       onClick={goToPost}
-      className={[
-        "relative ui-card w-full h-full p-4 text-left overflow-hidden",
-        "transition duration-200 hover:bg-zinc-900/40",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
-        "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
-      ].join(" ")}
+      className={cx(
+        CARD_BASE,
+        CARD_HOVER,
+        "h-full text-left",
+        "hover:bg-zinc-900/30 active:translate-y-px",
+        FOCUS_RING,
+      )}
       aria-label={`Open post: ${post?.title ?? "Untitled"}`}
     >
       <div className="flex h-full min-w-0 flex-col">
         <div className="min-w-0">
           <h3
-            className={[
+            className={cx(
               "min-w-0 text-base font-semibold text-zinc-100",
               "line-clamp-2",
               "[overflow-wrap:anywhere]",
-            ].join(" ")}
+            )}
             title={post?.title ?? "Untitled"}
           >
             {post?.title ?? "Untitled"}
           </h3>
 
           <p
-            className={[
+            className={cx(
               "mt-2 min-w-0 text-sm text-zinc-300",
               "line-clamp-3",
               "[overflow-wrap:anywhere]",
-            ].join(" ")}
+            )}
           >
             {previewText}
           </p>
@@ -231,9 +238,12 @@ function TopPostCard({ post }) {
           </div>
 
           <div className="mt-3 flex items-center justify-between">
-            <span className="text-xs text-zinc-500">Total reactions</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[12px] font-semibold text-zinc-100">
-              👍 {reactionsTotal}
+            <span className="text-xs text-zinc-500">Reactions</span>
+            <span
+              className={cx(PILL_META, "text-[12px] px-2.5 py-1 tabular-nums")}
+              title="Total reactions"
+            >
+              {reactionsTotal}
             </span>
           </div>
         </div>

@@ -33,6 +33,8 @@ export const PILL_TAG =
   "px-3 py-1 text-xs text-sky-200 max-w-[12rem] truncate";
 
 export const PILL_META = `${PILL_BASE} border-zinc-800 bg-zinc-950/25 text-zinc-200`;
+export const PILL_BADGE_TOP =
+  `${PILL_BASE} border-amber-300/25 bg-amber-300/10 text-amber-100`;
 
 // -----------------------------
 // Text tones

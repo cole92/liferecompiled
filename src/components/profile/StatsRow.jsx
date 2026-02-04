@@ -3,9 +3,9 @@ import { SkeletonLine } from "../ui/skeletonLoader/SkeletonBits";
 
 const StatCard = ({ label, value, loading }) => {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/30 p-4 ring-1 ring-zinc-100/5">
       <div className="text-[11px] font-medium text-zinc-500">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-zinc-100">
+      <div className="mt-2 text-2xl font-semibold text-zinc-100 tabular-nums">
         {loading ? <SkeletonLine as="span" w="w-16" h="h-6" /> : value}
       </div>
     </div>
@@ -44,16 +44,16 @@ const StatsRow = ({
   if (variant === "pills") {
     return (
       <div className={`flex flex-wrap items-stretch gap-3 ${justify}`}>
-        <div className="min-w-[120px] rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2.5">
+        <div className="min-w-[120px] rounded-xl border border-zinc-800/80 bg-zinc-950/30 px-3 py-2.5 ring-1 ring-zinc-100/5">
           <div className="text-[11px] font-medium text-zinc-500">Posts</div>
-          <div className="mt-1 text-lg font-semibold text-zinc-100">
+          <div className="mt-1 text-lg font-semibold text-zinc-100 tabular-nums">
             {loadingPosts ? <SkeletonLine as="span" w="w-14" h="h-5" /> : posts}
           </div>
         </div>
 
-        <div className="min-w-[120px] rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2.5">
+        <div className="min-w-[120px] rounded-xl border border-zinc-800/80 bg-zinc-950/30 px-3 py-2.5 ring-1 ring-zinc-100/5">
           <div className="text-[11px] font-medium text-zinc-500">Reactions</div>
-          <div className="mt-1 text-lg font-semibold text-zinc-100">
+          <div className="mt-1 text-lg font-semibold text-zinc-100 tabular-nums">
             {loadingReactions ? (
               <SkeletonLine as="span" w="w-16" h="h-5" />
             ) : (

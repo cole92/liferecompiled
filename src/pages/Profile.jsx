@@ -15,6 +15,7 @@ import dayjs from "dayjs";
 import { db } from "../firebase";
 
 import ShieldIcon from "../components/ui/ShieldIcon";
+import Avatar from "../components/common/Avatar";
 import BioSection from "../components/profile/BioSection";
 import StatsRow from "../components/profile/StatsRow";
 import TopPostCard from "../components/TopPostCard";
@@ -25,6 +26,7 @@ import {
 } from "../components/ui/skeletonLoader/SkeletonBits";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+import { PILL_META, PILL_BADGE_TOP } from "../constants/uiClasses";
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);
@@ -53,7 +55,6 @@ const Profile = () => {
     return (rc.idea || 0) + (rc.hot || 0) + (rc.powerup || 0);
   };
 
-  // Fetch user doc
   useEffect(() => {
     let cancelled = false;
 
@@ -101,7 +102,6 @@ const Profile = () => {
     return userData?.profilePicture || DEFAULT_PROFILE_PICTURE;
   }, [userData]);
 
-  // Count active posts
   useEffect(() => {
     let cancelled = false;
 
@@ -125,7 +125,6 @@ const Profile = () => {
         );
 
         const snap = await getCountFromServer(q);
-
         if (!cancelled) setPostsCount(snap.data().count || 0);
       } catch (err) {
         console.error("Count failed", err);
@@ -141,7 +140,6 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Total reactions received
   useEffect(() => {
     let cancelled = false;
 
@@ -184,7 +182,6 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Top 3 posts
   useEffect(() => {
     let cancelled = false;
 
@@ -249,13 +246,25 @@ const Profile = () => {
   const displayName = userData?.name || "Unknown author";
   const displayEmail = userData?.email || "";
 
+  const heroPanel =
+    "rounded-2xl border border-zinc-800/80 bg-zinc-950/30 ring-1 ring-zinc-100/5";
+
   return (
     <div className="w-full px-2 max-[360px]:px-1 sm:px-6 lg:px-10 2xl:px-16 py-5 sm:py-6">
       <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
-        <section className="ui-card p-3 sm:p-6 lg:p-8">
-          <div className="grid gap-5 sm:gap-6 2xl:grid-cols-12 2xl:items-start">
-            {/* Left: avatar + identity + stats */}
+        <section className="ui-card relative overflow-hidden p-3 sm:p-6 lg:p-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-zinc-950/0 via-zinc-950/0 to-sky-500/5"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-amber-400/5 blur-3xl"
+          />
+
+          <div className="relative grid gap-5 sm:gap-6 2xl:grid-cols-12 2xl:items-start">
+            {/* Left */}
             <div className="2xl:col-span-4">
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-5">
                 {/* Avatar */}
@@ -263,27 +272,36 @@ const Profile = () => {
                   {loadingUser ? (
                     <SkeletonCircle size={144} />
                   ) : (
-                    <img
-                      src={avatarSrc}
-                      alt="Profile picture"
-                      className={[
-                        "h-28 w-28 sm:h-36 sm:w-36 rounded-full object-cover border border-zinc-700",
-                        isTopContributor
-                          ? "ring-2 ring-purple-500/70 ring-offset-2 ring-offset-zinc-950"
-                          : "",
-                      ].join(" ")}
-                      loading="lazy"
-                    />
+                    <>
+                      <div className="sm:hidden">
+                        <Avatar
+                          src={avatarSrc}
+                          size={112}
+                          zoomable
+                          badge={isTopContributor}
+                          alt="Profile picture"
+                        />
+                      </div>
+                      <div className="hidden sm:block">
+                        <Avatar
+                          src={avatarSrc}
+                          size={144}
+                          zoomable
+                          badge={isTopContributor}
+                          alt="Profile picture"
+                        />
+                      </div>
+                    </>
                   )}
 
                   {!loadingUser && isTopContributor && (
                     <div className="absolute -top-2 -right-2">
-                      <ShieldIcon className="h-7 w-7 text-purple-300" />
+                      <ShieldIcon className="h-7 w-7 text-amber-200" />
                     </div>
                   )}
                 </div>
 
-                {/* Identity (center on mid widths, left on 2xl) */}
+                {/* Identity */}
                 <div className="min-w-0 flex-1 text-center 2xl:text-left">
                   {loadingUser ? (
                     <div className="space-y-2">
@@ -296,9 +314,7 @@ const Profile = () => {
                       <h1
                         className={[
                           "min-w-0 max-w-full text-xl sm:text-2xl font-semibold text-zinc-100",
-                          // Mobile: allow 2 lines + break long single-word names
                           "[overflow-wrap:anywhere] line-clamp-2",
-                          // Sm+: disable line-clamp and use single-line truncation (prevents stray char)
                           "sm:line-clamp-none sm:truncate sm:[overflow-wrap:normal]",
                         ].join(" ")}
                         title={displayName}
@@ -308,14 +324,22 @@ const Profile = () => {
 
                       <div className="mt-2 flex flex-wrap items-center justify-center gap-2 2xl:justify-start">
                         {isOwnProfile ? (
-                          <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] font-medium text-zinc-400">
+                          <span
+                            className={[
+                              PILL_META,
+                              "text-[11px] px-2.5 py-1 font-medium text-zinc-300",
+                            ].join(" ")}
+                          >
                             You
                           </span>
                         ) : null}
 
                         {isTopContributor ? (
                           <span
-                            className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[11px] font-semibold text-purple-200"
+                            className={[
+                              PILL_BADGE_TOP,
+                              "inline-flex items-center gap-1 text-[11px] px-2.5 py-1 font-semibold",
+                            ].join(" ")}
                             title="Top Contributor"
                           >
                             <ShieldIcon className="h-3.5 w-3.5" />
@@ -356,7 +380,7 @@ const Profile = () => {
 
             {/* Bio */}
             <div className="2xl:col-span-5">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
+              <div className={`${heroPanel} p-3 sm:p-5`}>
                 <h2 className="text-sm font-semibold text-zinc-100">Bio</h2>
 
                 {loadingUser ? (
@@ -373,10 +397,11 @@ const Profile = () => {
 
             {/* Overview */}
             <div className="2xl:col-span-3">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-3 sm:p-5">
+              <div className={`${heroPanel} p-3 sm:p-5`}>
                 <h3 className="text-sm font-semibold text-zinc-100">
                   Profile overview
                 </h3>
+
                 <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
                   This section intentionally keeps the hero balanced on large
                   screens. Later we can place badges, links, or additional stats
@@ -384,10 +409,21 @@ const Profile = () => {
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-400">
+                  <span
+                    className={[
+                      PILL_META,
+                      "text-[11px] px-2.5 py-1 font-medium text-zinc-300",
+                    ].join(" ")}
+                  >
                     Public profile
                   </span>
-                  <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-[11px] text-zinc-400">
+
+                  <span
+                    className={[
+                      PILL_META,
+                      "text-[11px] px-2.5 py-1 font-medium text-zinc-300",
+                    ].join(" ")}
+                  >
                     Top posts: {top3?.length || 0}/3
                   </span>
                 </div>
@@ -397,44 +433,51 @@ const Profile = () => {
         </section>
 
         {/* TOP POSTS */}
-        <section className="ui-card p-3 sm:p-6 lg:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
-                Top posts
-              </h2>
-              <p className="mt-1 text-sm text-zinc-400">
-                Most reacted posts by this author (up to 3).
-              </p>
-            </div>
-          </div>
+        <section className="ui-card relative overflow-hidden p-3 sm:p-6 lg:p-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-zinc-950/0 via-zinc-950/0 to-sky-500/5"
+          />
 
-          <div className="mt-6">
-            {isLoadingTop3 && <SkeletonGrid count={3} />}
-
-            {errorTop3 && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-                {String(errorTop3)}
-              </div>
-            )}
-
-            {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-8 text-center">
-                <p className="text-sm text-zinc-400">
-                  This author has no public posts yet.
+          <div className="relative">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
+                  Top posts
+                </h2>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Most reacted posts by this author (up to 3).
                 </p>
               </div>
-            )}
+            </div>
 
-            {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-              <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
-                {top3.map((post) => (
-                  <div key={post.id} className="h-full">
-                    <TopPostCard post={post} />
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="mt-6">
+              {isLoadingTop3 && <SkeletonGrid count={3} />}
+
+              {errorTop3 && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                  {String(errorTop3)}
+                </div>
+              )}
+
+              {!isLoadingTop3 && !errorTop3 && top3.length === 0 && (
+                <div className={`${heroPanel} p-8 text-center`}>
+                  <p className="text-sm text-zinc-400">
+                    This author has no public posts yet.
+                  </p>
+                </div>
+              )}
+
+              {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
+                <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
+                  {top3.map((post) => (
+                    <div key={post.id} className="h-full">
+                      <TopPostCard post={post} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </section>
       </div>
