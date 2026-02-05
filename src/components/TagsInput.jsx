@@ -69,10 +69,7 @@ const TagsInput = ({ tags, setTags }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
         setInputValue("");
       }
     };
@@ -140,6 +137,12 @@ const TagsInput = ({ tags, setTags }) => {
     );
   };
 
+  const isActiveTag = (tagText) =>
+    tags.some(
+      (t) =>
+        String(t.text ?? "").toLowerCase() === String(tagText).toLowerCase(),
+    );
+
   const query = useMemo(
     () => deferredInput.trim().toLowerCase(),
     [deferredInput],
@@ -174,31 +177,72 @@ const TagsInput = ({ tags, setTags }) => {
     }
 
     return (
-      <div className="absolute left-0 top-full z-50 mt-2 w-full max-h-72 overflow-auto ui-scrollbar rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-lg">
-        {filteredForRender.map(({ name, tags: list }, idx) => (
-          <div key={name} className={idx === 0 ? "" : "mt-4"}>
-            <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              {name}
-            </h5>
+      <div className="absolute left-0 top-full z-50 mt-2 w-full max-h-72 overflow-auto ui-scrollbar rounded-xl border border-zinc-800 bg-zinc-950 shadow-lg">
+        <div className="p-3">
+          {filteredForRender.map(({ name, tags: list }, idx) => (
+            <div key={name} className={idx === 0 ? "" : "mt-4"}>
+              <h5 className="sticky top-0 z-10 -mx-3 mb-2 border-b border-zinc-800 bg-zinc-950/95 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 backdrop-blur">
+                {name}
+              </h5>
 
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {list.map((tagText) => (
-                <button
-                  type="button"
-                  key={`${name}-${tagText}`}
-                  className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-0.5 text-[11px] leading-none font-medium text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100 sm:px-3 sm:py-1 sm:text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-                  onClick={() => handleAddition({ id: tagText, text: tagText })}
-                >
-                  {tagText}
-                </button>
-              ))}
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                {list.map((tagText) => {
+                  const isActive = isActiveTag(tagText);
+                  const isMaxed = tags.length >= MAX_TAGS;
+                  const disabledBecauseMax = isMaxed && !isActive;
+
+                  const base =
+                    "inline-flex items-center rounded-full border px-2.5 py-0.5 " +
+                    "text-[11px] leading-none font-medium transition " +
+                    "sm:px-3 sm:py-1 sm:text-xs " +
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
+                  const activeCls =
+                    "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500";
+                  const normalCls =
+                    "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100";
+
+                  return (
+                    <button
+                      type="button"
+                      key={`${name}-${tagText}`}
+                      className={`${base} ${isActive ? activeCls : normalCls} ${
+                        disabledBecauseMax
+                          ? "cursor-not-allowed opacity-50"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (isActive) return;
+                        if (disabledBecauseMax) return;
+                        handleAddition({ id: tagText, text: tagText });
+                      }}
+                      disabled={disabledBecauseMax}
+                      aria-pressed={isActive}
+                    >
+                      {isActive ? (
+                        <span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-zinc-950/25 text-[11px] leading-none">
+                          ✓
+                        </span>
+                      ) : null}
+                      {tagText}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {idx !== filteredForRender.length - 1 ? (
+                <div className="mt-4 h-px w-full bg-zinc-800" />
+              ) : null}
             </div>
+          ))}
 
-            {idx !== filteredForRender.length - 1 ? (
-              <div className="mt-4 h-px w-full bg-zinc-800" />
-            ) : null}
-          </div>
-        ))}
+          {tags.length >= MAX_TAGS ? (
+            <p className="mt-3 text-xs text-zinc-400">
+              Max {MAX_TAGS} tags selected.
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   };
@@ -222,11 +266,7 @@ const TagsInput = ({ tags, setTags }) => {
       <div className="sm:hidden">
         <div className="flex flex-wrap gap-1.5">
           {mobilePredefined.map((tagText) => {
-            const isActive = tags.some(
-              (t) =>
-                String(t.text ?? "").toLowerCase() ===
-                String(tagText).toLowerCase(),
-            );
+            const isActive = isActiveTag(tagText);
             const disabled = isTagDisabled(tagText);
 
             return (
@@ -238,7 +278,10 @@ const TagsInput = ({ tags, setTags }) => {
                     ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
                     : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
                 } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-                onClick={() => handleAddition({ id: tagText, text: tagText })}
+                onClick={() => {
+                  if (isActive) return;
+                  handleAddition({ id: tagText, text: tagText });
+                }}
                 disabled={disabled}
                 aria-pressed={isActive}
               >
@@ -261,11 +304,7 @@ const TagsInput = ({ tags, setTags }) => {
 
       <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
         {predefinedTags.map((tagText) => {
-          const isActive = tags.some(
-            (t) =>
-              String(t.text ?? "").toLowerCase() ===
-              String(tagText).toLowerCase(),
-          );
+          const isActive = isActiveTag(tagText);
           const disabled = isTagDisabled(tagText);
 
           return (
@@ -277,7 +316,10 @@ const TagsInput = ({ tags, setTags }) => {
                   ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
                   : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
               } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-              onClick={() => handleAddition({ id: tagText, text: tagText })}
+              onClick={() => {
+                if (isActive) return;
+                handleAddition({ id: tagText, text: tagText });
+              }}
               disabled={disabled}
               aria-pressed={isActive}
             >
