@@ -6,6 +6,14 @@ import { validCategories } from "../constants/postCategories";
 
 const TITLE_REGEX = /^[\p{L}0-9 ,.?!-]+$/u;
 
+const DEFAULT_INITIAL_VALUES = {
+  title: "",
+  description: "",
+  content: "",
+  category: "",
+  tags: [],
+};
+
 function normalizeTagTexts(list) {
   const arr = Array.isArray(list) ? list : [];
   return arr
@@ -85,11 +93,11 @@ function focusFirstError(errors) {
 }
 
 const PostEditorForm = ({
-  initialValues,
+  initialValues = DEFAULT_INITIAL_VALUES,
   mode,
-  isSubmitting,
-  isLocked,
-  lockMessage,
+  isSubmitting = false,
+  isLocked = false,
+  lockMessage = "",
   onSubmit,
   onCancel,
   submitLabel,
@@ -125,8 +133,22 @@ const PostEditorForm = ({
     setCategory(next.category);
 
     baselineRef.current = serializeForDirtyCheck(next);
+
+    // Important: some tag inputs auto-focus on mount.
+    // We force focus back to Title once on initial load.
     firstLoadRef.current = false;
-  }, [initialValues]);
+
+    if (isLocked) return;
+
+    const t = setTimeout(() => {
+      const el = document.getElementById("title");
+      if (el && typeof el.focus === "function") {
+        el.focus({ preventScroll: true });
+      }
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, [initialValues, isLocked]);
 
   const currentSerialized = useMemo(() => {
     return serializeForDirtyCheck({
@@ -264,7 +286,7 @@ const PostEditorForm = ({
               </label>
               <textarea
                 id="description"
-                className={`${inputBase} ${errors.description ? inputErr : inputOk}`}
+                className={`${inputBase} ${errors.description ? inputErr : inputOk} resize-none`}
                 placeholder="Enter a short description"
                 maxLength={300}
                 value={description}
@@ -295,7 +317,7 @@ const PostEditorForm = ({
               </label>
               <textarea
                 id="content"
-                className={`${inputBase} ${errors.content ? inputErr : inputOk}`}
+                className={`${inputBase} ${errors.content ? inputErr : inputOk} resize-none`}
                 placeholder={
                   mode === "edit"
                     ? "Change the main content of the post"
@@ -425,19 +447,6 @@ PostEditorForm.propTypes = {
   onCancel: PropTypes.func.isRequired,
   submitLabel: PropTypes.string.isRequired,
   cancelLabel: PropTypes.string.isRequired,
-};
-
-PostEditorForm.defaultProps = {
-  initialValues: {
-    title: "",
-    description: "",
-    content: "",
-    category: "",
-    tags: [],
-  },
-  isSubmitting: false,
-  isLocked: false,
-  lockMessage: "",
 };
 
 export default PostEditorForm;
