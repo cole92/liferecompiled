@@ -1,12 +1,14 @@
 import PropTypes from "prop-types";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { WithContext as ReactTags } from "react-tag-input";
-import { predefinedTags } from "../constants/tags";
-import { categorizedTags } from "../constants/tags";
+import { predefinedTags, categorizedTags } from "../constants/tags";
+
+const MOBILE_PREDEFINED_LIMIT = 12;
 
 const TagsInput = ({ tags, setTags }) => {
   const [error, setError] = useState(null);
   const [inputValue, setInputValue] = useState("");
+  const [showAllMobile, setShowAllMobile] = useState(false);
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -37,11 +39,8 @@ const TagsInput = ({ tags, setTags }) => {
   }, []);
 
   const handleInputChange = (value) => {
-    if (value.startsWith(" ")) {
-      setInputValue("");
-    } else {
-      setInputValue(value);
-    }
+    if (value.startsWith(" ")) setInputValue("");
+    else setInputValue(value);
   };
 
   const filterTags = (value) => {
@@ -82,8 +81,6 @@ const TagsInput = ({ tags, setTags }) => {
 
     setError(null);
     setTags([...tags, { id: foundTag, text: foundTag }]);
-
-    // MVP: reset input after successful add
     setInputValue("");
   };
 
@@ -98,9 +95,10 @@ const TagsInput = ({ tags, setTags }) => {
     );
   };
 
+  const filteredForRender = useMemo(() => filterTags(inputValue), [inputValue]);
+
   const renderFilteredTags = () => {
-    const filtered = filterTags(inputValue);
-    if (filtered.length === 0) {
+    if (filteredForRender.length === 0) {
       return (
         <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-lg">
           <p className="text-sm text-zinc-400">No matching tags found</p>
@@ -109,8 +107,8 @@ const TagsInput = ({ tags, setTags }) => {
     }
 
     return (
-      <div className="absolute left-0 top-full z-50 mt-2 w-full max-h-72 overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-lg">
-        {filtered.map(({ name, tags: list }, idx) => (
+      <div className="absolute left-0 top-full z-50 mt-2 w-full max-h-72 overflow-auto ui-scrollbar rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-lg">
+        {filteredForRender.map(({ name, tags: list }, idx) => (
           <div key={name} className={idx === 0 ? "" : "mt-4"}>
             <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
               {name}
@@ -121,7 +119,7 @@ const TagsInput = ({ tags, setTags }) => {
                 <button
                   type="button"
                   key={`${name}-${tag}`}
-                  className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                  className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                   onClick={() => handleAddition({ id: tag, text: tag })}
                 >
                   {tag}
@@ -129,7 +127,9 @@ const TagsInput = ({ tags, setTags }) => {
               ))}
             </div>
 
-            <div className="mt-4 h-px w-full bg-zinc-800" />
+            {idx !== filteredForRender.length - 1 ? (
+              <div className="mt-4 h-px w-full bg-zinc-800" />
+            ) : null}
           </div>
         ))}
       </div>
@@ -137,19 +137,64 @@ const TagsInput = ({ tags, setTags }) => {
   };
 
   const tagButtonBase =
-    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
+  const mobilePredefined = showAllMobile
+    ? predefinedTags
+    : predefinedTags.slice(0, MOBILE_PREDEFINED_LIMIT);
 
   return (
     <div className="space-y-2">
-      <label htmlFor="tags" className="block text-sm font-medium text-zinc-200">
+      <label htmlFor="tags" className="ui-label">
         Tags
       </label>
 
-      {/* Predefined tags */}
-      <div className="flex flex-wrap gap-2">
+      {/* Predefined tags - mobile compact */}
+      <div className="sm:hidden">
+        <div className="flex flex-wrap gap-2">
+          {mobilePredefined.map((tag) => {
+            const isActive = tags.some(
+              (t) => t.text.toLowerCase() === tag.toLowerCase(),
+            );
+            const disabled = isTagDisabled(tag);
+
+            return (
+              <button
+                key={tag}
+                type="button"
+                className={`${tagButtonBase} ${
+                  isActive
+                    ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
+                } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                onClick={() => handleAddition({ id: tag, text: tag })}
+                disabled={disabled}
+                aria-pressed={isActive}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+
+        {predefinedTags.length > MOBILE_PREDEFINED_LIMIT ? (
+          <button
+            type="button"
+            className="mt-2 text-sm text-zinc-300 hover:text-zinc-100 underline underline-offset-4 decoration-zinc-500/60"
+            onClick={() => setShowAllMobile((v) => !v)}
+          >
+            {showAllMobile ? "Show less" : "Show more"}
+          </button>
+        ) : null}
+      </div>
+
+      {/* Predefined tags - sm+ full */}
+      <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
         {predefinedTags.map((tag) => {
           const isActive = tags.some(
-            (t) => t.text.toLowerCase() === tag.toLowerCase()
+            (t) => t.text.toLowerCase() === tag.toLowerCase(),
           );
           const disabled = isTagDisabled(tag);
 
@@ -159,7 +204,7 @@ const TagsInput = ({ tags, setTags }) => {
               type="button"
               className={`${tagButtonBase} ${
                 isActive
-                  ? "border-blue-600 bg-blue-600 text-zinc-50 hover:bg-blue-500"
+                  ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
                   : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
               } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
               onClick={() => handleAddition({ id: tag, text: tag })}
@@ -199,14 +244,14 @@ const TagsInput = ({ tags, setTags }) => {
             selected: "flex flex-wrap gap-2",
             tag: "inline-flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-100",
             remove:
-              "inline-flex h-5 w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+              "inline-flex h-5 w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 " +
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
             tagInput: "w-full",
-            tagInputField:
-              "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+            tagInputField: "ui-input mt-0",
           }}
         />
 
-        {inputValue && renderFilteredTags()}
+        {inputValue ? renderFilteredTags() : null}
       </div>
 
       {!error ? (
@@ -215,7 +260,9 @@ const TagsInput = ({ tags, setTags }) => {
           (+), hyphens (-), hashtags (#).
         </p>
       ) : (
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="ui-error" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );
@@ -226,7 +273,7 @@ TagsInput.propTypes = {
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       text: PropTypes.string.isRequired,
-    })
+    }),
   ).isRequired,
   setTags: PropTypes.func.isRequired,
 };
