@@ -261,7 +261,10 @@ const PostEditorForm = ({
       className={
         // Mobile: full-bleed card (cancels ui-shell px-4), no rounded
         // sm+: normal card
-        "ui-card -mx-4 sm:mx-0 rounded-none sm:rounded-2xl p-4 sm:p-7"
+        "ui-card -mx-4 sm:mx-0 rounded-none sm:rounded-2xl p-4 sm:p-7 " +
+        "border border-zinc-800/70 shadow-sm " +
+        "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
+        "ring-1 ring-sky-200/10"
       }
     >
       {isLocked ? (
@@ -373,44 +376,46 @@ const PostEditorForm = ({
           </div>
 
           <div className="lg:col-span-4 mt-5 lg:mt-0 space-y-5 lg:sticky lg:top-24 self-start">
-            <div className="space-y-2">
-              <label htmlFor="category" className="ui-label">
-                Category
-              </label>
-              <select
-                id="category"
-                className={`${inputBase} ${errors.category ? inputErr : inputOk}`}
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                aria-invalid={Boolean(errors.category)}
-                aria-describedby={
-                  errors.category ? "category-error" : "category-help"
-                }
-                disabled={disabled}
-              >
-                <option value="">Select a category</option>
-                {validCategories.map((cat) => (
-                  <option
-                    key={cat}
-                    value={cat}
-                    className="bg-zinc-950 text-zinc-100"
-                  >
-                    {cat}
-                  </option>
-                ))}
-              </select>
-              {errors.category ? (
-                <p id="category-error" className="ui-error" role="alert">
-                  {errors.category}
-                </p>
-              ) : (
-                <p id="category-help" className="ui-help">
-                  Pick one category that best matches your post.
-                </p>
-              )}
+            <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/20 p-3 sm:p-4 ring-1 ring-sky-200/5 shadow-sm">
+              <div className="space-y-2">
+                <label htmlFor="category" className="ui-label">
+                  Category
+                </label>
+                <select
+                  id="category"
+                  className={`${inputBase} ${errors.category ? inputErr : inputOk}`}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  aria-invalid={Boolean(errors.category)}
+                  aria-describedby={
+                    errors.category ? "category-error" : "category-help"
+                  }
+                  disabled={disabled}
+                >
+                  <option value="">Select a category</option>
+                  {validCategories.map((cat) => (
+                    <option
+                      key={cat}
+                      value={cat}
+                      className="bg-zinc-950 text-zinc-100"
+                    >
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+                {errors.category ? (
+                  <p id="category-error" className="ui-error" role="alert">
+                    {errors.category}
+                  </p>
+                ) : (
+                  <p id="category-help" className="ui-help">
+                    Pick one category that best matches your post.
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-3 sm:p-4 relative overflow-visible">
+            <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/20 p-3 sm:p-4 ring-1 ring-sky-200/5 shadow-sm relative overflow-visible">
               <TagsInput tags={tags} setTags={setTags} />
             </div>
 

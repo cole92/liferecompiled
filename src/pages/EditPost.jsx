@@ -131,9 +131,11 @@ const EditPost = () => {
 
   return (
     <div className="ui-shell py-6 sm:py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-semibold text-zinc-100">Edit this post</h1>
-        <p className="mt-1 text-sm text-zinc-300">
+      <div className="mb-6 sm:mb-7 pb-5 sm:pb-6 border-b border-zinc-800/60">
+        <h1 className="text-3xl sm:text-4xl font-semibold text-zinc-100 tracking-tight">
+          Edit this post
+        </h1>
+        <p className="mt-1 text-sm text-zinc-400">
           Update content, tags and category. Changes are saved after submit.
         </p>
       </div>

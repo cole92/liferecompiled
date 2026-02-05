@@ -56,11 +56,11 @@ const CreatePost = () => {
 
   return (
     <div className="ui-shell py-6 sm:py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-semibold text-zinc-100">
+      <div className="mb-6 sm:mb-7 pb-5 sm:pb-6 border-b border-zinc-800/60">
+        <h1 className="text-3xl sm:text-4xl font-semibold text-zinc-100 tracking-tight">
           Create a New Post
         </h1>
-        <p className="mt-1 text-sm text-zinc-300">
+        <p className="mt-1 text-sm text-zinc-400">
           Share something useful with the community.
         </p>
       </div>
