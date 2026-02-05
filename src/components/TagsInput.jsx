@@ -1,15 +1,69 @@
 import PropTypes from "prop-types";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { WithContext as ReactTags } from "react-tag-input";
 import { predefinedTags, categorizedTags } from "../constants/tags";
 
 const MOBILE_PREDEFINED_LIMIT = 12;
+const MAX_TAGS = 5;
+const MAX_PER_CATEGORY = 50;
+
+function formatCategoryName(key) {
+  const s = String(key ?? "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .trim();
+  return s ? s[0].toUpperCase() + s.slice(1) : "";
+}
+
+function buildTagIndex() {
+  const all = new Map();
+  const categories = [];
+
+  Object.entries(categorizedTags).forEach(([key, list]) => {
+    // Predefined already shown as chips; keep it out of dropdown for less noise.
+    if (key === "predefined") {
+      (list || []).forEach((t) => {
+        const text = String(t);
+        const lc = text.toLowerCase();
+        if (!all.has(lc)) all.set(lc, text);
+      });
+      return;
+    }
+
+    const raw = Array.isArray(list) ? list : [];
+    const indexed = raw.map((text) => {
+      const s = String(text);
+      const lc = s.toLowerCase();
+      if (!all.has(lc)) all.set(lc, s);
+      return { text: s, lc };
+    });
+
+    categories.push({
+      key,
+      label: formatCategoryName(key),
+      tags: indexed,
+    });
+  });
+
+  // Ensure predefined tags exist in the map as well.
+  predefinedTags.forEach((t) => {
+    const text = String(t);
+    const lc = text.toLowerCase();
+    if (!all.has(lc)) all.set(lc, text);
+  });
+
+  return { all, categories };
+}
+
+const TAG_INDEX = buildTagIndex();
 
 const TagsInput = ({ tags, setTags }) => {
   const [error, setError] = useState(null);
   const [inputValue, setInputValue] = useState("");
   const [showAllMobile, setShowAllMobile] = useState(false);
   const containerRef = useRef(null);
+
+  const deferredInput = useDeferredValue(inputValue);
 
   useEffect(() => {
     if (tags.length === 0) setError(null);
@@ -43,44 +97,34 @@ const TagsInput = ({ tags, setTags }) => {
     else setInputValue(value);
   };
 
-  const filterTags = (value) => {
-    if (!value) return [];
-
-    return Object.entries(categorizedTags)
-      .map(([category, list]) => ({
-        name: category,
-        tags: list.filter((t) => t.toLowerCase().includes(value.toLowerCase())),
-      }))
-      .filter((cat) => cat.tags.length > 0);
-  };
-
   const handleAddition = (tag) => {
-    const isPredefinedTag = predefinedTags.includes(tag.text);
+    const raw = String(tag?.text ?? "").trim();
+    if (!raw) return;
 
-    const filteredTags = filterTags(inputValue);
-    const allFilteredTags = filteredTags.flatMap((c) => c.tags);
+    const lc = raw.toLowerCase();
+    const canonical = TAG_INDEX.all.get(lc);
 
-    const foundTag = isPredefinedTag
-      ? tag.text
-      : allFilteredTags.find((t) => t.toLowerCase() === tag.text.toLowerCase());
-
-    if (!foundTag) {
+    if (!canonical) {
       setError("Please select a tag from the list.");
       return;
     }
 
-    if (tags.length >= 5) {
+    if (tags.length >= MAX_TAGS) {
       setError("You can add up to 5 tags only.");
       return;
     }
 
-    if (tags.some((t) => t.text.toLowerCase() === foundTag.toLowerCase())) {
+    if (
+      tags.some(
+        (t) => String(t.text ?? "").toLowerCase() === canonical.toLowerCase(),
+      )
+    ) {
       setError("Duplicate tags are not allowed.");
       return;
     }
 
     setError(null);
-    setTags([...tags, { id: foundTag, text: foundTag }]);
+    setTags([...tags, { id: canonical, text: canonical }]);
     setInputValue("");
   };
 
@@ -88,14 +132,39 @@ const TagsInput = ({ tags, setTags }) => {
     setTags(tags.filter((_, i) => i !== index));
   };
 
-  const isTagDisabled = (tag) => {
+  const isTagDisabled = (tagText) => {
     return (
-      tags.length >= 5 &&
-      !tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
+      tags.length >= MAX_TAGS &&
+      !tags.some(
+        (t) =>
+          String(t.text ?? "").toLowerCase() === String(tagText).toLowerCase(),
+      )
     );
   };
 
-  const filteredForRender = useMemo(() => filterTags(inputValue), [inputValue]);
+  const query = useMemo(
+    () => deferredInput.trim().toLowerCase(),
+    [deferredInput],
+  );
+
+  const filteredForRender = useMemo(() => {
+    if (!query) return [];
+
+    const out = [];
+
+    for (const cat of TAG_INDEX.categories) {
+      const matches = [];
+      for (const t of cat.tags) {
+        if (t.lc.includes(query)) {
+          matches.push(t.text);
+          if (matches.length >= MAX_PER_CATEGORY) break;
+        }
+      }
+      if (matches.length) out.push({ name: cat.label, tags: matches });
+    }
+
+    return out;
+  }, [query]);
 
   const renderFilteredTags = () => {
     if (filteredForRender.length === 0) {
@@ -115,14 +184,14 @@ const TagsInput = ({ tags, setTags }) => {
             </h5>
 
             <div className="flex flex-wrap gap-2">
-              {list.slice(0, 50).map((tag) => (
+              {list.map((tagText) => (
                 <button
                   type="button"
-                  key={`${name}-${tag}`}
+                  key={`${name}-${tagText}`}
                   className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-                  onClick={() => handleAddition({ id: tag, text: tag })}
+                  onClick={() => handleAddition({ id: tagText, text: tagText })}
                 >
-                  {tag}
+                  {tagText}
                 </button>
               ))}
             </div>
@@ -154,26 +223,28 @@ const TagsInput = ({ tags, setTags }) => {
       {/* Predefined tags - mobile compact */}
       <div className="sm:hidden">
         <div className="flex flex-wrap gap-2">
-          {mobilePredefined.map((tag) => {
+          {mobilePredefined.map((tagText) => {
             const isActive = tags.some(
-              (t) => t.text.toLowerCase() === tag.toLowerCase(),
+              (t) =>
+                String(t.text ?? "").toLowerCase() ===
+                String(tagText).toLowerCase(),
             );
-            const disabled = isTagDisabled(tag);
+            const disabled = isTagDisabled(tagText);
 
             return (
               <button
-                key={tag}
+                key={tagText}
                 type="button"
                 className={`${tagButtonBase} ${
                   isActive
                     ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
                     : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
                 } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-                onClick={() => handleAddition({ id: tag, text: tag })}
+                onClick={() => handleAddition({ id: tagText, text: tagText })}
                 disabled={disabled}
                 aria-pressed={isActive}
               >
-                {tag}
+                {tagText}
               </button>
             );
           })}
@@ -192,26 +263,28 @@ const TagsInput = ({ tags, setTags }) => {
 
       {/* Predefined tags - sm+ full */}
       <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
-        {predefinedTags.map((tag) => {
+        {predefinedTags.map((tagText) => {
           const isActive = tags.some(
-            (t) => t.text.toLowerCase() === tag.toLowerCase(),
+            (t) =>
+              String(t.text ?? "").toLowerCase() ===
+              String(tagText).toLowerCase(),
           );
-          const disabled = isTagDisabled(tag);
+          const disabled = isTagDisabled(tagText);
 
           return (
             <button
-              key={tag}
+              key={tagText}
               type="button"
               className={`${tagButtonBase} ${
                 isActive
                   ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
                   : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
               } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-              onClick={() => handleAddition({ id: tag, text: tag })}
+              onClick={() => handleAddition({ id: tagText, text: tagText })}
               disabled={disabled}
               aria-pressed={isActive}
             >
-              {tag}
+              {tagText}
             </button>
           );
         })}

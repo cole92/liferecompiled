@@ -6,6 +6,34 @@ import { validCategories } from "../constants/postCategories";
 
 const TITLE_REGEX = /^[\p{L}0-9 ,.?!-]+$/u;
 
+function normalizeTagTexts(list) {
+  const arr = Array.isArray(list) ? list : [];
+  return arr
+    .map((t) => {
+      if (typeof t === "string") return t;
+      if (t && typeof t === "object") return t.text ?? t.id ?? "";
+      return "";
+    })
+    .map((s) => String(s).trim())
+    .filter(Boolean);
+}
+
+function serializeForDirtyCheck({
+  title,
+  description,
+  content,
+  category,
+  tags,
+}) {
+  return JSON.stringify({
+    title: String(title ?? "").trim(),
+    description: String(description ?? "").trim(),
+    content: String(content ?? "").trim(),
+    category: String(category ?? "").trim(),
+    tags: normalizeTagTexts(tags),
+  });
+}
+
 function validatePost({ title, description, content, category }) {
   const errors = {};
 
@@ -52,7 +80,6 @@ function focusFirstError(errors) {
   const el = document.getElementById(firstKey);
   if (!el) return;
 
-  // Prevent jump then smooth center.
   el.focus({ preventScroll: true });
   el.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -78,18 +105,58 @@ const PostEditorForm = ({
   const [errors, setErrors] = useState({});
 
   const firstLoadRef = useRef(true);
+  const baselineRef = useRef("");
 
   useEffect(() => {
-    // Sync when edit data arrives (but do not override user typing mid-edit).
-    if (firstLoadRef.current) {
-      setTitle(initialValues.title ?? "");
-      setDescription(initialValues.description ?? "");
-      setContent(initialValues.content ?? "");
-      setTags(initialValues.tags ?? []);
-      setCategory(initialValues.category ?? "");
-      firstLoadRef.current = false;
-    }
+    if (!firstLoadRef.current) return;
+
+    const next = {
+      title: initialValues.title ?? "",
+      description: initialValues.description ?? "",
+      content: initialValues.content ?? "",
+      tags: initialValues.tags ?? [],
+      category: initialValues.category ?? "",
+    };
+
+    setTitle(next.title);
+    setDescription(next.description);
+    setContent(next.content);
+    setTags(next.tags);
+    setCategory(next.category);
+
+    baselineRef.current = serializeForDirtyCheck(next);
+    firstLoadRef.current = false;
   }, [initialValues]);
+
+  const currentSerialized = useMemo(() => {
+    return serializeForDirtyCheck({
+      title,
+      description,
+      content,
+      category,
+      tags,
+    });
+  }, [title, description, content, category, tags]);
+
+  const isDirty = useMemo(() => {
+    if (!baselineRef.current) return false;
+    if (isLocked) return false;
+    return baselineRef.current !== currentSerialized;
+  }, [currentSerialized, isLocked]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    if (isSubmitting) return;
+    if (isLocked) return;
+
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty, isSubmitting, isLocked]);
 
   const descCount = description.length;
   const contentCount = content.length;
@@ -131,6 +198,16 @@ const PostEditorForm = ({
     };
 
     await onSubmit(payload);
+  };
+
+  const handleCancelClick = () => {
+    if (!isDirty) {
+      onCancel();
+      return;
+    }
+
+    const ok = window.confirm("You have unsaved changes. Discard them?");
+    if (ok) onCancel();
   };
 
   return (
@@ -292,27 +369,35 @@ const PostEditorForm = ({
               <TagsInput tags={tags} setTags={setTags} />
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-stretch">
-              <button
-                type="submit"
-                className="ui-button-primary py-2.5"
-                disabled={disabled}
-              >
-                {isSubmitting ? "Saving..." : submitLabel}
-              </button>
+            {/* Actions + dirty badge */}
+            <div className="space-y-3">
+              {isDirty && !isSubmitting ? (
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+                  Unsaved changes
+                </div>
+              ) : null}
 
-              <button
-                type="button"
-                className="ui-button-secondary py-2.5"
-                onClick={onCancel}
-                disabled={isSubmitting}
-              >
-                {cancelLabel}
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-stretch">
+                <button
+                  type="submit"
+                  className="ui-button-primary py-2.5"
+                  disabled={disabled}
+                >
+                  {isSubmitting ? "Saving..." : submitLabel}
+                </button>
+
+                <button
+                  type="button"
+                  className="ui-button-secondary py-2.5"
+                  onClick={handleCancelClick}
+                  disabled={isSubmitting}
+                >
+                  {cancelLabel}
+                </button>
+              </div>
             </div>
 
-            {/* Tiny hint */}
             <p className="text-xs text-zinc-400">
               Tip: Keep the title tight, use description for context, and put
               the real value in content.

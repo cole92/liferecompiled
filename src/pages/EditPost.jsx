@@ -74,7 +74,6 @@ const EditPost = () => {
       return;
     }
 
-    // Compare against original to prevent no-op updates.
     const original = {
       title: postToEdit.title ?? "",
       description: postToEdit.description ?? "",
@@ -94,6 +93,8 @@ const EditPost = () => {
 
     setIsSubmitting(true);
 
+    let didSucceed = false;
+
     try {
       const postRef = doc(db, "posts", postToEdit.id);
       const normalizedTitle = payload.title.toLowerCase();
@@ -108,13 +109,19 @@ const EditPost = () => {
         updatedAt: serverTimestamp(),
       });
 
+      didSucceed = true;
       showSuccessToast("Post successfully updated!");
-      setTimeout(() => navigate("/dashboard"), 1200);
+
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1200);
     } catch (error) {
       console.error("Error updating post:", error);
       showErrorToast("Failed to update post. Please try again.");
-    } finally {
       setIsSubmitting(false);
+    } finally {
+      // Keep submitting state until navigation to avoid unsaved prompt window.
+      if (!didSucceed) setIsSubmitting(false);
     }
   };
 
