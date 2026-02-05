@@ -20,7 +20,6 @@ function buildTagIndex() {
   const categories = [];
 
   Object.entries(categorizedTags).forEach(([key, list]) => {
-    // Predefined already shown as chips; keep it out of dropdown for less noise.
     if (key === "predefined") {
       (list || []).forEach((t) => {
         const text = String(t);
@@ -45,7 +44,6 @@ function buildTagIndex() {
     });
   });
 
-  // Ensure predefined tags exist in the map as well.
   predefinedTags.forEach((t) => {
     const text = String(t);
     const lc = text.toLowerCase();
@@ -183,12 +181,12 @@ const TagsInput = ({ tags, setTags }) => {
               {name}
             </h5>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {list.map((tagText) => (
                 <button
                   type="button"
                   key={`${name}-${tagText}`}
-                  className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                  className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-0.5 text-[11px] leading-none font-medium text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100 sm:px-3 sm:py-1 sm:text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                   onClick={() => handleAddition({ id: tagText, text: tagText })}
                 >
                   {tagText}
@@ -206,7 +204,8 @@ const TagsInput = ({ tags, setTags }) => {
   };
 
   const tagButtonBase =
-    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition " +
+    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] leading-none font-medium transition " +
+    "sm:px-3 sm:py-1 sm:text-xs " +
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
 
@@ -220,9 +219,8 @@ const TagsInput = ({ tags, setTags }) => {
         Tags
       </label>
 
-      {/* Predefined tags - mobile compact */}
       <div className="sm:hidden">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {mobilePredefined.map((tagText) => {
             const isActive = tags.some(
               (t) =>
@@ -261,7 +259,6 @@ const TagsInput = ({ tags, setTags }) => {
         ) : null}
       </div>
 
-      {/* Predefined tags - sm+ full */}
       <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
         {predefinedTags.map((tagText) => {
           const isActive = tags.some(
@@ -314,13 +311,15 @@ const TagsInput = ({ tags, setTags }) => {
           placeholder="Start typing to search for tags"
           classNames={{
             tags: "space-y-2",
-            selected: "flex flex-wrap gap-2",
-            tag: "inline-flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-100",
+            selected: "flex flex-wrap gap-1.5 sm:gap-2",
+            tag:
+              "inline-flex items-center gap-2 rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] leading-none font-medium text-zinc-100 " +
+              "sm:px-3 sm:py-1 sm:text-xs",
             remove:
-              "inline-flex h-5 w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 " +
+              "inline-flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 " +
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
             tagInput: "w-full",
-            tagInputField: "ui-input mt-0",
+            tagInputField: "ui-input mt-0 text-sm sm:text-base",
           }}
         />
 

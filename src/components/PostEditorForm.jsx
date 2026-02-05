@@ -83,7 +83,6 @@ function validatePost({ title, description, content, category }) {
 function scrollToElement(el, offset = 96) {
   if (!el) return;
 
-  // Try native first
   try {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
@@ -91,7 +90,6 @@ function scrollToElement(el, offset = 96) {
     // ignore
   }
 
-  // Fallback for mobile/webview oddities
   try {
     const rect = el.getBoundingClientRect();
     const top = window.scrollY + rect.top - offset;
@@ -105,8 +103,6 @@ function focusAndScrollById(id, offset = 96) {
   const el = document.getElementById(id);
   if (!el) return;
 
-  // On mobile, preventScroll can block expected behavior.
-  // We'll focus, then scroll with a small delay so viewport/keyboard settles.
   try {
     el.focus();
   } catch {
@@ -169,7 +165,6 @@ const PostEditorForm = ({
     baselineRef.current = serializeForDirtyCheck(next);
     firstLoadRef.current = false;
 
-    // Some tag inputs auto-focus on mount. Force focus back to Title.
     if (isLocked) return;
 
     const t = setTimeout(() => {
@@ -262,7 +257,13 @@ const PostEditorForm = ({
   };
 
   return (
-    <div className="ui-card p-5 sm:p-7">
+    <div
+      className={
+        // Mobile: full-bleed card (cancels ui-shell px-4), no rounded
+        // sm+: normal card
+        "ui-card -mx-4 sm:mx-0 rounded-none sm:rounded-2xl p-4 sm:p-7"
+      }
+    >
       {isLocked ? (
         <div className="mb-5 rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4 text-amber-100">
           <p className="text-sm font-medium">
@@ -312,9 +313,7 @@ const PostEditorForm = ({
               </label>
               <textarea
                 id="description"
-                className={`${inputBase} ${
-                  errors.description ? inputErr : inputOk
-                } resize-none`}
+                className={`${inputBase} ${errors.description ? inputErr : inputOk} resize-none`}
                 placeholder="Enter a short description"
                 maxLength={300}
                 value={description}
@@ -411,7 +410,7 @@ const PostEditorForm = ({
               )}
             </div>
 
-            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-4 relative overflow-visible">
+            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-3 sm:p-4 relative overflow-visible">
               <TagsInput tags={tags} setTags={setTags} />
             </div>
 
