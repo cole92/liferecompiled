@@ -80,16 +80,50 @@ function validatePost({ title, description, content, category }) {
   return errors;
 }
 
+function scrollToElement(el, offset = 96) {
+  if (!el) return;
+
+  // Try native first
+  try {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  } catch {
+    // ignore
+  }
+
+  // Fallback for mobile/webview oddities
+  try {
+    const rect = el.getBoundingClientRect();
+    const top = window.scrollY + rect.top - offset;
+    window.scrollTo({ top, behavior: "smooth" });
+  } catch {
+    // ignore
+  }
+}
+
+function focusAndScrollById(id, offset = 96) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  // On mobile, preventScroll can block expected behavior.
+  // We'll focus, then scroll with a small delay so viewport/keyboard settles.
+  try {
+    el.focus();
+  } catch {
+    // ignore
+  }
+
+  setTimeout(() => {
+    scrollToElement(el, offset);
+  }, 50);
+}
+
 function focusFirstError(errors) {
   const order = ["title", "description", "content", "category"];
   const firstKey = order.find((k) => errors[k]);
   if (!firstKey) return;
 
-  const el = document.getElementById(firstKey);
-  if (!el) return;
-
-  el.focus({ preventScroll: true });
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  focusAndScrollById(firstKey, 110);
 }
 
 const PostEditorForm = ({
@@ -133,18 +167,13 @@ const PostEditorForm = ({
     setCategory(next.category);
 
     baselineRef.current = serializeForDirtyCheck(next);
-
-    // Important: some tag inputs auto-focus on mount.
-    // We force focus back to Title once on initial load.
     firstLoadRef.current = false;
 
+    // Some tag inputs auto-focus on mount. Force focus back to Title.
     if (isLocked) return;
 
     const t = setTimeout(() => {
-      const el = document.getElementById("title");
-      if (el && typeof el.focus === "function") {
-        el.focus({ preventScroll: true });
-      }
+      focusAndScrollById("title", 110);
     }, 0);
 
     return () => clearTimeout(t);
@@ -247,9 +276,7 @@ const PostEditorForm = ({
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <div className="lg:grid lg:grid-cols-12 lg:gap-6">
-          {/* Main column */}
           <div className="lg:col-span-8 space-y-5">
-            {/* Title */}
             <div className="space-y-2">
               <label htmlFor="title" className="ui-label">
                 Title
@@ -279,14 +306,15 @@ const PostEditorForm = ({
               )}
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
               <label htmlFor="description" className="ui-label">
                 Description
               </label>
               <textarea
                 id="description"
-                className={`${inputBase} ${errors.description ? inputErr : inputOk} resize-none`}
+                className={`${inputBase} ${
+                  errors.description ? inputErr : inputOk
+                } resize-none`}
                 placeholder="Enter a short description"
                 maxLength={300}
                 value={description}
@@ -310,7 +338,6 @@ const PostEditorForm = ({
               )}
             </div>
 
-            {/* Content */}
             <div className="space-y-2">
               <label htmlFor="content" className="ui-label">
                 Content
@@ -346,9 +373,7 @@ const PostEditorForm = ({
             </div>
           </div>
 
-          {/* Side column */}
           <div className="lg:col-span-4 mt-5 lg:mt-0 space-y-5 lg:sticky lg:top-24 self-start">
-            {/* Category */}
             <div className="space-y-2">
               <label htmlFor="category" className="ui-label">
                 Category
@@ -386,12 +411,10 @@ const PostEditorForm = ({
               )}
             </div>
 
-            {/* Tags */}
             <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-4 relative overflow-visible">
               <TagsInput tags={tags} setTags={setTags} />
             </div>
 
-            {/* Actions + dirty badge */}
             <div className="space-y-3">
               {isDirty && !isSubmitting ? (
                 <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-200">
