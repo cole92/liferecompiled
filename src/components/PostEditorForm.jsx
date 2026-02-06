@@ -261,7 +261,7 @@ const PostEditorForm = ({
       className={
         // Mobile: full-bleed card (cancels ui-shell px-4), no rounded
         // sm+: normal card
-        "ui-card -mx-4 sm:mx-0 rounded-none sm:rounded-2xl p-4 sm:p-7 " +
+        "ui-card -mx-4 sm:mx-0 sm:rounded-2xl p-4 sm:p-7 " +
         "border border-zinc-800/70 shadow-sm " +
         "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
         "ring-1 ring-sky-200/10"

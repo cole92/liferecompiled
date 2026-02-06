@@ -120,7 +120,6 @@ const EditPost = () => {
       showErrorToast("Failed to update post. Please try again.");
       setIsSubmitting(false);
     } finally {
-      // Keep submitting state until navigation to avoid unsaved prompt window.
       if (!didSucceed) setIsSubmitting(false);
     }
   };
@@ -131,13 +130,16 @@ const EditPost = () => {
 
   return (
     <div className="ui-shell py-6 sm:py-8">
-      <div className="mb-6 sm:mb-7 pb-5 sm:pb-6 border-b border-zinc-800/60">
-        <h1 className="text-3xl sm:text-4xl font-semibold text-zinc-100 tracking-tight">
-          Edit this post
-        </h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Update content, tags and category. Changes are saved after submit.
-        </p>
+      <div className="ui-card relative overflow-hidden p-5 sm:p-6 mb-6">
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[34rem] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="relative">
+          <h1 className="text-3xl font-semibold text-zinc-100">
+            Edit this post
+          </h1>
+          <p className="mt-1 text-sm text-zinc-300">
+            Update content, tags and category. Changes are saved after submit.
+          </p>
+        </div>
       </div>
 
       <PostEditorForm

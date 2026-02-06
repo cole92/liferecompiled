@@ -69,7 +69,10 @@ const TagsInput = ({ tags, setTags }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
         setInputValue("");
       }
     };
@@ -257,6 +260,18 @@ const TagsInput = ({ tags, setTags }) => {
     ? predefinedTags
     : predefinedTags.slice(0, MOBILE_PREDEFINED_LIMIT);
 
+  const moreCount = Math.max(
+    0,
+    predefinedTags.length - MOBILE_PREDEFINED_LIMIT,
+  );
+
+  const showMoreBtnBase =
+    "mt-2 inline-flex items-center gap-2 rounded-full border border-zinc-700 " +
+    "bg-zinc-950/30 px-3 py-1.5 text-xs font-semibold text-zinc-200 " +
+    "hover:bg-zinc-900/60 hover:text-zinc-100 transition " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
   return (
     <div className="space-y-2">
       <label htmlFor="tags" className="ui-label">
@@ -264,7 +279,7 @@ const TagsInput = ({ tags, setTags }) => {
       </label>
 
       <div className="sm:hidden">
-        <div className="flex flex-wrap gap-1.5">
+        <div id="mobile-predefined-tags" className="flex flex-wrap gap-1.5">
           {mobilePredefined.map((tagText) => {
             const isActive = isActiveTag(tagText);
             const disabled = isTagDisabled(tagText);
@@ -291,13 +306,34 @@ const TagsInput = ({ tags, setTags }) => {
           })}
         </div>
 
-        {predefinedTags.length > MOBILE_PREDEFINED_LIMIT ? (
+        {moreCount > 0 ? (
           <button
             type="button"
-            className="mt-2 text-sm text-zinc-300 hover:text-zinc-100 underline underline-offset-4 decoration-zinc-500/60"
+            className={showMoreBtnBase}
             onClick={() => setShowAllMobile((v) => !v)}
+            aria-expanded={showAllMobile}
+            aria-controls="mobile-predefined-tags"
           >
-            {showAllMobile ? "Show less" : "Show more"}
+            <span>{showAllMobile ? "Show less" : "Show more"}</span>
+
+            {!showAllMobile ? (
+              <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-950/50 px-2 py-0.5 text-[11px] font-semibold text-zinc-300">
+                +{moreCount}
+              </span>
+            ) : null}
+
+            <svg
+              viewBox="0 0 20 20"
+              className={`h-4 w-4 transition-transform ${
+                showAllMobile ? "rotate-180" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <path
+                fill="currentColor"
+                d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"
+              />
+            </svg>
           </button>
         ) : null}
       </div>

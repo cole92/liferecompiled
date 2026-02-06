@@ -56,13 +56,16 @@ const CreatePost = () => {
 
   return (
     <div className="ui-shell py-6 sm:py-8">
-      <div className="mb-6 sm:mb-7 pb-5 sm:pb-6 border-b border-zinc-800/60">
-        <h1 className="text-3xl sm:text-4xl font-semibold text-zinc-100 tracking-tight">
-          Create a New Post
-        </h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Share something useful with the community.
-        </p>
+      <div className="ui-card relative overflow-hidden p-5 sm:p-6 mb-6">
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[34rem] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="relative">
+          <h1 className="text-3xl font-semibold text-zinc-100">
+            Create a New Post
+          </h1>
+          <p className="mt-1 text-sm text-zinc-300">
+            Share something useful with the community.
+          </p>
+        </div>
       </div>
 
       <PostEditorForm
