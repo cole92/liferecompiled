@@ -188,16 +188,17 @@ const TagsInput = ({ tags, setTags }) => {
                 {name}
               </h5>
 
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-1.5 sm:gap-2">
                 {list.map((tagText) => {
                   const isActive = isActiveTag(tagText);
                   const isMaxed = tags.length >= MAX_TAGS;
                   const disabledBecauseMax = isMaxed && !isActive;
 
                   const base =
-                    "inline-flex items-center rounded-full border px-2.5 py-0.5 " +
+                    "inline-flex w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-0.5 " +
                     "text-[11px] leading-none font-medium transition " +
                     "sm:px-3 sm:py-1 sm:text-xs " +
+                    "truncate " +
                     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
 
@@ -210,6 +211,7 @@ const TagsInput = ({ tags, setTags }) => {
                     <button
                       type="button"
                       key={`${name}-${tagText}`}
+                      title={tagText}
                       className={`${base} ${isActive ? activeCls : normalCls} ${
                         disabledBecauseMax
                           ? "cursor-not-allowed opacity-50"
@@ -228,7 +230,7 @@ const TagsInput = ({ tags, setTags }) => {
                           ✓
                         </span>
                       ) : null}
-                      {tagText}
+                      <span className="truncate">{tagText}</span>
                     </button>
                   );
                 })}
@@ -251,8 +253,10 @@ const TagsInput = ({ tags, setTags }) => {
   };
 
   const tagButtonBase =
-    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] leading-none font-medium transition " +
+    "inline-flex w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-0.5 " +
+    "text-[11px] leading-none font-medium transition " +
     "sm:px-3 sm:py-1 sm:text-xs " +
+    "truncate " +
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
 
@@ -266,8 +270,8 @@ const TagsInput = ({ tags, setTags }) => {
   );
 
   const showMoreBtnBase =
-    "mt-2 inline-flex items-center gap-2 rounded-full border border-zinc-700 " +
-    "bg-zinc-950/30 px-3 py-1.5 text-xs font-semibold text-zinc-200 " +
+    "mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-800/80 " +
+    "bg-zinc-950/30 px-3 py-2 text-xs font-semibold text-zinc-200 " +
     "hover:bg-zinc-900/60 hover:text-zinc-100 transition " +
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
@@ -279,7 +283,10 @@ const TagsInput = ({ tags, setTags }) => {
       </label>
 
       <div className="sm:hidden">
-        <div id="mobile-predefined-tags" className="flex flex-wrap gap-1.5">
+        <div
+          id="mobile-predefined-tags"
+          className="grid grid-cols-[repeat(auto-fit,minmax(92px,1fr))] gap-1.5"
+        >
           {mobilePredefined.map((tagText) => {
             const isActive = isActiveTag(tagText);
             const disabled = isTagDisabled(tagText);
@@ -288,6 +295,7 @@ const TagsInput = ({ tags, setTags }) => {
               <button
                 key={tagText}
                 type="button"
+                title={tagText}
                 className={`${tagButtonBase} ${
                   isActive
                     ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
@@ -300,7 +308,7 @@ const TagsInput = ({ tags, setTags }) => {
                 disabled={disabled}
                 aria-pressed={isActive}
               >
-                {tagText}
+                <span className="truncate">{tagText}</span>
               </button>
             );
           })}
@@ -314,13 +322,7 @@ const TagsInput = ({ tags, setTags }) => {
             aria-expanded={showAllMobile}
             aria-controls="mobile-predefined-tags"
           >
-            <span>{showAllMobile ? "Show less" : "Show more"}</span>
-
-            {!showAllMobile ? (
-              <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-950/50 px-2 py-0.5 text-[11px] font-semibold text-zinc-300">
-                +{moreCount}
-              </span>
-            ) : null}
+            <span>{showAllMobile ? "Less tags" : "More tags"}</span>
 
             <svg
               viewBox="0 0 20 20"
@@ -338,7 +340,7 @@ const TagsInput = ({ tags, setTags }) => {
         ) : null}
       </div>
 
-      <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
+      <div className="hidden sm:grid sm:grid-cols-[repeat(auto-fit,minmax(110px,1fr))] sm:gap-2">
         {predefinedTags.map((tagText) => {
           const isActive = isActiveTag(tagText);
           const disabled = isTagDisabled(tagText);
@@ -347,6 +349,7 @@ const TagsInput = ({ tags, setTags }) => {
             <button
               key={tagText}
               type="button"
+              title={tagText}
               className={`${tagButtonBase} ${
                 isActive
                   ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
@@ -359,7 +362,7 @@ const TagsInput = ({ tags, setTags }) => {
               disabled={disabled}
               aria-pressed={isActive}
             >
-              {tagText}
+              <span className="truncate">{tagText}</span>
             </button>
           );
         })}

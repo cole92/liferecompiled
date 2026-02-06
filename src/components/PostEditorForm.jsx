@@ -259,9 +259,7 @@ const PostEditorForm = ({
   return (
     <div
       className={
-        // Mobile: full-bleed card (cancels ui-shell px-4), no rounded
-        // sm+: normal card
-        "ui-card -mx-4 sm:mx-0 sm:rounded-2xl p-4 sm:p-7 " +
+        "ui-card -mx-4 sm:mx-0 rounded-2xl p-4 sm:p-7 " +
         "border border-zinc-800/70 shadow-sm " +
         "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
         "ring-1 ring-sky-200/10"
@@ -316,7 +314,9 @@ const PostEditorForm = ({
               </label>
               <textarea
                 id="description"
-                className={`${inputBase} ${errors.description ? inputErr : inputOk} resize-none`}
+                className={`${inputBase} ${
+                  errors.description ? inputErr : inputOk
+                } resize-none`}
                 placeholder="Enter a short description"
                 maxLength={300}
                 value={description}
@@ -427,10 +427,10 @@ const PostEditorForm = ({
                 </div>
               ) : null}
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-stretch">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <button
                   type="submit"
-                  className="ui-button-primary py-2.5"
+                  className="ui-button-primary py-2.5 w-full"
                   disabled={disabled}
                 >
                   {isSubmitting ? "Saving..." : submitLabel}
@@ -438,7 +438,7 @@ const PostEditorForm = ({
 
                 <button
                   type="button"
-                  className="ui-button-secondary py-2.5"
+                  className="ui-button-secondary py-2.5 w-full"
                   onClick={handleCancelClick}
                   disabled={isSubmitting}
                 >
