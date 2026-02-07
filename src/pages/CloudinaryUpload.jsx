@@ -13,14 +13,12 @@ const CloudinaryUpload = (props) => {
     label = "Upload image",
     description,
 
-    // preferred camelCase props
     ariaLabelledby,
     ariaDescribedby,
 
     disabled = false,
   } = props;
 
-  // backward-compat: allow passing aria-labelledby / aria-describedby as props
   const ariaLabelledbyFinal = ariaLabelledby || props["aria-labelledby"];
   const ariaDescribedbyFinal = ariaDescribedby || props["aria-describedby"];
 
@@ -45,8 +43,11 @@ const CloudinaryUpload = (props) => {
     if (uiStatus === "uploaded")
       return 'Uploaded. Click "Save changes" to apply.';
     if (uiStatus === "error") return "Upload failed. Try again.";
-    return "Choose an image to upload.";
+    return "";
   }, [uiStatus]);
+
+  const showUiStatus = uiStatus !== "idle";
+  const showFileName = Boolean(selectedName);
 
   const handleChooseClick = () => {
     if (disabled || isLoading) return;
@@ -187,29 +188,33 @@ const CloudinaryUpload = (props) => {
           {isLoading ? "Uploading..." : "Choose file"}
         </button>
 
-        <div className="min-w-0 flex-1">
-          <div
-            className="truncate text-sm text-zinc-400"
-            title={selectedName || ""}
-          >
-            {selectedName ? truncateName(selectedName) : "No file selected"}
+        {showFileName && (
+          <div className="min-w-0 flex-1">
+            <div
+              className="truncate text-sm text-zinc-400"
+              title={selectedName || ""}
+            >
+              {truncateName(selectedName)}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <p
-        id={`${inputId}-ui-status`}
-        className={`mb-1 text-sm ${
-          uiStatus === "error"
-            ? "text-red-400"
-            : uiStatus === "uploaded"
-              ? "text-emerald-400"
-              : "text-zinc-400"
-        }`}
-        aria-live="polite"
-      >
-        {uiStatusText}
-      </p>
+      {showUiStatus && (
+        <p
+          id={`${inputId}-ui-status`}
+          className={`mb-1 text-sm ${
+            uiStatus === "error"
+              ? "text-red-400"
+              : uiStatus === "uploaded"
+                ? "text-emerald-400"
+                : "text-zinc-400"
+          }`}
+          aria-live="polite"
+        >
+          {uiStatusText}
+        </p>
+      )}
 
       <p id={`${inputId}-status`} className="sr-only" aria-live="polite">
         {srStatus}

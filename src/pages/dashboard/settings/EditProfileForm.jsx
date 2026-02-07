@@ -14,14 +14,6 @@ import {
   showWarningToast,
 } from "../../../utils/toastUtils";
 
-/**
- * EditProfileForm
- *
- * - Edit profile (name, bio, profilePicture)
- * - Validates inputs and shows inline errors
- * - Disables save when no changes
- * - Upload via CloudinaryUpload
- */
 const nameRegex = /^[\p{L}' -]+$/u;
 const sanitizeName = (s) =>
   String(s || "")
@@ -178,15 +170,14 @@ const EditProfileForm = ({ userData }) => {
       aria-busy={isSaving ? "true" : "false"}
       noValidate
     >
-      {/* Responsive layout: avatar/upload left on lg, fields right */}
-      <div className="grid gap-6 lg:grid-cols-[180px_1fr] lg:items-start">
-        {/* Avatar + upload */}
-        <div>
+      <div className="grid gap-6 lg:gap-8 lg:grid-cols-[240px_1fr] lg:items-start">
+        {/* Avatar + upload (centered on desktop) */}
+        <div className="lg:text-center">
           <label id="profile-picture-label" className={labelClass}>
             Profile picture
           </label>
 
-          <div className="mt-2 flex items-center gap-4 lg:flex-col lg:items-start">
+          <div className="mt-2 flex items-center gap-4 lg:flex-col lg:items-center">
             <img
               src={avatarSrc}
               alt={
@@ -209,6 +200,7 @@ const EditProfileForm = ({ userData }) => {
                 ariaLabelledby="profile-picture-label"
                 ariaDescribedby="profile-picture-status"
                 disabled={isSaving}
+                description="PNG/JPG up to 5MB. Upload first, then Save changes."
                 onUploadStart={() => setIsUploading(true)}
                 onUploadComplete={(url) => {
                   setIsUploading(false);
