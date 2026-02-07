@@ -21,6 +21,7 @@ const Settings = () => {
   const [userData, setUserData] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | empty | error
   const [errorMsg, setErrorMsg] = useState("");
+  const [showFullBio, setShowFullBio] = useState(false);
 
   const linkBase =
     "font-semibold text-zinc-100 hover:text-zinc-100 " +
@@ -28,6 +29,10 @@ const Settings = () => {
     "transition " +
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-md";
+
+  useEffect(() => {
+    setShowFullBio(false);
+  }, [uid, userData?.bio]);
 
   useEffect(() => {
     if (isCheckingAuth) return;
@@ -121,9 +126,27 @@ const Settings = () => {
                     {displayName}
                   </div>
 
-                  {shortBio ? (
-                    <div className="mt-1 text-sm text-zinc-400 break-words">
-                      {shortBio}
+                  {bio ? (
+                    <div className="mt-1 text-sm text-zinc-400">
+                      {showFullBio ? (
+                        <div className="break-words whitespace-pre-wrap lg:max-h-28 lg:overflow-y-auto lg:pr-2">
+                          {bio}
+                        </div>
+                      ) : (
+                        <div className="break-words">{shortBio}</div>
+                      )}
+
+                      {bio.length > 140 && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowFullBio((v) => !v)}
+                            className={linkBase}
+                          >
+                            {showFullBio ? "Show less" : "Show full bio"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="mt-1 text-sm text-zinc-500">
