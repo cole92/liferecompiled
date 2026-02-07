@@ -180,7 +180,7 @@ const EditProfileForm = ({ userData }) => {
               alt={
                 cleanName ? `${cleanName} profile picture` : "Profile picture"
               }
-              className="h-24 w-24 rounded-full object-cover border border-zinc-800"
+              className="h-28 w-28 rounded-full object-cover border border-zinc-800"
               loading="lazy"
             />
 
@@ -194,6 +194,8 @@ const EditProfileForm = ({ userData }) => {
               </p>
 
               <CloudinaryUpload
+                centered
+                showFileName={false}
                 ariaLabelledby="profile-picture-label"
                 ariaDescribedby="profile-picture-status"
                 disabled={isSaving}

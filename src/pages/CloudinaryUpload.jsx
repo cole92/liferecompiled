@@ -17,6 +17,10 @@ const CloudinaryUpload = (props) => {
     ariaDescribedby,
 
     disabled = false,
+
+    // new UI controls
+    centered = false,
+    showFileName = true,
   } = props;
 
   const ariaLabelledbyFinal = ariaLabelledby || props["aria-labelledby"];
@@ -47,7 +51,8 @@ const CloudinaryUpload = (props) => {
   }, [uiStatus]);
 
   const showUiStatus = uiStatus !== "idle";
-  const showFileName = Boolean(selectedName);
+  const hasSelectedName = Boolean(selectedName);
+  const shouldShowFileName = showFileName && hasSelectedName;
 
   const handleChooseClick = () => {
     if (disabled || isLoading) return;
@@ -158,7 +163,10 @@ const CloudinaryUpload = (props) => {
       )}
 
       {description && (
-        <p id={`${inputId}-desc`} className="ui-help">
+        <p
+          id={`${inputId}-desc`}
+          className={`ui-help ${centered ? "text-center" : ""}`}
+        >
           {description}
         </p>
       )}
@@ -177,7 +185,11 @@ const CloudinaryUpload = (props) => {
         aria-describedby={describedBy}
       />
 
-      <div className="my-2 flex items-center gap-2">
+      <div
+        className={`my-2 flex items-center gap-2 ${
+          centered ? "justify-center" : ""
+        }`}
+      >
         <button
           type="button"
           className="ui-button-secondary whitespace-nowrap"
@@ -188,7 +200,7 @@ const CloudinaryUpload = (props) => {
           {isLoading ? "Uploading..." : "Choose file"}
         </button>
 
-        {showFileName && (
+        {shouldShowFileName && (
           <div className="min-w-0 flex-1">
             <div
               className="truncate text-sm text-zinc-400"
@@ -203,7 +215,7 @@ const CloudinaryUpload = (props) => {
       {showUiStatus && (
         <p
           id={`${inputId}-ui-status`}
-          className={`mb-1 text-sm ${
+          className={`mb-1 text-sm ${centered ? "text-center" : ""} ${
             uiStatus === "error"
               ? "text-red-400"
               : uiStatus === "uploaded"
@@ -242,6 +254,9 @@ CloudinaryUpload.propTypes = {
   ariaDescribedby: PropTypes.string,
 
   disabled: PropTypes.bool,
+
+  centered: PropTypes.bool,
+  showFileName: PropTypes.bool,
 };
 
 export default CloudinaryUpload;
