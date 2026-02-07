@@ -1,7 +1,6 @@
 import PropTypes from "prop-types";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { updateDoc, doc } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
 
 import { db } from "../../../firebase";
 import CloudinaryUpload from "../../CloudinaryUpload";
@@ -25,8 +24,6 @@ const NAME_MAX = 30;
 const BIO_MAX = 280;
 
 const EditProfileForm = ({ userData }) => {
-  const navigate = useNavigate();
-
   const [originalData, setOriginalData] = useState({
     name: "",
     bio: "",
@@ -171,7 +168,7 @@ const EditProfileForm = ({ userData }) => {
       noValidate
     >
       <div className="grid gap-6 lg:gap-8 lg:grid-cols-[240px_1fr] lg:items-start">
-        {/* Avatar + upload (centered on desktop) */}
+        {/* Avatar + upload */}
         <div className="lg:text-center">
           <label id="profile-picture-label" className={labelClass}>
             Profile picture
@@ -183,7 +180,7 @@ const EditProfileForm = ({ userData }) => {
               alt={
                 cleanName ? `${cleanName} profile picture` : "Profile picture"
               }
-              className="h-20 w-20 rounded-full object-cover border border-zinc-800"
+              className="h-24 w-24 rounded-full object-cover border border-zinc-800"
               loading="lazy"
             />
 
@@ -200,7 +197,7 @@ const EditProfileForm = ({ userData }) => {
                 ariaLabelledby="profile-picture-label"
                 ariaDescribedby="profile-picture-status"
                 disabled={isSaving}
-                description="PNG/JPG up to 5MB. Upload first, then Save changes."
+                description="PNG/JPG up to 5MB."
                 onUploadStart={() => setIsUploading(true)}
                 onUploadComplete={(url) => {
                   setIsUploading(false);
@@ -220,7 +217,6 @@ const EditProfileForm = ({ userData }) => {
 
         {/* Fields */}
         <div className="space-y-6">
-          {/* Name */}
           <div>
             <label htmlFor="profile-name" className={labelClass}>
               Name
@@ -263,7 +259,6 @@ const EditProfileForm = ({ userData }) => {
             </p>
           </div>
 
-          {/* Bio */}
           <div>
             <label htmlFor="profile-bio" className={labelClass}>
               Bio
@@ -334,15 +329,7 @@ const EditProfileForm = ({ userData }) => {
           </button>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-4"
-          >
-            ← Back
-          </button>
-
+        <div className="mt-3 flex items-center justify-end">
           {!hasChanges && (
             <span className="text-xs text-zinc-500">No unsaved changes</span>
           )}

@@ -5,10 +5,7 @@ import { useState, useEffect, useContext, useMemo } from "react";
 import { Link } from "react-router-dom";
 
 import EditProfileForm from "./EditProfileForm";
-import {
-  SkeletonLine,
-  SkeletonCircle,
-} from "../../../components/ui/skeletonLoader/SkeletonBits";
+import { SkeletonLine } from "../../../components/ui/skeletonLoader/SkeletonBits";
 
 /**
  * Settings
@@ -86,14 +83,10 @@ const Settings = () => {
     return bio.length > max ? bio.slice(0, max).trimEnd() + "..." : bio;
   }, [bio]);
 
-  const avatarSrc =
-    userData?.profilePicture || userData?.photoURL || user?.photoURL || "";
-
   if (isCheckingAuth) return null;
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8">
-      {/* This is the real width controller (like feed/dashboard feel) */}
       <div className="mx-auto w-full max-w-screen-2xl my-6 sm:my-10">
         <header className="mb-6 sm:mb-8 pb-6 sm:pb-7 border-b border-zinc-800/70">
           <h1 className="text-2xl sm:text-3xl font-semibold text-zinc-100">
@@ -117,52 +110,37 @@ const Settings = () => {
 
               {status === "loading" ? (
                 <div className="mt-5 space-y-3">
-                  <SkeletonCircle size={72} />
-                  <SkeletonLine w="w-5/6" h="h-4" />
+                  <SkeletonLine w="w-2/3" h="h-4" />
                   <SkeletonLine w="w-full" h="h-3" />
-                  <SkeletonLine w="w-4/5" h="h-3" />
+                  <SkeletonLine w="w-5/6" h="h-3" />
+                  <SkeletonLine w="w-1/2" h="h-4" />
                 </div>
               ) : (
-                <div className="mt-5 flex items-start gap-4">
-                  {avatarSrc ? (
-                    <img
-                      src={avatarSrc}
-                      alt=""
-                      className="h-16 w-16 rounded-full object-cover border border-zinc-800"
-                      loading="lazy"
-                    />
+                <div className="mt-5">
+                  <div className="text-sm font-semibold text-zinc-100 truncate">
+                    {displayName}
+                  </div>
+
+                  {shortBio ? (
+                    <div className="mt-1 text-sm text-zinc-400 break-words">
+                      {shortBio}
+                    </div>
                   ) : (
-                    <div className="h-16 w-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
-                      {(displayName || "U").slice(0, 1).toUpperCase()}
+                    <div className="mt-1 text-sm text-zinc-500">
+                      Add a short bio to help others recognize you.
                     </div>
                   )}
 
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-zinc-100 truncate">
-                      {displayName}
+                  {!!viewProfileId && (
+                    <div className="mt-4">
+                      <Link
+                        to={`/profile/${viewProfileId}`}
+                        className={linkBase}
+                      >
+                        View public profile
+                      </Link>
                     </div>
-
-                    {shortBio ? (
-                      <div className="mt-1 text-sm text-zinc-400 break-words">
-                        {shortBio}
-                      </div>
-                    ) : (
-                      <div className="mt-1 text-sm text-zinc-500">
-                        Add a short bio to help others recognize you.
-                      </div>
-                    )}
-
-                    {!!viewProfileId && (
-                      <div className="mt-3">
-                        <Link
-                          to={`/profile/${viewProfileId}`}
-                          className={linkBase}
-                        >
-                          View public profile
-                        </Link>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
             </div>
@@ -193,12 +171,6 @@ const Settings = () => {
                 <Link to="/dashboard" className={linkBase}>
                   Back to dashboard
                 </Link>
-
-                {!!viewProfileId && (
-                  <Link to={`/profile/${viewProfileId}`} className={linkBase}>
-                    Open profile
-                  </Link>
-                )}
               </div>
             </div>
           </aside>
@@ -217,7 +189,7 @@ const Settings = () => {
 
               {status === "loading" && (
                 <div className="mx-auto mt-2 space-y-2 max-w-xl">
-                  <SkeletonCircle size={150} />
+                  <SkeletonLine w="w-1/2" h="h-6" />
                   <SkeletonLine w="w-full" h="h-4" />
                   <SkeletonLine w="w-5/6" h="h-4" />
                   <SkeletonLine w="w-2/3" h="h-4" />
