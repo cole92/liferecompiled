@@ -167,14 +167,15 @@ const EditProfileForm = ({ userData }) => {
       aria-busy={isSaving ? "true" : "false"}
       noValidate
     >
-      <div className="grid gap-6 lg:gap-8 lg:grid-cols-[240px_1fr] lg:items-start">
+      {/* NOTE: moved lg -> xl so "medium desktop" widths don't squeeze inputs */}
+      <div className="grid gap-6 xl:gap-8 xl:grid-cols-[240px_1fr] xl:items-start">
         {/* Avatar + upload */}
-        <div className="lg:text-center">
+        <div className="xl:text-center">
           <label id="profile-picture-label" className={labelClass}>
             Profile picture
           </label>
 
-          <div className="mt-2 flex items-center gap-4 lg:flex-col lg:items-center">
+          <div className="mt-2 flex items-center gap-4 xl:flex-col xl:items-center">
             <img
               src={avatarSrc}
               alt={
@@ -184,7 +185,7 @@ const EditProfileForm = ({ userData }) => {
               loading="lazy"
             />
 
-            <div className="min-w-0 flex-1 lg:w-full">
+            <div className="min-w-0 flex-1 xl:w-full">
               <p
                 id="profile-picture-status"
                 className="sr-only"

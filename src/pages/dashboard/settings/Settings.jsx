@@ -102,49 +102,9 @@ const Settings = () => {
           </p>
         </header>
 
-        <div className="grid gap-5 sm:gap-6 lg:gap-10 xl:gap-12 lg:grid-cols-[minmax(380px,460px)_minmax(0,1fr)]">
-          {/* RIGHT COLUMN (mobile first) */}
-          <section className="order-1 lg:order-2 space-y-5 sm:space-y-6">
-            <div className="ui-card p-4 sm:p-8">
-              <div className="mb-5 sm:mb-6">
-                <h2 className="text-xl font-semibold text-zinc-100">
-                  Edit profile
-                </h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Update your name, bio and profile picture.
-                </p>
-              </div>
-
-              {status === "loading" && (
-                <div className="mx-auto mt-2 space-y-2 max-w-xl">
-                  <SkeletonLine w="w-1/2" h="h-6" />
-                  <SkeletonLine w="w-full" h="h-4" />
-                  <SkeletonLine w="w-5/6" h="h-4" />
-                  <SkeletonLine w="w-2/3" h="h-4" />
-                </div>
-              )}
-
-              {status === "ready" && userData && (
-                <EditProfileForm userData={userData} />
-              )}
-
-              {status === "empty" && (
-                <p className="text-zinc-400">No user data found.</p>
-              )}
-
-              {status === "error" && (
-                <div className="space-y-2">
-                  <p className="text-red-300">{errorMsg}</p>
-                  <p className="text-sm text-zinc-500">
-                    Tip: check Firestore rules for the users collection.
-                  </p>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* LEFT COLUMN (mobile after edit) */}
-          <aside className="order-2 lg:order-1 space-y-5 sm:space-y-6 lg:sticky lg:top-24 self-start">
+        <div className="grid gap-6 lg:gap-10 xl:gap-12 lg:grid-cols-[minmax(380px,460px)_minmax(0,1fr)]">
+          {/* LEFT COLUMN (on mobile goes below) */}
+          <aside className="space-y-6 lg:sticky lg:top-24 self-start order-2 lg:order-1">
             <div className="ui-card p-4 sm:p-6">
               <h2 className="text-base font-semibold text-zinc-100">
                 Profile preview
@@ -237,6 +197,46 @@ const Settings = () => {
               </div>
             </div>
           </aside>
+
+          {/* RIGHT COLUMN (on mobile goes first) */}
+          <section className="space-y-6 order-1 lg:order-2">
+            <div className="ui-card p-4 sm:p-8">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-zinc-100">
+                  Edit profile
+                </h2>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Update your name, bio and profile picture.
+                </p>
+              </div>
+
+              {status === "loading" && (
+                <div className="mx-auto mt-2 space-y-2 max-w-xl">
+                  <SkeletonLine w="w-1/2" h="h-6" />
+                  <SkeletonLine w="w-full" h="h-4" />
+                  <SkeletonLine w="w-5/6" h="h-4" />
+                  <SkeletonLine w="w-2/3" h="h-4" />
+                </div>
+              )}
+
+              {status === "ready" && userData && (
+                <EditProfileForm userData={userData} />
+              )}
+
+              {status === "empty" && (
+                <p className="text-zinc-400">No user data found.</p>
+              )}
+
+              {status === "error" && (
+                <div className="space-y-2">
+                  <p className="text-red-300">{errorMsg}</p>
+                  <p className="text-sm text-zinc-500">
+                    Tip: check Firestore rules for the users collection.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </div>
