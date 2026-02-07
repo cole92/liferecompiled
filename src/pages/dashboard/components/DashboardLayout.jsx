@@ -39,12 +39,18 @@ const DashboardLayout = () => {
     return () => unsubscribe();
   }, [user?.uid]);
 
+  const dashboardPanel =
+    "ui-card p-2.5 sm:p-4 " +
+    "border-zinc-800/70 " +
+    "bg-gradient-to-b from-sky-500/5 via-zinc-950/20 to-zinc-950/30 " +
+    "ring-sky-200/10";
+
   return (
     <div className="pb-2">
       <div className="sticky top-16 z-40">
         <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
           <div className="py-2 sm:py-3">
-            <div className="ui-card p-2.5 sm:p-4">
+            <div className={dashboardPanel}>
               {/* md+ uses a 2-col / 2-row grid so Search can live on the far right */}
               <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(320px,28rem)] md:gap-6">
                 {/* Row 1, Col 1 */}
