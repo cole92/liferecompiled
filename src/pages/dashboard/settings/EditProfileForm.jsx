@@ -271,7 +271,7 @@ const EditProfileForm = ({ userData }) => {
               id="profile-bio"
               name="bio"
               rows={4}
-              className={`${inputBase} resize-y`}
+              className={`${inputBase} resize-none ui-scrollbar pr-4`}
               value={formData.bio}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, bio: e.target.value }))
