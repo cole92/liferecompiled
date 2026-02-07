@@ -3,24 +3,32 @@ import PropTypes from "prop-types";
 import { toast } from "react-toastify";
 import Spinner from "../components/Spinner";
 
-const CloudinaryUpload = ({
-  onUploadComplete,
-  onUploadStart,
-  onUploadError,
+const CloudinaryUpload = (props) => {
+  const {
+    onUploadComplete,
+    onUploadStart,
+    onUploadError,
 
-  // a11y / UX props
-  id,
-  label = "Upload image",
-  description,
-  ariaLabelledby,
-  ariaDescribedby,
-  disabled = false,
-}) => {
+    id,
+    label = "Upload image",
+    description,
+
+    // preferred camelCase props
+    ariaLabelledby,
+    ariaDescribedby,
+
+    disabled = false,
+  } = props;
+
+  // backward-compat: allow passing aria-labelledby / aria-describedby as props
+  const ariaLabelledbyFinal = ariaLabelledby || props["aria-labelledby"];
+  const ariaDescribedbyFinal = ariaDescribedby || props["aria-describedby"];
+
   const generatedId = useId();
   const inputId = id || `cloudinary-upload-${generatedId}`;
 
   const [isLoading, setIsLoading] = useState(false);
-  const [srStatus, setSrStatus] = useState(""); // screen reader status
+  const [srStatus, setSrStatus] = useState("");
   const [selectedName, setSelectedName] = useState("");
   const [uiStatus, setUiStatus] = useState("idle"); // idle | uploading | uploaded | error
 
@@ -35,7 +43,7 @@ const CloudinaryUpload = ({
   const uiStatusText = useMemo(() => {
     if (uiStatus === "uploading") return "Uploading...";
     if (uiStatus === "uploaded")
-      return 'Uploaded. Click "Save Changes" to apply.';
+      return 'Uploaded. Click "Save changes" to apply.';
     if (uiStatus === "error") return "Upload failed. Try again.";
     return "Choose an image to upload.";
   }, [uiStatus]);
@@ -100,7 +108,7 @@ const CloudinaryUpload = ({
     try {
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${cloud}/image/upload`,
-        { method: "POST", body }
+        { method: "POST", body },
       );
 
       const data = await response.json();
@@ -133,7 +141,7 @@ const CloudinaryUpload = ({
 
   const describedBy = [
     description ? `${inputId}-desc` : null,
-    ariaDescribedby || null,
+    ariaDescribedbyFinal || null,
     `${inputId}-status`,
     `${inputId}-ui-status`,
   ]
@@ -141,15 +149,15 @@ const CloudinaryUpload = ({
     .join(" ");
 
   return (
-    <div className="mt-2">
-      {!ariaLabelledby && (
+    <div className="mt-2" aria-busy={isLoading ? "true" : "false"}>
+      {!ariaLabelledbyFinal && (
         <label className="ui-label" id={`${inputId}-label`}>
           {label}
         </label>
       )}
 
       {description && (
-        <p id={`${inputId}-desc`}className="ui-help">
+        <p id={`${inputId}-desc`} className="ui-help">
           {description}
         </p>
       )}
@@ -164,15 +172,14 @@ const CloudinaryUpload = ({
         accept="image/*"
         disabled={disabled || isLoading}
         aria-disabled={disabled || isLoading ? "true" : "false"}
-        aria-labelledby={ariaLabelledby || `${inputId}-label`}
+        aria-labelledby={ariaLabelledbyFinal || `${inputId}-label`}
         aria-describedby={describedBy}
       />
 
-      {/* Custom chooser area */}
       <div className="my-2 flex items-center gap-2">
         <button
           type="button"
-          className="ui-button-secondary"
+          className="ui-button-secondary whitespace-nowrap"
           onClick={handleChooseClick}
           disabled={disabled || isLoading}
           aria-disabled={disabled || isLoading ? "true" : "false"}
@@ -182,7 +189,7 @@ const CloudinaryUpload = ({
 
         <div className="min-w-0 flex-1">
           <div
-            className="truncate text-sm text-zinc-400 max-w-[320px]"
+            className="truncate text-sm text-zinc-400"
             title={selectedName || ""}
           >
             {selectedName ? truncateName(selectedName) : "No file selected"}
@@ -196,8 +203,8 @@ const CloudinaryUpload = ({
           uiStatus === "error"
             ? "text-red-400"
             : uiStatus === "uploaded"
-            ? "text-emerald-400"
-            : "text-zinc-400"
+              ? "text-emerald-400"
+              : "text-zinc-400"
         }`}
         aria-live="polite"
       >
@@ -225,8 +232,10 @@ CloudinaryUpload.propTypes = {
   id: PropTypes.string,
   label: PropTypes.string,
   description: PropTypes.string,
+
   ariaLabelledby: PropTypes.string,
   ariaDescribedby: PropTypes.string,
+
   disabled: PropTypes.bool,
 };
 
