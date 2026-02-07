@@ -5,6 +5,7 @@ import { updateDoc, doc } from "firebase/firestore";
 import { db } from "../../../firebase";
 import CloudinaryUpload from "../../CloudinaryUpload";
 import { DEFAULT_PROFILE_PICTURE } from "../../../constants/defaults";
+import Avatar from "../../../components/common/Avatar";
 
 import {
   showErrorToast,
@@ -176,13 +177,10 @@ const EditProfileForm = ({ userData }) => {
           </label>
 
           <div className="mt-2 flex items-center gap-4 xl:flex-col xl:items-center">
-            <img
+            <Avatar
               src={avatarSrc}
-              alt={
-                cleanName ? `${cleanName} profile picture` : "Profile picture"
-              }
-              className="h-28 w-28 rounded-full object-cover border border-zinc-800"
-              loading="lazy"
+              size={112} // isto kao h-28/w-28
+              zoomable
             />
 
             <div className="min-w-0 flex-1 xl:w-full">
