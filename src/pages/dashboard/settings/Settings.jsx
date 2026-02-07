@@ -30,6 +30,12 @@ const Settings = () => {
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-md";
 
+  // Feed-like card tint (same vibe as PostCardFeed)
+  const feedCardSkin =
+    "overflow-hidden border-zinc-800/70 " +
+    "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
+    "ring-sky-200/10";
+
   useEffect(() => {
     setShowFullBio(false);
   }, [uid, userData?.bio]);
@@ -78,7 +84,6 @@ const Settings = () => {
   }, [uid, isCheckingAuth]);
 
   const viewProfileId = userData?.id || uid || "";
-
   const displayName = userData?.name || user?.displayName || "Your profile";
   const bio = (userData?.bio || "").trim();
 
@@ -105,7 +110,7 @@ const Settings = () => {
         <div className="grid gap-6 lg:gap-10 xl:gap-12 lg:grid-cols-[minmax(380px,460px)_minmax(0,1fr)]">
           {/* LEFT COLUMN (on mobile goes below) */}
           <aside className="space-y-6 lg:sticky lg:top-24 self-start order-2 lg:order-1">
-            <div className="ui-card p-4 sm:p-6">
+            <div className={`ui-card ${feedCardSkin} p-4 sm:p-6`}>
               <h2 className="text-base font-semibold text-zinc-100">
                 Profile preview
               </h2>
@@ -129,7 +134,7 @@ const Settings = () => {
                   {bio ? (
                     <div className="mt-1 text-sm text-zinc-400">
                       {showFullBio ? (
-                        <div className="break-words whitespace-pre-wrap lg:max-h-28 lg:overflow-y-auto lg:pr-2">
+                        <div className="break-words whitespace-pre-wrap lg:max-h-28 lg:overflow-y-auto lg:pr-2 ui-scrollbar">
                           {bio}
                         </div>
                       ) : (
@@ -168,7 +173,7 @@ const Settings = () => {
               )}
             </div>
 
-            <div className="ui-card p-4 sm:p-6">
+            <div className={`ui-card ${feedCardSkin} p-4 sm:p-6`}>
               <h2 className="text-base font-semibold text-zinc-100">Account</h2>
               <p className="mt-1 text-sm text-zinc-400">
                 Read-only details from authentication.
@@ -200,7 +205,7 @@ const Settings = () => {
 
           {/* RIGHT COLUMN (on mobile goes first) */}
           <section className="space-y-6 order-1 lg:order-2">
-            <div className="ui-card p-4 sm:p-8">
+            <div className={`ui-card ${feedCardSkin} p-4 sm:p-8`}>
               <div className="mb-6">
                 <h2 className="text-xl font-semibold text-zinc-100">
                   Edit profile
