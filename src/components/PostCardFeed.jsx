@@ -286,7 +286,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
                 className={
                   "tag-rail flex items-center gap-2 flex-nowrap " +
                   "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
-                  "pb-2 pr-10"
+                  "pb-3"
                 }
               >
                 {allTags.map((t, idx) => (
