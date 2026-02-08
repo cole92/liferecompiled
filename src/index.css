@@ -103,3 +103,26 @@
   background-color: rgba(113, 113, 122, 0.65);
 }
 
+.tag-rail {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(161, 161, 170, 0.25) transparent;
+}
+
+.tag-rail::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tag-rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tag-rail::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.22);
+  border-radius: 999px;
+}
+
+.tag-rail:hover::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.35);
+}
+
+

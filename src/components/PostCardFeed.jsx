@@ -17,14 +17,16 @@ import { toggleSavePost } from "../utils/savedPostUtils";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { formatPostDateLabel } from "../utils/formatDate";
 
-import {
-  FOCUS_RING,
-  PILL_CATEGORY,
-  PILL_TAG,
-  PILL_META,
-} from "../constants/uiClasses";
+import { FOCUS_RING, PILL_CATEGORY, PILL_TAG } from "../constants/uiClasses";
 
 const CONTENT_PREVIEW_MAX = 260;
+const MAX_TAGS_IN_APP = 5;
+
+const normalizeTagText = (t) => {
+  const raw = String(t ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^#+/, "").trim();
+};
 
 const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
   const navigate = useNavigate();
@@ -35,12 +37,28 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
-  const tags = Array.isArray(post?.tags) ? post.tags : [];
+  // Unique normalized tags (max 5). Overflow handled by horizontal scroll rail.
+  const allTags = useMemo(() => {
+    const raw = Array.isArray(post?.tags) ? post.tags : [];
 
-  const visibleTagsXs = tags.slice(0, 2);
-  const visibleTagsSm = tags.slice(0, 3);
-  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
-  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
+    const normalized = raw
+      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
+      .map((t) => normalizeTagText(t))
+      .filter(Boolean);
+
+    const seen = new Set();
+    const unique = [];
+
+    for (const t of normalized) {
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(t);
+      if (unique.length >= MAX_TAGS_IN_APP) break;
+    }
+
+    return unique;
+  }, [post?.tags]);
 
   const badgesToShow = useMemo(() => {
     const out = [];
@@ -107,6 +125,12 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
     : "";
 
   const cardTrending = "";
+
+  // IMPORTANT: Ensure tag pills do NOT truncate.
+  // If PILL_TAG contains truncate/max-w/overflow-hidden, these classes override it.
+  const TAG_PILL_NO_TRUNC =
+    `${PILL_TAG} ` +
+    "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
 
   return (
     <>
@@ -233,7 +257,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
           )}
         </div>
 
-        {/* Preview: description + content (slightly taller, but controlled) */}
+        {/* Preview */}
         <div className="mt-2 min-h-[5.75rem]">
           {descText ? (
             <p className="text-sm text-zinc-300 line-clamp-2 break-words">
@@ -256,42 +280,28 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
         {/* Bottom */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
           <div className="min-h-[2.25rem]">
-            {/* XS: 2 tags */}
-            <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
-              {visibleTagsXs.map((tag, idx) => (
-                <span
-                  key={`${tag.text}-${idx}`}
-                  className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
-                  title={`#${tag.text}`}
-                >
-                  #{tag.text}
-                </span>
-              ))}
+            {/* TAG RAIL: scroll on ALL sizes, no truncation, normal pill size */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <div
+                className={
+                  "tag-rail flex items-center gap-2 flex-nowrap " +
+                  "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
+                  "pb-2 pr-10"
+                }
+              >
+                {allTags.map((t, idx) => (
+                  <span
+                    key={`${t}_${idx}`}
+                    className={TAG_PILL_NO_TRUNC}
+                    title={`#${t}`}
+                  >
+                    #{t}
+                  </span>
+                ))}
+              </div>
 
-              {extraTagsCountXs > 0 && (
-                <span className={`${PILL_META} shrink-0`}>
-                  +{extraTagsCountXs}
-                </span>
-              )}
-            </div>
-
-            {/* SM+: 3 tags */}
-            <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
-              {visibleTagsSm.map((tag, idx) => (
-                <span
-                  key={`${tag.text}-${idx}`}
-                  className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
-                  title={`#${tag.text}`}
-                >
-                  #{tag.text}
-                </span>
-              ))}
-
-              {extraTagsCountSm > 0 && (
-                <span className={`${PILL_META} shrink-0`}>
-                  +{extraTagsCountSm}
-                </span>
-              )}
+              {/* Subtle fade hint (works as scroll affordance) */}
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>
 
