@@ -24,6 +24,13 @@ import {
 } from "../../../../constants/uiClasses";
 
 const CONTENT_PREVIEW_MAX = 300;
+const MAX_TAGS_IN_APP = 5;
+
+const normalizeTagText = (t) => {
+  const raw = String(t ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^#+/, "").trim();
+};
 
 const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const { user } = useContext(AuthContext);
@@ -35,11 +42,28 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
-  const tags = Array.isArray(post?.tags) ? post.tags : [];
-  const visibleTagsXs = tags.slice(0, 2);
-  const visibleTagsSm = tags.slice(0, 3);
-  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
-  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
+  // Tag rail: unique + normalized + max 5 (scroll handles overflow)
+  const allTags = useMemo(() => {
+    const raw = Array.isArray(post?.tags) ? post.tags : [];
+
+    const normalized = raw
+      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
+      .map((t) => normalizeTagText(t))
+      .filter(Boolean);
+
+    const seen = new Set();
+    const unique = [];
+
+    for (const t of normalized) {
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(t);
+      if (unique.length >= MAX_TAGS_IN_APP) break;
+    }
+
+    return unique;
+  }, [post?.tags]);
 
   const badgesToShow = useMemo(() => {
     const out = [];
@@ -107,6 +131,11 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const cardLocked = post?.locked
     ? "opacity-60 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"
     : "";
+
+  // Ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
+  const TAG_PILL_NO_TRUNC =
+    `${PILL_TAG} ` +
+    "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
 
   if (post.isRemoved) {
     const handleRemoveClick = async (e) => {
@@ -264,7 +293,6 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
           ) : null}
         </div>
 
-        {/* Meta: XS-safe date + category */}
         <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
           <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
             <span className="sm:hidden">
@@ -332,42 +360,27 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
 
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
           <div className="min-h-[2.25rem]">
-            {/* XS: 2 tags */}
-            <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
-              {visibleTagsXs.map((tag, idx) => (
-                <span
-                  key={`${tag?.text || "tag"}-${idx}`}
-                  className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
-                  title={`#${tag?.text || ""}`}
-                >
-                  #{tag?.text || ""}
-                </span>
-              ))}
+            {/* Tag rail (same as Feed/Dashboard) */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <div
+                className={
+                  "tag-rail flex items-center gap-2 flex-nowrap " +
+                  "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
+                  "pb-3"
+                }
+              >
+                {allTags.map((t, idx) => (
+                  <span
+                    key={`${t}_${idx}`}
+                    className={TAG_PILL_NO_TRUNC}
+                    title={`#${t}`}
+                  >
+                    #{t}
+                  </span>
+                ))}
+              </div>
 
-              {extraTagsCountXs > 0 && (
-                <span className={`${PILL_META} shrink-0`}>
-                  +{extraTagsCountXs}
-                </span>
-              )}
-            </div>
-
-            {/* SM+: 3 tags */}
-            <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
-              {visibleTagsSm.map((tag, idx) => (
-                <span
-                  key={`${tag?.text || "tag"}-${idx}`}
-                  className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
-                  title={`#${tag?.text || ""}`}
-                >
-                  #{tag?.text || ""}
-                </span>
-              ))}
-
-              {extraTagsCountSm > 0 && (
-                <span className={`${PILL_META} shrink-0`}>
-                  +{extraTagsCountSm}
-                </span>
-              )}
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>
         </div>
@@ -409,11 +422,7 @@ SavedPostCard.propTypes = {
     postTitleAtSave: PropTypes.string,
     isRemoved: PropTypes.bool,
     savedAt: PropTypes.object,
-    tags: PropTypes.arrayOf(
-      PropTypes.shape({
-        text: PropTypes.string,
-      })
-    ),
+    tags: PropTypes.array,
     author: PropTypes.shape({
       name: PropTypes.string,
       profilePicture: PropTypes.string,

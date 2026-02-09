@@ -39,6 +39,14 @@ function getEditDaysLeft(createdAt) {
   return leftMs > 0 ? Math.ceil(leftMs / (1000 * 60 * 60 * 24)) : 0;
 }
 
+const MAX_TAGS_IN_APP = 5;
+
+const normalizeTagText = (t) => {
+  const raw = String(t ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^#+/, "").trim();
+};
+
 const PostCardDashboard = ({
   post,
   isMyPost = false,
@@ -57,11 +65,28 @@ const PostCardDashboard = ({
   const postId = post?.id;
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, postId);
 
-  const tags = Array.isArray(post?.tags) ? post.tags : [];
-  const visibleTagsXs = tags.slice(0, 2);
-  const visibleTagsSm = tags.slice(0, 3);
-  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
-  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
+  // ✅ Tag rail: unique + normalized + max 5 (scroll handles overflow)
+  const allTags = useMemo(() => {
+    const raw = Array.isArray(post?.tags) ? post.tags : [];
+
+    const normalized = raw
+      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
+      .map((t) => normalizeTagText(t))
+      .filter(Boolean);
+
+    const seen = new Set();
+    const unique = [];
+
+    for (const t of normalized) {
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(t);
+      if (unique.length >= MAX_TAGS_IN_APP) break;
+    }
+
+    return unique;
+  }, [post?.tags]);
 
   const badgesToShow = useMemo(() => {
     const out = [];
@@ -132,6 +157,11 @@ const PostCardDashboard = ({
     "border border-sky-500/20 bg-sky-500/10 " +
     "px-2 py-0.5 text-[11px] font-medium text-sky-200 whitespace-nowrap " +
     "sm:px-2.5 sm:py-0.5 sm:text-xs";
+
+  // ✅ IMPORTANT: ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
+  const TAG_PILL_NO_TRUNC =
+    `${PILL_TAG} ` +
+    "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
 
   return (
     <>
@@ -236,7 +266,6 @@ const PostCardDashboard = ({
 
         {/* Meta: date + category */}
         <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
-          {/* date: dozvoli da se po potrebi skrati na 320px */}
           <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
             <span className="sm:hidden">
               {formatPostDateLabel(post, { compact: true })}
@@ -248,12 +277,10 @@ const PostCardDashboard = ({
 
           {post?.category ? (
             <span className="min-w-0 flex-1 flex justify-end">
-              {/* pill wrapper */}
               <span
                 className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
                 title={post.category}
               >
-                {/* tekst je taj koji trunca */}
                 <span className="min-w-0 truncate">{post.category}</span>
               </span>
             </span>
@@ -273,44 +300,28 @@ const PostCardDashboard = ({
 
         {/* Bottom: tags + reactions + management */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
-          {/* Tags row */}
+          {/* ✅ Tags rail (same as feed) */}
           <div className="min-h-[2.25rem]">
-            {/* XS: 2 tags */}
-            <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
-              {visibleTagsXs.map((tag, idx) => (
-                <span
-                  key={`${tag.text}-${idx}`}
-                  className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
-                  title={`#${tag.text}`}
-                >
-                  #{tag.text}
-                </span>
-              ))}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <div
+                className={
+                  "tag-rail flex items-center gap-2 flex-nowrap " +
+                  "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
+                  "pb-3"
+                }
+              >
+                {allTags.map((t, idx) => (
+                  <span
+                    key={`${t}_${idx}`}
+                    className={TAG_PILL_NO_TRUNC}
+                    title={`#${t}`}
+                  >
+                    #{t}
+                  </span>
+                ))}
+              </div>
 
-              {extraTagsCountXs > 0 && (
-                <span className={`${PILL_META} shrink-0`}>
-                  +{extraTagsCountXs}
-                </span>
-              )}
-            </div>
-
-            {/* SM+: 3 tags */}
-            <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
-              {visibleTagsSm.map((tag, idx) => (
-                <span
-                  key={`${tag.text}-${idx}`}
-                  className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
-                  title={`#${tag.text}`}
-                >
-                  #{tag.text}
-                </span>
-              ))}
-
-              {extraTagsCountSm > 0 && (
-                <span className={`${PILL_META} shrink-0`}>
-                  +{extraTagsCountSm}
-                </span>
-              )}
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>
 
@@ -331,7 +342,6 @@ const PostCardDashboard = ({
               className="mt-3 pt-3 border-t border-zinc-800/60 flex items-center justify-between gap-2"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* LEFT: Edit + status pills */}
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {canEdit && (
                   <Link
@@ -395,7 +405,6 @@ const PostCardDashboard = ({
                   )}
               </div>
 
-              {/* RIGHT: destructive actions (NO WRAP) */}
               <div className="flex items-center gap-2 shrink-0">
                 {canLock && (
                   <button

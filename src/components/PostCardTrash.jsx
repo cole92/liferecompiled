@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { FiLock } from "react-icons/fi";
+import { useMemo } from "react";
 
 import ShieldIcon from "./ui/ShieldIcon";
 import Avatar from "./common/Avatar";
@@ -14,6 +15,8 @@ import {
   PILL_META,
 } from "../constants/uiClasses";
 
+const MAX_TAGS_IN_APP = 5;
+
 function getTtlPillClasses(daysLeft) {
   if (daysLeft > 20)
     return "border border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
@@ -24,14 +27,42 @@ function getTtlPillClasses(daysLeft) {
   return "border border-zinc-700 bg-zinc-950/40 text-zinc-200";
 }
 
+const normalizeTagText = (t) => {
+  const raw = String(t ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^#+/, "").trim();
+};
+
 const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
   const authorName = post?.author?.name || "Unknown";
 
-  const tags = Array.isArray(post?.tags) ? post.tags : [];
-  const visibleTagsXs = tags.slice(0, 2);
-  const visibleTagsSm = tags.slice(0, 3);
-  const extraTagsCountXs = Math.max(0, tags.length - visibleTagsXs.length);
-  const extraTagsCountSm = Math.max(0, tags.length - visibleTagsSm.length);
+  // Tag rail: unique + normalized + max 5 (scroll handles overflow)
+  const allTags = useMemo(() => {
+    const raw = Array.isArray(post?.tags) ? post.tags : [];
+
+    const normalized = raw
+      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
+      .map((t) => normalizeTagText(t))
+      .filter(Boolean);
+
+    const seen = new Set();
+    const unique = [];
+
+    for (const t of normalized) {
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(t);
+      if (unique.length >= MAX_TAGS_IN_APP) break;
+    }
+
+    return unique;
+  }, [post?.tags]);
+
+  // Ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
+  const TAG_PILL_NO_TRUNC =
+    `${PILL_TAG} ` +
+    "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
 
   const lockedAtLabel = post?.lockedAt?.toDate?.()
     ? post.lockedAt.toDate().toLocaleDateString()
@@ -131,40 +162,27 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
       {/* Bottom */}
       <div className="mt-auto pt-3 border-t border-zinc-800/60">
         <div className="min-h-[2.25rem]">
-          {/* XS */}
-          <div className="flex flex-nowrap items-center gap-2 overflow-hidden sm:hidden">
-            {visibleTagsXs.map((tag, idx) => (
-              <span
-                key={`${tag?.text || "tag"}-${idx}`}
-                className={`${PILL_TAG} shrink min-w-0 max-w-[48%] truncate`}
-                title={`#${tag?.text || ""}`}
-              >
-                #{tag?.text || ""}
-              </span>
-            ))}
-            {extraTagsCountXs > 0 && (
-              <span className={`${PILL_META} shrink-0`}>
-                +{extraTagsCountXs}
-              </span>
-            )}
-          </div>
+          {/* Tag rail (same as Feed/Dashboard/Saved) */}
+          <div className="relative">
+            <div
+              className={
+                "tag-rail flex items-center gap-2 flex-nowrap " +
+                "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
+                "pb-3"
+              }
+            >
+              {allTags.map((t, idx) => (
+                <span
+                  key={`${t}_${idx}`}
+                  className={TAG_PILL_NO_TRUNC}
+                  title={`#${t}`}
+                >
+                  #{t}
+                </span>
+              ))}
+            </div>
 
-          {/* SM+ */}
-          <div className="hidden sm:flex flex-nowrap items-center gap-2 overflow-hidden">
-            {visibleTagsSm.map((tag, idx) => (
-              <span
-                key={`${tag?.text || "tag"}-${idx}`}
-                className={`${PILL_TAG} shrink min-w-0 max-w-[12rem] truncate`}
-                title={`#${tag?.text || ""}`}
-              >
-                #{tag?.text || ""}
-              </span>
-            ))}
-            {extraTagsCountSm > 0 && (
-              <span className={`${PILL_META} shrink-0`}>
-                +{extraTagsCountSm}
-              </span>
-            )}
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
           </div>
         </div>
 
