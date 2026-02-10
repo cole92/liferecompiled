@@ -327,7 +327,7 @@ const PostDetails = () => {
 
   const TAG_PILL =
     "inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 " +
-    "px-3 py-1 text-xs text-sky-200 shrink-0 max-w-[14rem] overflow-hidden";
+    "px-3 py-1 text-xs text-sky-200 shrink-0 whitespace-nowrap";
 
   return (
     <div className={wrapperClass}>
@@ -502,7 +502,7 @@ const PostDetails = () => {
                             className={TAG_PILL}
                             title={`#${t}`}
                           >
-                            <span className="truncate">#{t}</span>
+                            #{t}
                           </span>
                         ))
                       ) : (
