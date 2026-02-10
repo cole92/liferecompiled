@@ -171,15 +171,21 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
                 "pb-3"
               }
             >
-              {allTags.map((t, idx) => (
-                <span
-                  key={`${t}_${idx}`}
-                  className={TAG_PILL_NO_TRUNC}
-                  title={`#${t}`}
-                >
-                  #{t}
+              {allTags.length > 0 ? (
+                allTags.map((t, idx) => (
+                  <span
+                    key={`${t}_${idx}`}
+                    className={TAG_PILL_NO_TRUNC}
+                    title={`#${t}`}
+                  >
+                    #{t}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-zinc-600 shrink-0 whitespace-nowrap">
+                  No tags
                 </span>
-              ))}
+              )}
             </div>
 
             <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
