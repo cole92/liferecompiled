@@ -496,11 +496,9 @@ const Profile = () => {
             )}
 
             {!isLoadingTop3 && !errorTop3 && top3.length > 0 && (
-              <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
+              <div className="grid gap-4 lg:grid-cols-3 lg:auto-rows-fr">
                 {top3.map((post) => (
-                  <div key={post.id} className="h-full">
-                    <TopPostCard post={post} />
-                  </div>
+                  <TopPostCard key={post.id} post={post} />
                 ))}
               </div>
             )}

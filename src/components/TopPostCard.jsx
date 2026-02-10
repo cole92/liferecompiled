@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -13,7 +13,12 @@ import {
 } from "../constants/uiClasses";
 
 const MAX_TAGS_IN_APP = 5;
-const MAX_ROWS = 2;
+
+const normalizeTagText = (t) => {
+  const raw = String(t ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^#+/, "").trim();
+};
 
 function TopPostCard({ post }) {
   const navigate = useNavigate();
@@ -30,27 +35,6 @@ function TopPostCard({ post }) {
 
   const category = (post?.category || "Uncategorized").trim();
   const reactionsTotal = post?.reactionsCount ?? 0;
-
-  const shorten = (s, n = 22) => {
-    const str = String(s ?? "");
-    if (!str) return "";
-    return str.length > n ? str.slice(0, n - 1) + "…" : str;
-  };
-
-  const normalizeTagText = (t) => {
-    const raw = String(t ?? "").trim();
-    if (!raw) return "";
-    return raw.replace(/^#+/, "").trim();
-  };
-
-  const formatTagLabel = (t, maxLen = 22) => {
-    const clean = normalizeTagText(t);
-    if (!clean) return "";
-    const withHash = `#${clean}`;
-    return withHash.length > maxLen
-      ? withHash.slice(0, maxLen - 1) + "…"
-      : withHash;
-  };
 
   const allTags = useMemo(() => {
     const raw = Array.isArray(post?.tags) ? post.tags : [];
@@ -74,144 +58,71 @@ function TopPostCard({ post }) {
     return unique;
   }, [post?.tags]);
 
-  const pillsWrapRef = useRef(null);
-  const measureRef = useRef(null);
-
-  const [visibleTagCount, setVisibleTagCount] = useState(() =>
-    Math.min(allTags.length, 2),
-  );
-
-  useLayoutEffect(() => {
-    const wrap = pillsWrapRef.current;
-    const measurer = measureRef.current;
-    if (!wrap || !measurer) return;
-
-    const getRowCount = (els) => {
-      const tops = new Set();
-      for (const el of els) {
-        if (!el) continue;
-        tops.add(el.offsetTop);
-      }
-      return tops.size;
-    };
-
-    const recalc = () => {
-      const wrapW = wrap.getBoundingClientRect().width;
-      if (!wrapW) return;
-
-      measurer.style.width = `${wrapW}px`;
-
-      const catEl = measurer.querySelector('[data-pill="category"]');
-      const tagEls = Array.from(measurer.querySelectorAll('[data-pill="tag"]'));
-      const moreEls = Array.from(
-        measurer.querySelectorAll('[data-pill="more"]'),
-      );
-
-      if (!catEl) return;
-
-      const fits = (k) => {
-        const total = allTags.length;
-        const hidden = total - k;
-
-        catEl.style.display = "";
-
-        for (let i = 0; i < tagEls.length; i++) {
-          tagEls[i].style.display = i < k ? "" : "none";
-        }
-
-        let activeMoreEl = null;
-        for (const el of moreEls) {
-          const c = Number(el.getAttribute("data-count"));
-          const on = hidden > 0 && c === hidden;
-          el.style.display = on ? "" : "none";
-          if (on) activeMoreEl = el;
-        }
-
-        const visibleEls = [catEl, ...tagEls.slice(0, k)];
-        if (hidden > 0 && activeMoreEl) visibleEls.push(activeMoreEl);
-
-        const rows = getRowCount(visibleEls);
-        return rows <= MAX_ROWS;
-      };
-
-      let best = 0;
-      for (let k = allTags.length; k >= 0; k--) {
-        if (fits(k)) {
-          best = k;
-          break;
-        }
-      }
-
-      setVisibleTagCount((prev) => (prev === best ? prev : best));
-    };
-
-    recalc();
-
-    let ro = null;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(() => recalc());
-      ro.observe(wrap);
-    }
-
-    window.addEventListener("resize", recalc);
-
-    return () => {
-      window.removeEventListener("resize", recalc);
-      if (ro) ro.disconnect();
-    };
-  }, [allTags, category]);
-
-  const safeVisibleTagCount = Math.max(
-    0,
-    Math.min(visibleTagCount, allTags.length),
-  );
-  const visibleTags = allTags.slice(0, safeVisibleTagCount);
-  const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
-
   const pillCategory = cx(
     PILL_CATEGORY,
     "text-[11px] px-2.5 py-1 font-medium max-w-full",
   );
-  const pillTag = cx(
+
+  const tagPill = cx(
     PILL_TAG,
-    "text-[11px] px-2.5 py-1 font-medium max-w-full",
-  );
-  const pillMore = cx(
-    PILL_META,
-    "text-[11px] px-2.5 py-1 font-medium text-zinc-300 whitespace-nowrap",
+    "text-[11px] px-2.5 py-1 font-medium",
+    "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip",
   );
 
+  const reactionsPill = cx(
+    PILL_META,
+    "inline-flex items-center justify-center flex-none",
+    "min-w-[2.25rem]",
+    "text-[12px] px-2.5 py-1 tabular-nums",
+  );
+
+  const noTagsPill = cx(
+    PILL_META,
+    "inline-flex items-center flex-none",
+    "text-[11px] px-2.5 py-1 font-medium text-zinc-500",
+  );
+
+  const stop = (e) => e.stopPropagation();
+
   return (
-    <button
-      type="button"
+    <article
+      role="button"
+      tabIndex={0}
       onClick={goToPost}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          goToPost();
+        }
+      }}
       className={cx(
         CARD_BASE,
         CARD_HOVER,
-        "group h-full text-left",
-        "relative overflow-hidden",
+        "group text-left cursor-pointer",
+        "relative isolate overflow-hidden",
         "bg-zinc-950/25 border border-zinc-800/80 ring-1 ring-zinc-100/5",
         "hover:border-zinc-700/80 hover:bg-zinc-950/20",
         "active:translate-y-px",
+        "h-auto lg:h-full",
         FOCUS_RING,
       )}
       aria-label={`Open post: ${post?.title ?? "Untitled"}`}
     >
-      {/* base glow (always on, subtle) */}
-      <div className="pointer-events-none absolute inset-0 opacity-100">
+      {/* base glow */}
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-100">
         <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-sky-500/5 blur-3xl" />
         <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-emerald-500/5 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/15 to-transparent" />
       </div>
 
       {/* hover boost */}
-      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
         <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
         <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/25 to-transparent" />
       </div>
 
-      <div className="relative flex h-full min-w-0 flex-col">
+      <div className="relative flex min-w-0 flex-col lg:h-full">
         <div className="min-w-0">
           <h3
             className={cx(
@@ -236,64 +147,53 @@ function TopPostCard({ post }) {
         </div>
 
         <div className="mt-auto pt-4 min-w-0">
-          <div ref={pillsWrapRef} className="flex flex-wrap gap-2 min-w-0">
+          {/* Row 1: category */}
+          <div className="flex items-center justify-between gap-2 min-w-0">
             <span className={pillCategory} title={category}>
-              {shorten(category, 26)}
+              {category}
             </span>
-
-            {visibleTags.map((t, i) => (
-              <span key={`${t}_${i}`} className={pillTag} title={`#${t}`}>
-                {formatTagLabel(t, 22)}
-              </span>
-            ))}
-
-            {hiddenCount > 0 && (
-              <span className={pillMore} title={`${hiddenCount} more`}>
-                +{hiddenCount}
-              </span>
-            )}
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
+          {/* Row 2: tag rail */}
+          <div
+            className="mt-2 min-h-[2.25rem] min-w-0"
+            onClick={stop}
+            onPointerDown={stop}
+            onTouchStart={stop}
+          >
+            <div className="relative">
+              <div
+                className={
+                  "tag-rail flex items-center gap-2 flex-nowrap w-full " +
+                  "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
+                  "pr-10 pb-3 touch-pan-x [-webkit-overflow-scrolling:touch]"
+                }
+              >
+                {allTags.length > 0 ? (
+                  allTags.map((t, i) => (
+                    <span key={`${t}_${i}`} className={tagPill} title={`#${t}`}>
+                      #{t}
+                    </span>
+                  ))
+                ) : (
+                  <span className={noTagsPill}>No tags</span>
+                )}
+              </div>
+
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
+            </div>
+          </div>
+
+          {/* Reactions row */}
+          <div className="mt-2 flex items-center justify-between gap-2">
             <span className="text-xs text-zinc-500">Reactions</span>
-            <span
-              className={cx(PILL_META, "text-[12px] px-2.5 py-1 tabular-nums")}
-              title="Total reactions"
-            >
+            <span className={reactionsPill} title="Total reactions">
               {reactionsTotal}
             </span>
           </div>
         </div>
       </div>
-
-      <div
-        ref={measureRef}
-        className="pointer-events-none absolute left-0 top-0 -z-10 h-0 overflow-hidden opacity-0"
-      >
-        <div className="flex flex-wrap gap-2 min-w-0">
-          <span data-pill="category" className={pillCategory}>
-            {shorten(category, 26)}
-          </span>
-
-          {allTags.map((t, i) => (
-            <span data-pill="tag" key={`m_${t}_${i}`} className={pillTag}>
-              {formatTagLabel(t, 22)}
-            </span>
-          ))}
-
-          {Array.from({ length: allTags.length }, (_, i) => i + 1).map((n) => (
-            <span
-              data-pill="more"
-              data-count={n}
-              key={`more_${n}`}
-              className={pillMore}
-            >
-              +{n}
-            </span>
-          ))}
-        </div>
-      </div>
-    </button>
+    </article>
   );
 }
 
