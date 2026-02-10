@@ -69,6 +69,36 @@ const useMediaQuery = (q) => {
   return matches;
 };
 
+const MAX_TAGS_IN_DETAILS = 12;
+
+const normalizeTagText = (t) => {
+  const raw = String(t ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^#+/, "").trim();
+};
+
+const buildUniqueTags = (rawTags, max = MAX_TAGS_IN_DETAILS) => {
+  const raw = Array.isArray(rawTags) ? rawTags : [];
+
+  const normalized = raw
+    .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
+    .map((t) => normalizeTagText(t))
+    .filter(Boolean);
+
+  const seen = new Set();
+  const out = [];
+
+  for (const t of normalized) {
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+    if (out.length >= max) break;
+  }
+
+  return out;
+};
+
 const PostDetails = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -188,6 +218,8 @@ const PostDetails = () => {
     };
   }, [post?.userId]);
 
+  const tags = useMemo(() => buildUniqueTags(post?.tags), [post?.tags]);
+
   if (isLoading) return <Spinner />;
   if (!post) return <p>Post not found.</p>;
 
@@ -285,11 +317,17 @@ const PostDetails = () => {
   const postCardClass = [
     cardBase,
     "overflow-visible sm:overflow-hidden p-1 sm:p-6",
-    "lg:h-[calc(100vh-9rem)] lg:flex lg:flex-col",
+    "flex flex-col",
+    "min-h-[calc(100vh-7.5rem)] min-h-[calc(100svh-7.5rem)] sm:min-h-0",
+    "lg:h-[calc(100vh-9rem)]",
     post.locked
       ? "opacity-90 grayscale hover:opacity-100 transition duration-200"
       : "",
   ].join(" ");
+
+  const TAG_PILL =
+    "inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 " +
+    "px-3 py-1 text-xs text-sky-200 shrink-0 max-w-[14rem] overflow-hidden";
 
   return (
     <div className={wrapperClass}>
@@ -298,7 +336,6 @@ const PostDetails = () => {
           <div className={postCardClass}>
             {/* HEADER */}
             <div className="flex-none">
-              {/* Top row: Author + actions */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2 min-w-0">
                   <div className="relative flex-none">
@@ -335,7 +372,12 @@ const PostDetails = () => {
                   </div>
 
                   <div className="min-w-0">
-                    {author?.id && <AuthorLink author={author} />}
+                    {author?.id && (
+                      <AuthorLink
+                        author={author}
+                        className="inline-block max-w-[10rem] sm:max-w-[22rem] truncate align-middle"
+                      />
+                    )}
 
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
                       <span className="whitespace-nowrap sm:hidden">
@@ -348,7 +390,7 @@ const PostDetails = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-none">
+                <div className="flex items-center gap-1.5 flex-none shrink-0">
                   <button
                     type="button"
                     onClick={handleSaveToggle}
@@ -374,12 +416,10 @@ const PostDetails = () => {
                 </div>
               </div>
 
-              {/* Title */}
-              <h1 className="mt-3 text-[1.45rem] leading-tight sm:text-3xl font-bold text-zinc-100 [overflow-wrap:anywhere]">
+              <h1 className="mt-3 text-[1.45rem] leading-tight sm:text-3xl font-bold text-zinc-100 break-words">
                 {post.title}
               </h1>
 
-              {/* Badges + Lock (left) + Category (right) */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {post?.category && (
                   <span
@@ -394,7 +434,6 @@ const PostDetails = () => {
                   </span>
                 )}
 
-                {/* Right side: badges stay as before (do not change unlocked behavior) */}
                 <div className="ml-auto flex flex-wrap items-center gap-2 justify-end">
                   {post?.badges?.mostInspiring && (
                     <Badge
@@ -410,7 +449,6 @@ const PostDetails = () => {
                   )}
                 </div>
 
-                {/* Locked pill: separate item, only affects locked posts */}
                 {post.locked && lockedDate && (
                   <span
                     title="This post is archived and cannot be edited or commented"
@@ -425,42 +463,64 @@ const PostDetails = () => {
               </div>
             </div>
 
-            {/* BODY (scroll on lg+) */}
+            {/* BODY */}
             <div className="mt-6 flex-1 min-h-0 overflow-y-visible lg:overflow-y-auto lg:pr-1 ui-scrollbar">
               <div className="space-y-6">
                 {post?.description && (
-                  <p className="text-zinc-200 text-base leading-relaxed [overflow-wrap:anywhere]">
+                  <p className="text-zinc-200 text-base leading-relaxed break-words">
                     {post.description}
                   </p>
                 )}
 
-                <div className="text-zinc-200 whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed">
+                <div className="text-zinc-200 whitespace-pre-wrap break-words leading-relaxed">
                   {post?.content}
                 </div>
-
-                {Array.isArray(post?.tags) && post.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {post.tags.map((tag, index) => (
-                      <span
-                        key={`${tag.text}-${index}`}
-                        className="inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-200"
-                      >
-                        #{tag.text}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
 
             {/* FOOTER */}
             <div className="flex-none">
               <div className="mt-6 border-t border-zinc-800 pt-4">
-                <ReactionSummary
-                  postId={post.id}
-                  locked={post.locked}
-                  reactionCounts={post.reactionCounts}
-                />
+                <div className="min-h-[2.25rem]">
+                  <div
+                    className="relative -mx-1 px-1"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      className={
+                        "tag-rail flex items-center gap-2 flex-nowrap w-full " +
+                        "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
+                        "pb-3 touch-pan-x [-webkit-overflow-scrolling:touch]"
+                      }
+                    >
+                      {tags.length > 0 ? (
+                        tags.map((t, index) => (
+                          <span
+                            key={`${t}-${index}`}
+                            className={TAG_PILL}
+                            title={`#${t}`}
+                          >
+                            <span className="truncate">#{t}</span>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-zinc-600">No tags</span>
+                      )}
+                    </div>
+
+                    <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
+                  </div>
+                </div>
+
+                <div className={tags.length > 0 ? "mt-2" : "mt-3"}>
+                  <ReactionSummary
+                    postId={post.id}
+                    locked={post.locked}
+                    reactionCounts={post.reactionCounts}
+                  />
+                </div>
               </div>
 
               {canManagePost && (
