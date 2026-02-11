@@ -303,7 +303,7 @@ const CommentItem = ({
                   }}
                   aria-label="Show Top Contributor badge info"
                 >
-                  <ShieldIcon className="w-5 h-5 text-sky-200 group-hover:scale-110 transition-transform" />
+                  <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5" />
                 </button>
               )}
             </div>

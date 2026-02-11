@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import AvatarDropdown from "./AvatarDropdown";
 import Spinner from "./Spinner";
+import BrandWordmark from "./ui/BrandWordmark";
 
 /**
  * @component Header
@@ -39,16 +40,7 @@ const Header = () => {
       <div className="w-full border-b border-zinc-800/70 bg-zinc-950/80 backdrop-blur ring-1 ring-zinc-100/5">
         <div className="ui-shell-header py-3">
           <div className="flex items-center justify-between gap-3">
-            <NavLink
-              to="/"
-              className="flex items-center gap-2 text-zinc-100 no-underline"
-              aria-label="Go to Home"
-            >
-              <span className="font-bold text-blue-400">{"<LR/>"}</span>
-              <span className="font-semibold">
-                Life <span className="text-blue-400">Recompiled</span>
-              </span>
-            </NavLink>
+            <BrandWordmark className="shrink-0" tagline="CODE-POWERED" />
 
             <div className="flex items-center gap-2">
               {user ? (
