@@ -1,9 +1,11 @@
+import { BRAND } from "../constants/brand";
+
 const Footer = () => {
   return (
     <footer className="border-t border-zinc-800/80 bg-zinc-950">
       <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
         <p className="text-center text-sm text-zinc-500">
-          © {new Date().getFullYear()} LifeRecompiled · Created by{" "}
+          © {new Date().getFullYear()} {BRAND.name} · Created by{" "}
           <a
             href="https://github.com/cole92"
             target="_blank"
