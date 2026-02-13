@@ -80,7 +80,7 @@ export const FiltersPanelContent = ({
         </button>
       </div>
 
-      {/* Bitno: min-h-0 da bi unutrasnji overflow radio u flex konteineru */}
+      {/* Bitno: min-h-0 da bi unutrasnji overflow radio u flex kontejneru */}
       <div className="mt-4 flex min-h-0 flex-1 flex-col">
         <h3 className="text-sm font-semibold text-zinc-200">
           Categories{activeCount > 0 ? ` (${activeCount})` : ""}
@@ -563,7 +563,8 @@ const SearchAndFilterBar = ({
               >
                 <motion.button
                   type="button"
-                  aria-label="Close filters"
+                  aria-hidden="true"
+                  tabIndex={-1}
                   className="absolute inset-0 h-full w-full bg-zinc-950/60"
                   variants={backdropVariants}
                   onClick={closeFilters}
@@ -574,6 +575,7 @@ const SearchAndFilterBar = ({
                     id="filters-panel"
                     role="dialog"
                     aria-modal="true"
+                    aria-label="Filters"
                     className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95
                      p-4 shadow-2xl backdrop-blur flex flex-col overflow-hidden h-[85vh]
                       pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-full sm:pb-4 sm:rounded-none sm:border-l
