@@ -1,9 +1,12 @@
 // Paketi
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
+
 // Komponente
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import OrientationGuard from "./components/common/OrientationGuard";
+
 // Stranice
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -13,6 +16,7 @@ import CreatePost from "./pages/CreatePost";
 import EditPost from "./pages/EditPost";
 import PostDetails from "./pages/PostDetails";
 import Profile from "./pages/Profile";
+
 // Dashboard stranice
 import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
 import SavedPosts from "./pages/dashboard/components/saved/SavedPosts";
@@ -21,15 +25,17 @@ import Trash from "./pages/dashboard/Trash";
 import Settings from "./pages/dashboard/settings/Settings";
 import ModerationPage from "./pages/dashboard/moderation/ModerationPage";
 
-
 function App() {
   return (
     <Layout>
+      <OrientationGuard />
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/post/:postId" element={<PostDetails />} />
+
         {/* Zasticene rute */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard/*" element={<DashboardLayout />}>
@@ -41,15 +47,23 @@ function App() {
             <Route path="edit/:postId" element={<EditPost />} />
             <Route path="moderation" element={<ModerationPage />} />
           </Route>
+
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
+
         <Route path="/profile/:uid" element={<Profile />} />
+
         {/* Default preusmeravanje ako ruta ne postoji */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-      {/*  ToastContainer: Komponenta za prikaz globalnih toast poruka*/}
-      <ToastContainer pauseOnFocusLoss={false} pauseOnHover={false} />
+
+      {/* ToastContainer: global toast poruke */}
+      <ToastContainer
+        pauseOnFocusLoss={false}
+        pauseOnHover={false}
+        style={{ zIndex: 120 }}
+      />
     </Layout>
   );
 }

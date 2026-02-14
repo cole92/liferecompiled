@@ -24,7 +24,6 @@ import CustomTooltip from "./components/CustomTooltip";
  * - Reads userStats from Firestore
  * - Monthly posts bar chart + most active highlight
  * - Restore vs delete pie chart
- * - Responsive ticks
  */
 
 const useIsLg = () => {
@@ -50,7 +49,6 @@ const useIsLg = () => {
 };
 
 const monthTick = (v) => {
-  // Expected format: "YYYY-MM"
   const m = v?.slice(5, 7);
   const map = {
     "01": "Jan",
@@ -79,7 +77,15 @@ const Stats = () => {
   const [pieData, setPieData] = useState([]);
   const [isPieEmpty, setIsPieEmpty] = useState(false);
 
+  // Avoid recharts measuring before layout is stable (prevents width/height -1 warnings)
+  const [chartsReady, setChartsReady] = useState(false);
+
   const isLg = useIsLg();
+
+  useEffect(() => {
+    let raf = requestAnimationFrame(() => setChartsReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   useEffect(() => {
     const fetchUserStats = async () => {
@@ -135,8 +141,6 @@ const Stats = () => {
     if (user) fetchUserStats();
   }, [user]);
 
-  const barHeight = isLg ? 240 : 270;
-
   const wrapperClass = "space-y-6 py-2 text-zinc-100";
   const cardClass =
     "ui-card rounded-2xl border border-zinc-800/70 bg-zinc-950/40 " +
@@ -176,7 +180,6 @@ const Stats = () => {
 
   return (
     <section className={wrapperClass}>
-      {/* Header card */}
       <div className={cardClass}>
         <h1 className="text-xl sm:text-2xl font-semibold">
           Your Posting Activity
@@ -186,9 +189,8 @@ const Stats = () => {
         </p>
       </div>
 
-      {/* Charts grid */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        {/* Bar chart card */}
+        {/* Bar chart */}
         <div className={cardClass}>
           <div className="mb-3">
             <h2 className="text-base font-semibold">Posts per month</h2>
@@ -197,54 +199,62 @@ const Stats = () => {
             </p>
           </div>
 
-          <div className="h-[270px] lg:h-[240px]">
-            <ResponsiveContainer width="100%" height={barHeight}>
-              <BarChart
-                data={postsPerMonth}
-                margin={{
-                  top: 6,
-                  right: 10,
-                  left: 0,
-                  bottom: isLg ? 8 : 22,
-                }}
-              >
-                <XAxis
-                  dataKey="month"
-                  tickFormatter={monthTick}
-                  interval={0} // <-- NO SKIP (mobile + desktop)
-                  minTickGap={8}
-                  tickMargin={8}
-                  height={isLg ? 26 : 42}
-                  angle={isLg ? 0 : -35}
-                  textAnchor={isLg ? "middle" : "end"}
-                  tick={{ fill: "#a1a1aa", fontSize: isLg ? 12 : 11 }}
-                  axisLine={{ stroke: "#3f3f46" }}
-                  tickLine={{ stroke: "#3f3f46" }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  width={isLg ? 42 : 30} // <-- OVO dodaj
-                  tickMargin={6} // <-- opcionalno, ali lepo legne
-                  tick={{ fill: "#a1a1aa", fontSize: 12 }}
-                  axisLine={{ stroke: "#3f3f46" }}
-                  tickLine={{ stroke: "#3f3f46" }}
-                />
-                <Tooltip
-                  content={<CustomTooltip mostActiveMonth={mostActiveMonth} />}
-                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                />
-                <Bar dataKey="count" radius={[10, 10, 0, 0]}>
-                  {postsPerMonth.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        entry.month === mostActiveMonth ? "#facc15" : "#38bdf8"
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-[270px] lg:h-[240px] min-w-0">
+            {chartsReady ? (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <BarChart
+                  data={postsPerMonth}
+                  margin={{
+                    top: 6,
+                    right: 10,
+                    left: 0,
+                    bottom: isLg ? 8 : 22,
+                  }}
+                >
+                  <XAxis
+                    dataKey="month"
+                    tickFormatter={monthTick}
+                    interval={0}
+                    minTickGap={8}
+                    tickMargin={8}
+                    height={isLg ? 26 : 42}
+                    angle={isLg ? 0 : -35}
+                    textAnchor={isLg ? "middle" : "end"}
+                    tick={{ fill: "#a1a1aa", fontSize: isLg ? 12 : 11 }}
+                    axisLine={{ stroke: "#3f3f46" }}
+                    tickLine={{ stroke: "#3f3f46" }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    width={isLg ? 42 : 30}
+                    tickMargin={6}
+                    tick={{ fill: "#a1a1aa", fontSize: 12 }}
+                    axisLine={{ stroke: "#3f3f46" }}
+                    tickLine={{ stroke: "#3f3f46" }}
+                  />
+                  <Tooltip
+                    content={
+                      <CustomTooltip mostActiveMonth={mostActiveMonth} />
+                    }
+                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                  />
+                  <Bar dataKey="count" radius={[10, 10, 0, 0]}>
+                    {postsPerMonth.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          entry.month === mostActiveMonth
+                            ? "#facc15"
+                            : "#38bdf8"
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full w-full" />
+            )}
           </div>
 
           <div className="mt-2 text-sm text-zinc-400">
@@ -255,7 +265,7 @@ const Stats = () => {
           </div>
         </div>
 
-        {/* Pie chart card */}
+        {/* Pie chart */}
         <div className={cardClass}>
           <div className="mb-3">
             <h2 className="text-base font-semibold">Restore vs Delete ratio</h2>
@@ -270,33 +280,33 @@ const Stats = () => {
             </p>
           ) : (
             <>
-              {/* CHART AREA (separate, so it does not fight with pills row) */}
-              <div className="h-[260px] lg:h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={isLg ? 92 : 84}
-                      dataKey="value"
-                      stroke="rgba(255,255,255,0.10)"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={index === 0 ? "#34d399" : "#fb7185"}
-                        />
-                      ))}
-                    </Pie>
-
-                    {/* Removed Legend to avoid bottom crowding */}
-                    <Tooltip {...pieTooltipProps} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="h-[260px] lg:h-[260px] min-w-0">
+                {chartsReady ? (
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={isLg ? 92 : 84}
+                        dataKey="value"
+                        stroke="rgba(255,255,255,0.10)"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={index === 0 ? "#34d399" : "#fb7185"}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip {...pieTooltipProps} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full w-full" />
+                )}
               </div>
 
-              {/* PREMIUM NUMBERS ROW (under the pie) */}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2">
                   <span className="flex items-center gap-2 text-sm text-zinc-200">
