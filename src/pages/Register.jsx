@@ -3,7 +3,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 import Spinner from "../components/Spinner";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
@@ -72,7 +72,7 @@ const Register = () => {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
-        formData.password
+        formData.password,
       );
       const user = userCredential.user;
 
@@ -85,7 +85,7 @@ const Register = () => {
         createdAt: new Date(),
       });
 
-      toast.success("Registration successful! Redirecting...", {
+      showSuccessToast("Registration successful! Redirecting...", {
         autoClose: 1200,
       });
 
@@ -98,7 +98,7 @@ const Register = () => {
       const message =
         firebaseErrorMessages[error.code] ||
         "An unexpected error occurred. Please try again.";
-      toast.error(message);
+      showErrorToast(message);
     } finally {
       setLoading(false);
     }

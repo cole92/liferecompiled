@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
-import { toast } from "react-toastify";
+import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 import { useState, useEffect } from "react";
 import Spinner from "../components/Spinner";
 
@@ -59,7 +59,7 @@ const Login = () => {
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
 
-      toast.success("Login successful! Redirecting to dashboard...", {
+      showSuccessToast("Login successful! Redirecting to home...", {
         autoClose: 2000,
       });
 
@@ -70,23 +70,22 @@ const Login = () => {
       const message =
         firebaseErrorMessages[error.code] ||
         "An unexpected error occurred. Please try again.";
-      toast.error(message);
+      showErrorToast(message);
     } finally {
       setLoading(false);
     }
   };
 
   const inputBase = "ui-input";
-const inputErr = "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-offset-0";
+  const inputErr =
+    "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-offset-0";
 
   const inputOk = "";
 
   return (
-   <div className="mx-auto flex min-h-[70vh] w-full max-w-lg items-center px-4 py-10">
-  <div className="ui-card w-full p-6 sm:p-8">
-
-       <h2 className="text-center text-3xl font-semibold text-zinc-100">
-
+    <div className="mx-auto flex min-h-[70vh] w-full max-w-lg items-center px-4 py-10">
+      <div className="ui-card w-full p-6 sm:p-8">
+        <h2 className="text-center text-3xl font-semibold text-zinc-100">
           Log In
         </h2>
         <p className="mt-1 text-center text-sm text-zinc-300">
@@ -165,9 +164,7 @@ const inputErr = "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-off
               <Spinner message="" />
             </div>
           ) : (
-           <button type="submit" className="ui-button-primary w-full py-2.5">
-
-
+            <button type="submit" className="ui-button-primary w-full py-2.5">
               Login
             </button>
           )}

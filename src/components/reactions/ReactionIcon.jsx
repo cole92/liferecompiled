@@ -3,11 +3,16 @@ import PropTypes from "prop-types";
 import { FaRegLightbulb, FaFire, FaBolt } from "react-icons/fa";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 
-import { doc, getDoc, runTransaction, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  runTransaction,
+  serverTimestamp,
+} from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
 import { auth, db } from "../../firebase";
-import { showInfoToast } from "../../utils/toastUtils";
+import { showInfoToast, showErrorToast } from "../../utils/toastUtils";
 
 const iconMap = {
   idea: FaRegLightbulb,
@@ -41,8 +46,14 @@ const reactionRemovalMessages = {
 
 const COOLDOWN_MS = 200;
 
+// Global toast ids to prevent queue spam
+const REACT_AUTH_TOAST_ID = "react:auth";
+const REACT_STATUS_TOAST_ID = "react:status";
+const REACT_ERROR_TOAST_ID = "react:error";
+
 // Deterministic reaction doc id: postId__userId__reactionType
-const buildReactionId = (postId, userId, type) => `${postId}__${userId}__${type}`;
+const buildReactionId = (postId, userId, type) =>
+  `${postId}__${userId}__${type}`;
 
 const ReactionIcon = ({
   type,
@@ -133,7 +144,9 @@ const ReactionIcon = ({
     e.stopPropagation();
 
     if (!uid) {
-      showInfoToast("Please login to react 😊");
+      showInfoToast("Please login to react 😊", {
+        toastId: REACT_AUTH_TOAST_ID,
+      });
       return;
     }
 
@@ -169,20 +182,26 @@ const ReactionIcon = ({
       setIsActive(nextIsActive);
       setOptimisticDelta((d) => d + (nextIsActive ? 1 : -1));
 
-      showInfoToast(nextIsActive ? reactionMessages[type] : reactionRemovalMessages[type]);
+      showInfoToast(
+        nextIsActive ? reactionMessages[type] : reactionRemovalMessages[type],
+        { toastId: REACT_STATUS_TOAST_ID, autoClose: 1200 },
+      );
 
       if (typeof onAfterToggle === "function") {
         onAfterToggle();
       } else if (fetchActiveOnMount) {
-        // Only resync if we are in "active fetch" mode
         fetchIsActive();
       }
     } catch (err) {
       console.error("[ReactionIcon] toggle failed:", err?.message);
-      showInfoToast("Something went wrong. Please try again.");
 
+      showErrorToast("Something went wrong. Please try again.", {
+        toastId: REACT_ERROR_TOAST_ID,
+      });
+
+      // revert local UI state
       setIsActive(prevIsActive);
-      setOptimisticDelta((d) => d + (prevIsActive ? 1 : -1));
+      setOptimisticDelta(0);
 
       if (fetchActiveOnMount) fetchIsActive();
     } finally {
@@ -195,9 +214,7 @@ const ReactionIcon = ({
   const disabled = locked || isToggling || isCoolingDown;
 
   const displayCount = Math.max(0, count + optimisticDelta);
-
   const activeText = typeActiveText[type];
-
 
   const baseClass = useMemo(() => {
     const common =
@@ -210,7 +227,9 @@ const ReactionIcon = ({
       ? `bg-zinc-900/30 ring-1 ring-zinc-700/60 ${activeText}`
       : `bg-transparent ${activeText}`;
 
-    const dis = disabled ? "opacity-60 cursor-not-allowed hover:bg-transparent" : "cursor-pointer";
+    const dis = disabled
+      ? "opacity-60 cursor-not-allowed hover:bg-transparent"
+      : "cursor-pointer";
 
     // Powerup slightly "special" but still subtle
     const powerupAccent =

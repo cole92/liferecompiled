@@ -1,32 +1,45 @@
 import { toast } from "react-toastify";
 
-// Success toast
-export const showSuccessToast = (message) => {
-    toast.success(message, {
-      autoClose: 2000, // Zatvara se nakon 2 sekunde
-      position: "top-center", // Gde se pojavljuje
-    });
+const DEFAULTS = {
+  autoClose: 2000,
+  position: "top-center",
+  pauseOnHover: false,
+  pauseOnFocusLoss: false,
+};
+
+function emit(type, content, opts = {}) {
+  const toastId = opts.toastId ?? opts.id;
+
+  const options = {
+    ...DEFAULTS,
+    ...opts,
+    ...(toastId ? { toastId } : {}),
   };
 
-  // Error toast
-export const showErrorToast = (message) => {
-    toast.error(message, {
-      autoClose: 2000,
-      position: "top-center",
+  // If toastId exists and toast is active -> update instead of stacking
+  if (toastId && toast.isActive(toastId)) {
+    toast.update(toastId, {
+      render: content,
+      type,
+      ...options,
     });
-  };
-  
-  // Info toast
-  export const showInfoToast = (message) => {
-    toast.info(message, {
-      autoClose: 2000,
-      position: "top-center",
-    });
-  };
-  // Warning toast
-  export const showWarningToast = (message) => {
-    toast.warn(message, {
-      autoClose: 2000,
-      position: "top-right",
-    });
-  };
+    return toastId;
+  }
+
+  if (type === "success") return toast.success(content, options);
+  if (type === "error") return toast.error(content, options);
+  if (type === "info") return toast.info(content, options);
+  if (type === "warning") return toast.warn(content, options);
+
+  return toast(content, { ...options, type });
+}
+
+export const showSuccessToast = (message, opts) =>
+  emit("success", message, opts);
+export const showErrorToast = (message, opts) => emit("error", message, opts);
+export const showInfoToast = (message, opts) => emit("info", message, opts);
+export const showWarningToast = (message, opts) =>
+  emit("warning", message, opts);
+
+export const dismissToast = (id) => toast.dismiss(id);
+export const dismissAllToasts = () => toast.dismiss();

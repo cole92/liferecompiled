@@ -1,7 +1,10 @@
 import { useId, useRef, useState, useMemo } from "react";
 import PropTypes from "prop-types";
-import { toast } from "react-toastify";
+
+import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 import Spinner from "../components/Spinner";
+
+const UPLOAD_TOAST_ID = "cloudinary:upload";
 
 const CloudinaryUpload = (props) => {
   const {
@@ -79,7 +82,9 @@ const CloudinaryUpload = (props) => {
     if (!file.type.startsWith("image/")) {
       setSrStatus("Selected file is not an image.");
       setUiStatus("error");
-      toast.error("Please upload a valid image file.");
+      showErrorToast("Please upload a valid image file.", {
+        toastId: UPLOAD_TOAST_ID,
+      });
       resetNativeInput();
       return;
     }
@@ -87,7 +92,9 @@ const CloudinaryUpload = (props) => {
     if (file.size > 5 * 1024 * 1024) {
       setSrStatus("File is too large. Maximum is 5MB.");
       setUiStatus("error");
-      toast.error("File size exceeds the 5MB limit.");
+      showErrorToast("File size exceeds the 5MB limit.", {
+        toastId: UPLOAD_TOAST_ID,
+      });
       resetNativeInput();
       return;
     }
@@ -97,7 +104,9 @@ const CloudinaryUpload = (props) => {
     if (!preset || !cloud) {
       setSrStatus("Upload config missing.");
       setUiStatus("error");
-      toast.error("Cloudinary env vars missing.");
+      showErrorToast("Cloudinary env vars missing.", {
+        toastId: UPLOAD_TOAST_ID,
+      });
       resetNativeInput();
       return;
     }
@@ -124,7 +133,7 @@ const CloudinaryUpload = (props) => {
         setSrStatus("Upload failed.");
         setUiStatus("error");
         onUploadError?.();
-        toast.error(msg);
+        showErrorToast(msg, { toastId: UPLOAD_TOAST_ID });
         return;
       }
 
@@ -132,12 +141,16 @@ const CloudinaryUpload = (props) => {
 
       setUiStatus("uploaded");
       setSrStatus("Upload complete.");
-      toast.success("Image uploaded successfully!");
+      showSuccessToast("Image uploaded successfully!", {
+        toastId: UPLOAD_TOAST_ID,
+      });
     } catch (error) {
       setSrStatus("Upload failed.");
       setUiStatus("error");
       onUploadError?.();
-      toast.error("Upload failed. Please try again.");
+      showErrorToast("Upload failed. Please try again.", {
+        toastId: UPLOAD_TOAST_ID,
+      });
       console.error("Error uploading file:", error);
     } finally {
       setIsLoading(false);
@@ -252,6 +265,10 @@ CloudinaryUpload.propTypes = {
 
   ariaLabelledby: PropTypes.string,
   ariaDescribedby: PropTypes.string,
+
+  // allow kebab-case aria props (e.g. <CloudinaryUpload aria-labelledby="..." />)
+  "aria-labelledby": PropTypes.string,
+  "aria-describedby": PropTypes.string,
 
   disabled: PropTypes.bool,
 

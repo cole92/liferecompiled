@@ -126,3 +126,56 @@
 }
 
 
+/* React-Toastify (Zinc UI overrides) */
+.Toastify__toast-container {
+  z-index: 120 !important;
+}
+
+.Toastify__toast-container--top-center {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: min(92vw, 440px) !important;
+  padding: 12px !important;
+}
+
+.Toastify__toast {
+  background: rgba(9, 9, 11, 0.92) !important; /* zinc-950 */
+  color: rgb(244, 244, 245) !important; /* zinc-100 */
+  border: 1px solid rgba(63, 63, 70, 0.75) !important; /* zinc-700/800 */
+  border-radius: 16px !important;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(10px);
+  margin-bottom: 10px !important;
+}
+
+.Toastify__toast-body {
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+}
+
+.Toastify__close-button {
+  opacity: 0.9 !important;
+  color: rgba(161, 161, 170, 0.95) !important; /* zinc-400 */
+}
+
+.Toastify__progress-bar {
+  height: 3px !important;
+  opacity: 0.95 !important;
+}
+
+.Toastify__progress-bar--success {
+  background: rgba(34, 197, 94, 0.9) !important; /* green */
+}
+
+.Toastify__progress-bar--error {
+  background: rgba(244, 63, 94, 0.9) !important; /* rose */
+}
+
+.Toastify__progress-bar--info {
+  background: rgba(56, 189, 248, 0.9) !important; /* sky */
+}
+
+.Toastify__progress-bar--warning {
+  background: rgba(245, 158, 11, 0.9) !important; /* amber */
+}

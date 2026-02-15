@@ -33,6 +33,9 @@ const SavedPosts = () => {
   const POST_PER_PAGE = 10;
   const UNDO_MS = 7000;
 
+  // One shared status toast id so we do not stack "Removed/Restored/Failed" messages
+  const SAVED_STATUS_TOAST_ID = "saved:status";
+
   // Map<postId, { snapshot, index, didUndo }>
   const pendingUndoRef = useRef(new Map());
 
@@ -153,7 +156,10 @@ const SavedPosts = () => {
         if (!canceled) setSavedPosts(posts);
       } catch (error) {
         console.error("Error fetching saved posts (top-level):", error);
-        if (!canceled) showErrorToast("Something went wrong.");
+        if (!canceled)
+          showErrorToast("Something went wrong.", {
+            toastId: SAVED_STATUS_TOAST_ID,
+          });
       } finally {
         if (!canceled) setIsLoading(false);
       }
@@ -240,7 +246,9 @@ const SavedPosts = () => {
         return Array.from(byId.values());
       });
     } catch (e) {
-      showErrorToast("Failed to load more saved posts.");
+      showErrorToast("Failed to load more saved posts.", {
+        toastId: SAVED_STATUS_TOAST_ID,
+      });
       console.error("Error loading more posts:", e);
     } finally {
       setIsLoadingMore(false);
@@ -339,12 +347,15 @@ const SavedPosts = () => {
       if (mountedRef.current) {
         setSavedPosts((prev) => insertAt(prev, index, post));
       }
-      showErrorToast("Unsave failed, restored.");
+      showErrorToast("Unsave failed, restored.", {
+        toastId: SAVED_STATUS_TOAST_ID,
+      });
       console.error(error);
       return;
     }
 
     const toastId = toast(<UndoToast onUndo={onUndo} />, {
+      toastId: `unsave-undo:${post.id}`,
       autoClose: UNDO_MS,
       position: "top-center",
       pauseOnHover: false,
@@ -354,7 +365,9 @@ const SavedPosts = () => {
         if (!entry) return;
 
         if (!entry.didUndo) {
-          showSuccessToast("Removed from saved!");
+          showSuccessToast("Removed from saved!", {
+            toastId: SAVED_STATUS_TOAST_ID,
+          });
         }
 
         pendingUndoRef.current.delete(post.id);
@@ -377,12 +390,12 @@ const SavedPosts = () => {
 
       try {
         await savePost(user.uid, post.id, snapshotForSave);
-        showInfoToast("Restored.");
+        showInfoToast("Restored.", { toastId: SAVED_STATUS_TOAST_ID });
       } catch (e) {
         if (mountedRef.current) {
           setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
         }
-        showErrorToast("Restore failed.");
+        showErrorToast("Restore failed.", { toastId: SAVED_STATUS_TOAST_ID });
         console.error(e);
       }
     }

@@ -64,7 +64,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   // Klik na srce: dodaj/ukloni lajk
   const handleLike = async () => {
     if (!currentUserId) {
-      showInfoToast("Please login to react 😊");
+      showInfoToast("Please login to react 😊", { toastId: "react:auth" });
       return;
     }
 

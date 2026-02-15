@@ -36,7 +36,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/post/:postId" element={<PostDetails />} />
 
-        {/* Zasticene rute */}
+        {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard/*" element={<DashboardLayout />}>
             <Route index element={<MyPosts />} />
@@ -53,13 +53,15 @@ function App() {
         </Route>
 
         <Route path="/profile/:uid" element={<Profile />} />
-
-        {/* Default preusmeravanje ako ruta ne postoji */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
-      {/* ToastContainer: global toast poruke */}
       <ToastContainer
+        position="top-center"
+        theme="dark"
+        newestOnTop
+        limit={2}
+        draggable={false}
         pauseOnFocusLoss={false}
         pauseOnHover={false}
         style={{ zIndex: 120 }}
