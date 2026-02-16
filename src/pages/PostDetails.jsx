@@ -549,6 +549,8 @@ const PostDetails = () => {
                     postId={post.id}
                     locked={post.locked}
                     reactionCounts={post.reactionCounts}
+                    userId={currentUserId}
+                    postAuthorId={postAuthorId}
                   />
                 </div>
               </div>

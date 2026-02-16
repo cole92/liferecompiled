@@ -79,6 +79,10 @@ const ReactionIcon = ({
   onAfterToggle,
   userId,
   fetchActiveOnMount = true,
+
+  // NEW
+  disabled = false, // "soft block" (e.g. self powerup)
+  onBlockedClick,
 }) => {
   const Icon = iconMap[type];
 
@@ -156,6 +160,10 @@ const ReactionIcon = ({
     fetchIsActive();
   }, [fetchActiveOnMount, fetchIsActive]);
 
+  const hardDisabled = locked || isToggling || isCoolingDown; // true disabled
+  const softBlocked = !!disabled; // click should show toast (self powerup)
+  const uiDisabled = hardDisabled || softBlocked;
+
   const handleClick = async (e) => {
     e.stopPropagation();
 
@@ -167,7 +175,13 @@ const ReactionIcon = ({
     }
 
     if (!postId || !type) return;
-    if (locked || isToggling || isCoolingDown) return;
+    if (hardDisabled) return;
+
+    // NEW: self-block etc (do not toggle, but allow toast)
+    if (softBlocked) {
+      onBlockedClick?.();
+      return;
+    }
 
     const reactionId = buildReactionId(postId, uid, type);
     const reactionRef = doc(db, "reactions", reactionId);
@@ -234,10 +248,8 @@ const ReactionIcon = ({
   };
 
   const tooltipId = `tooltip-${type}-${postId}`;
-  const disabled = locked || isToggling || isCoolingDown;
 
   const displayCount = Math.max(0, count + optimisticDelta);
-
   const activeText = typeActiveText[type];
 
   const baseClass = useMemo(() => {
@@ -251,7 +263,7 @@ const ReactionIcon = ({
       ? `bg-zinc-900/30 ring-1 ring-zinc-700/60 ${activeText}`
       : `bg-transparent ${activeText}`;
 
-    const dis = disabled
+    const dis = uiDisabled
       ? "opacity-60 cursor-not-allowed hover:bg-transparent"
       : "cursor-pointer";
 
@@ -259,15 +271,16 @@ const ReactionIcon = ({
       type === "powerup" ? " ring-1 ring-sky-500/15 bg-sky-500/5" : "";
 
     return `${common} ${state} ${dis}${isActive ? powerupAccent : ""}`;
-  }, [disabled, isActive, activeText, type]);
+  }, [uiDisabled, isActive, activeText, type]);
 
   return (
     <>
       <button
         type="button"
         onClick={handleClick}
-        disabled={disabled}
-        aria-disabled={disabled}
+        // IMPORTANT: only hardDisabled uses native disabled
+        disabled={hardDisabled}
+        aria-disabled={uiDisabled}
         aria-pressed={isActive}
         className={baseClass}
         data-tooltip-id={tooltipId}
@@ -290,6 +303,10 @@ ReactionIcon.propTypes = {
   onAfterToggle: PropTypes.func,
   userId: PropTypes.string,
   fetchActiveOnMount: PropTypes.bool,
+
+  // NEW
+  disabled: PropTypes.bool,
+  onBlockedClick: PropTypes.func,
 };
 
 export default ReactionIcon;

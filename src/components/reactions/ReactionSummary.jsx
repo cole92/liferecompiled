@@ -1,14 +1,36 @@
 import PropTypes from "prop-types";
 import ReactionIcon from "./ReactionIcon";
+import { showInfoToast } from "../../utils/toastUtils";
 
 const ZERO_COUNTS = { idea: 0, hot: 0, powerup: 0 };
+
+// session-only toast (once per tab/session)
+const SELF_POWERUP_SESSION_KEY = "lr:selfPowerupBlockedShown";
+const SELF_POWERUP_TOAST_ID = "reaction:powerup:self";
+
+function maybeShowSelfPowerupToast() {
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      if (sessionStorage.getItem(SELF_POWERUP_SESSION_KEY)) return;
+      sessionStorage.setItem(SELF_POWERUP_SESSION_KEY, "1");
+    }
+  } catch {
+    // ignore
+  }
+
+  showInfoToast("You can't power up your own post 🙂", {
+    toastId: SELF_POWERUP_TOAST_ID,
+    autoClose: 1800,
+  });
+}
 
 const ReactionSummary = ({
   postId,
   locked,
   reactionCounts,
   onAfterToggle,
-  userId,
+  userId, // current user id
+  postAuthorId, // NEW
   fetchActiveOnMount = true,
 }) => {
   const safeCounts = {
@@ -17,6 +39,9 @@ const ReactionSummary = ({
       ? reactionCounts
       : {}),
   };
+
+  const isSelf =
+    !!userId && !!postAuthorId && String(userId) === String(postAuthorId);
 
   return (
     <div className="mt-2 ml-1 flex items-center justify-between gap-3">
@@ -51,6 +76,8 @@ const ReactionSummary = ({
           onAfterToggle={onAfterToggle}
           userId={userId}
           fetchActiveOnMount={fetchActiveOnMount}
+          disabled={isSelf} // NEW: self powerup block
+          onBlockedClick={maybeShowSelfPowerupToast} // NEW
         />
       </div>
     </div>
@@ -69,10 +96,12 @@ ReactionSummary.propTypes = {
 
   onAfterToggle: PropTypes.func,
 
-  // Optional perf: pass current user id from parent so each icon does not subscribe to auth
+  // current user id
   userId: PropTypes.string,
 
-  // Optional perf: if false, icons will not fetch active state on mount (good for Home list)
+  // NEW: author user id (post owner)
+  postAuthorId: PropTypes.string,
+
   fetchActiveOnMount: PropTypes.bool,
 };
 

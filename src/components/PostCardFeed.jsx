@@ -318,6 +318,8 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
               reactionCounts={
                 post?.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
               }
+              userId={user?.uid ?? null}
+              postAuthorId={post?.userId ?? post?.author?.id ?? null}
             />
           </div>
         </div>
