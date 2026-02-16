@@ -10,21 +10,20 @@ const DEFAULTS = {
 function emit(type, content, opts = {}) {
   const toastId = opts.toastId ?? opts.id;
 
-  const options = {
-    ...DEFAULTS,
-    ...opts,
-    ...(toastId ? { toastId } : {}),
-  };
+  const baseOptions = { ...DEFAULTS, ...opts };
+  delete baseOptions.id;
+  delete baseOptions.toastId;
 
-  // If toastId exists and toast is active -> update instead of stacking
   if (toastId && toast.isActive(toastId)) {
     toast.update(toastId, {
       render: content,
       type,
-      ...options,
+      ...baseOptions,
     });
     return toastId;
   }
+
+  const options = toastId ? { ...baseOptions, toastId } : baseOptions;
 
   if (type === "success") return toast.success(content, options);
   if (type === "error") return toast.error(content, options);

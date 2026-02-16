@@ -7,6 +7,10 @@ import { AuthContext } from "../../context/AuthContext";
 import { addComment } from "./commentsService";
 import { showErrorToast, showInfoToast } from "../../utils/toastUtils";
 
+const COMMENT_AUTH_TOAST_ID = "comment:auth";
+const COMMENT_RATE_TOAST_ID = "comment:rate";
+const COMMENT_ERROR_TOAST_ID = "comment:error";
+
 const CommentForm = ({
   postId,
   parentId,
@@ -45,7 +49,9 @@ const CommentForm = ({
 
     try {
       if (!user) {
-        showInfoToast("Please login to comment 😊");
+        showInfoToast("Please login to comment 😊", {
+          toastId: COMMENT_AUTH_TOAST_ID,
+        });
         return;
       }
 
@@ -65,9 +71,12 @@ const CommentForm = ({
       if (msg.includes("too quickly") || msg.includes("resource-exhausted")) {
         showErrorToast(
           "You're sending comments too quickly. Please try again in a few seconds.",
+          { toastId: COMMENT_RATE_TOAST_ID, autoClose: 2500 },
         );
       } else {
-        showErrorToast("An error occurred while submitting the comment.");
+        showErrorToast("An error occurred while submitting the comment.", {
+          toastId: COMMENT_ERROR_TOAST_ID,
+        });
       }
     }
   };

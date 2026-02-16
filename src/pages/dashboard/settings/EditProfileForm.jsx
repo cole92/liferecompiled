@@ -14,6 +14,10 @@ import {
   showWarningToast,
 } from "../../../utils/toastUtils";
 
+const PROFILE_NO_CHANGES_TOAST_ID = "profile:nochanges";
+const PROFILE_SUCCESS_TOAST_ID = "profile:success";
+const PROFILE_ERROR_TOAST_ID = "profile:error";
+
 const nameRegex = /^[\p{L}' -]+$/u;
 const sanitizeName = (s) =>
   String(s || "")
@@ -91,7 +95,10 @@ const EditProfileForm = ({ userData }) => {
 
   const handleSave = async () => {
     if (!hasChanges) {
-      showWarningToast("No changes to save");
+      showWarningToast("No changes to save", {
+        toastId: PROFILE_NO_CHANGES_TOAST_ID,
+        autoClose: 1200,
+      });
       return;
     }
 
@@ -113,7 +120,10 @@ const EditProfileForm = ({ userData }) => {
     }
 
     if (Object.keys(updatedData).length === 0) {
-      showInfoToast("No changes to save");
+      showInfoToast("No changes to save", {
+        toastId: PROFILE_NO_CHANGES_TOAST_ID,
+        autoClose: 1200,
+      });
       setIsSaving(false);
       return;
     }
@@ -132,10 +142,15 @@ const EditProfileForm = ({ userData }) => {
       setFormData(normalized);
       setOriginalData(normalized);
 
-      showSuccessToast("Profile updated");
+      showSuccessToast("Profile updated", {
+        toastId: PROFILE_SUCCESS_TOAST_ID,
+        autoClose: 1400,
+      });
     } catch (error) {
       console.error("Error updating document:", error);
-      showErrorToast(error?.message || "Update failed");
+      showErrorToast(error?.message || "Update failed", {
+        toastId: PROFILE_ERROR_TOAST_ID,
+      });
     } finally {
       setIsSaving(false);
     }

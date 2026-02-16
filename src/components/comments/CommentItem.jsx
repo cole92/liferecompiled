@@ -34,6 +34,18 @@ const getPortalRoot = () =>
 const MENU_WIDTH = 176;
 const MENU_MARGIN = 12;
 
+// Toast IDs (anti-spam)
+const REPORT_COMMENT_AUTH_TOAST_ID = "report:comment:auth";
+const REPORT_COMMENT_SELF_TOAST_ID = "report:comment:self";
+const REPORT_COMMENT_SUCCESS_TOAST_ID = "report:comment:success";
+const REPORT_COMMENT_ERROR_TOAST_ID = "report:comment:error";
+
+const COMMENT_DELETE_SUCCESS_TOAST_ID = "comment:delete:success";
+const COMMENT_DELETE_ERROR_TOAST_ID = "comment:delete:error";
+
+const COMMENT_EDIT_EMPTY_TOAST_ID = "comment:edit:empty";
+const COMMENT_EDIT_ERROR_TOAST_ID = "comment:edit:error";
+
 const CommentItem = ({
   userId,
   content,
@@ -94,9 +106,15 @@ const CommentItem = ({
   const disableReplyButton = locked || isDeleted || depth >= maxDepthForReply;
   const blockRenderingChildren = depth >= maxDepthForRender;
 
+  useEffect(() => {
+    if (!isEditing) setEditedContent(content);
+  }, [content, isEditing]);
+
   const onReportClick = () => {
     if (!currentUser) {
-      showInfoToast("Please login to report 😊");
+      showInfoToast("Please login to report 😊", {
+        toastId: REPORT_COMMENT_AUTH_TOAST_ID,
+      });
       return;
     }
     setShowReportModal(true);
@@ -106,13 +124,19 @@ const CommentItem = ({
 
   const onConfirmReport = async () => {
     if (!currentUser) {
-      showInfoToast("Please login to report 😊");
+      showInfoToast("Please login to report 😊", {
+        toastId: REPORT_COMMENT_AUTH_TOAST_ID,
+      });
       setShowReportModal(false);
       return;
     }
 
     if (currentUser?.uid === userId) {
-      showInfoToast("You can't report your own comment.");
+      showInfoToast("You can't report your own comment.", {
+        toastId: REPORT_COMMENT_SELF_TOAST_ID,
+        autoClose: 1600,
+      });
+      setShowReportModal(false);
       return;
     }
 
@@ -122,9 +146,15 @@ const CommentItem = ({
         targetId: commentId,
         reportedBy: currentUser.uid,
       });
-      showSuccessToast("Comment reported. Thank you!");
+
+      showSuccessToast("Comment reported. Thank you!", {
+        toastId: REPORT_COMMENT_SUCCESS_TOAST_ID,
+        autoClose: 1400,
+      });
     } catch (error) {
-      showErrorToast("Report failed. Try again.");
+      showErrorToast("Report failed. Try again.", {
+        toastId: REPORT_COMMENT_ERROR_TOAST_ID,
+      });
     } finally {
       setShowReportModal(false);
     }
@@ -200,14 +230,27 @@ const CommentItem = ({
   const directReplies = visibleReplies.length;
 
   const handleDelete = async (id) => {
+    if (isDeleting) return; // anti double click
     setIsDeleting(true);
+
     try {
       const result = await softDeleteComment({ commentId: id });
-      if (result?.data?.success) showSuccessToast("Comment removed.");
-      else showErrorToast("Error while deleting the comment.");
+
+      if (result?.data?.success) {
+        showSuccessToast("Comment removed.", {
+          toastId: COMMENT_DELETE_SUCCESS_TOAST_ID,
+          autoClose: 1200,
+        });
+      } else {
+        showErrorToast("Error while deleting the comment.", {
+          toastId: COMMENT_DELETE_ERROR_TOAST_ID,
+        });
+      }
     } catch (err) {
       console.error("Error while deleting:", err);
-      showErrorToast("Error while deleting the comment.");
+      showErrorToast("Error while deleting the comment.", {
+        toastId: COMMENT_DELETE_ERROR_TOAST_ID,
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -215,14 +258,19 @@ const CommentItem = ({
 
   const handleSave = async () => {
     const trimmed = editedContent.trim();
+
     if (!trimmed) {
-      showErrorToast("Comment cannot be empty!");
+      showErrorToast("Comment cannot be empty!", {
+        toastId: COMMENT_EDIT_EMPTY_TOAST_ID,
+      });
       return;
     }
+
     if (trimmed === content.trim()) {
       setIsEditing(false);
       return;
     }
+
     try {
       const commentRef = doc(db, "comments", commentId);
       await updateDoc(commentRef, {
@@ -232,7 +280,9 @@ const CommentItem = ({
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update comment:", error);
-      showErrorToast("Failed to update comment. Please try again.");
+      showErrorToast("Failed to update comment. Please try again.", {
+        toastId: COMMENT_EDIT_ERROR_TOAST_ID,
+      });
     }
   };
 

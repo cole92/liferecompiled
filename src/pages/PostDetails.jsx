@@ -41,6 +41,14 @@ import {
   showSuccessToast,
 } from "../utils/toastUtils";
 
+const REPORT_POST_AUTH_TOAST_ID = "report:post:auth";
+const REPORT_POST_SELF_TOAST_ID = "report:post:self";
+const REPORT_POST_SUCCESS_TOAST_ID = "report:post:success";
+const REPORT_POST_ERROR_TOAST_ID = "report:post:error";
+
+const POST_DELETE_SUCCESS_TOAST_ID = "post:delete:success";
+const POST_DELETE_ERROR_TOAST_ID = "post:delete:error";
+
 const useMediaQuery = (q) => {
   const getMatch = () =>
     typeof window !== "undefined" && window.matchMedia
@@ -245,7 +253,9 @@ const PostDetails = () => {
 
   const onReportClick = () => {
     if (!user) {
-      showInfoToast("Please login to report 😊");
+      showInfoToast("Please login to report 😊", {
+        toastId: REPORT_POST_AUTH_TOAST_ID,
+      });
       return;
     }
     setShowReportModal(true);
@@ -253,12 +263,19 @@ const PostDetails = () => {
 
   const onConfirmReport = async () => {
     if (!user) {
-      showInfoToast("Please login to report 😊");
+      showInfoToast("Please login to report 😊", {
+        toastId: REPORT_POST_AUTH_TOAST_ID,
+      });
       setShowReportModal(false);
       return;
     }
+
     if (currentUserId && postAuthorId && currentUserId === postAuthorId) {
-      showInfoToast("You can't report your own post.");
+      showInfoToast("You can't report your own post.", {
+        toastId: REPORT_POST_SELF_TOAST_ID,
+        autoClose: 1600,
+      });
+      setShowReportModal(false);
       return;
     }
 
@@ -268,9 +285,15 @@ const PostDetails = () => {
         targetId: postId,
         reportedBy: currentUserId,
       });
-      showSuccessToast("Post reported. Thank you!");
+
+      showSuccessToast("Post reported. Thank you!", {
+        toastId: REPORT_POST_SUCCESS_TOAST_ID,
+        autoClose: 1400,
+      });
     } catch (error) {
-      showErrorToast("Report failed. Try again.");
+      showErrorToast("Report failed. Try again.", {
+        toastId: REPORT_POST_ERROR_TOAST_ID,
+      });
       console.log(error);
     } finally {
       setShowReportModal(false);
@@ -284,12 +307,19 @@ const PostDetails = () => {
       setIsDeletingPost(true);
       const deletePost = httpsCallable(functions, "deletePostCascade");
       await deletePost({ postId });
-      showSuccessToast("Post permanently deleted.");
+
+      showSuccessToast("Post permanently deleted.", {
+        toastId: POST_DELETE_SUCCESS_TOAST_ID,
+        autoClose: 1400,
+      });
+
       setDeleteModalOpen(false);
       navigate("/dashboard/moderation");
     } catch (error) {
       console.error("Delete error:", error);
-      showErrorToast("Failed to delete post.");
+      showErrorToast("Failed to delete post.", {
+        toastId: POST_DELETE_ERROR_TOAST_ID,
+      });
     } finally {
       setIsDeletingPost(false);
     }
