@@ -32,24 +32,40 @@ const reactionLabels = {
   powerup: "⚡ Powerup — Show support for the author.",
 };
 
-const reactionMessages = {
-  idea: "💡 Inspired by this post? Great minds think alike!",
-  hot: "🔥 Marked as Hot — this post is on fire!",
-  powerup: "⚡ You just boosted the author's motivation!",
-};
-
-const reactionRemovalMessages = {
-  idea: "💡 Not feeling inspired anymore? :( ",
-  hot: "🔥 Cooled off a bit, huh?",
-  powerup: "⚡ Took back your Powerup — oh wow, thanks a lot. 🙃",
-};
-
 const COOLDOWN_MS = 200;
 
-// Global toast ids to prevent queue spam
+// toast ids
 const REACT_AUTH_TOAST_ID = "react:auth";
-const REACT_STATUS_TOAST_ID = "react:status";
 const REACT_ERROR_TOAST_ID = "react:error";
+const REACT_HELP_TOAST_ID = "react:help";
+const REACT_HELP_THROTTLE_MS = 1200;
+
+// throttle memory (module-scope)
+const lastToastAt = new Map();
+
+function canShowToast(id) {
+  const now = Date.now();
+  const last = lastToastAt.get(id) ?? 0;
+  if (now - last < REACT_HELP_THROTTLE_MS) return false;
+  lastToastAt.set(id, now);
+  return true;
+}
+
+function hasSeenHelp(type) {
+  try {
+    return sessionStorage.getItem(`reactHelp:${type}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markSeenHelp(type) {
+  try {
+    sessionStorage.setItem(`reactHelp:${type}`, "1");
+  } catch {
+    // ignore
+  }
+}
 
 // Deterministic reaction doc id: postId__userId__reactionType
 const buildReactionId = (postId, userId, type) =>
@@ -182,10 +198,18 @@ const ReactionIcon = ({
       setIsActive(nextIsActive);
       setOptimisticDelta((d) => d + (nextIsActive ? 1 : -1));
 
-      showInfoToast(
-        nextIsActive ? reactionMessages[type] : reactionRemovalMessages[type],
-        { toastId: REACT_STATUS_TOAST_ID, autoClose: 1200 },
-      );
+      // Show help toast only on activation, once per type per session
+      if (
+        nextIsActive &&
+        !hasSeenHelp(type) &&
+        canShowToast(REACT_HELP_TOAST_ID)
+      ) {
+        showInfoToast(reactionLabels[type], {
+          toastId: REACT_HELP_TOAST_ID,
+          autoClose: 2200,
+        });
+        markSeenHelp(type);
+      }
 
       if (typeof onAfterToggle === "function") {
         onAfterToggle();
@@ -199,9 +223,8 @@ const ReactionIcon = ({
         toastId: REACT_ERROR_TOAST_ID,
       });
 
-      // revert local UI state
       setIsActive(prevIsActive);
-      setOptimisticDelta(0);
+      setOptimisticDelta((d) => d + (prevIsActive ? 1 : -1));
 
       if (fetchActiveOnMount) fetchIsActive();
     } finally {
@@ -214,6 +237,7 @@ const ReactionIcon = ({
   const disabled = locked || isToggling || isCoolingDown;
 
   const displayCount = Math.max(0, count + optimisticDelta);
+
   const activeText = typeActiveText[type];
 
   const baseClass = useMemo(() => {
@@ -231,7 +255,6 @@ const ReactionIcon = ({
       ? "opacity-60 cursor-not-allowed hover:bg-transparent"
       : "cursor-pointer";
 
-    // Powerup slightly "special" but still subtle
     const powerupAccent =
       type === "powerup" ? " ring-1 ring-sky-500/15 bg-sky-500/5" : "";
 
@@ -265,11 +288,7 @@ ReactionIcon.propTypes = {
   locked: PropTypes.bool,
   count: PropTypes.number.isRequired,
   onAfterToggle: PropTypes.func,
-
-  // Optional: pass from parent to avoid per-icon auth subscription
   userId: PropTypes.string,
-
-  // Optional: set false in Home list to avoid per-icon getDoc on mount
   fetchActiveOnMount: PropTypes.bool,
 };
 
