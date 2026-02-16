@@ -7,9 +7,10 @@ const SAVE_ERROR_TOAST_ID = "saved:error";
 
 export const toggleSavePost = async (user, postId, isSaved, snapshot) => {
   if (!user) {
-    return showInfoToast("Please login to save posts.", {
+    showInfoToast("Please login to save posts.", {
       toastId: SAVE_AUTH_TOAST_ID,
     });
+    return isSaved; // kljucno: ne menjamo state
   }
 
   try {

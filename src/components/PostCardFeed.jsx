@@ -96,7 +96,6 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
 
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
-    if (!user) return;
 
     const currentUpdated = post?.updatedAt || post?.createdAt;
 
@@ -199,9 +198,10 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
             <button
               type="button"
               onClick={handleSaveToggle}
-              disabled={!user}
               aria-disabled={!user}
-              className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition disabled:opacity-40 disabled:hover:bg-transparent ${FOCUS_RING}`}
+              className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition ${FOCUS_RING} ${
+                !user ? "opacity-70" : ""
+              }`}
               title={isSaved ? "Remove from saved" : "Save this post"}
             >
               {isSaved ? (
