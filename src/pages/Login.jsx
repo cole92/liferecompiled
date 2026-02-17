@@ -1,28 +1,45 @@
-import { useNavigate, useLocation } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
-import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import {
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
+import { auth, signOut } from "../firebase";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showInfoToast,
+} from "../utils/toastUtils";
 import { useState, useEffect } from "react";
 import Spinner from "../components/Spinner";
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("timeout")), ms);
+    }),
+  ]);
+}
+
+function safeSignOut() {
+  return signOut(auth).catch(() => {});
+}
+
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const [verifyRequired, setVerifyRequired] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     if (location.state?.email) {
-      setFormData((prevState) => ({
-        ...prevState,
-        email: location.state.email,
-      }));
+      setFormData((prev) => ({ ...prev, email: location.state.email }));
       navigate("/login", { replace: true });
     }
   }, [location.state, navigate]);
@@ -30,6 +47,7 @@ const Login = () => {
   const firebaseErrorMessages = {
     "auth/user-not-found": "Invalid email or password. Please try again.",
     "auth/invalid-credential": "Invalid email or password. Please try again.",
+    "auth/wrong-password": "Invalid email or password. Please try again.",
     "auth/too-many-requests":
       "Too many failed attempts. Please try again later.",
     "auth/network-request-failed":
@@ -38,10 +56,8 @@ const Login = () => {
       "Your account has been disabled. Please contact support.",
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const validate = () => {
     const newErrors = {};
-
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.password) newErrors.password = "Password is required";
 
@@ -50,36 +66,119 @@ const Login = () => {
       newErrors.email = "Invalid email format";
     }
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setVerifyRequired(false);
+
+    if (!validate()) return;
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      const cred = await signInWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password,
+      );
 
-      showSuccessToast("Login successful! Redirecting to home...", {
-        autoClose: 2000,
+      try {
+        await withTimeout(cred.user.reload(), 4000);
+      } catch (error) {
+        void error;
+      }
+
+      if (!cred.user.emailVerified) {
+        setVerifyRequired(true);
+
+        showInfoToast(
+          "Please verify your email before logging in. Check your inbox.",
+          {
+            toastId: "login-verify-required",
+            autoClose: 3500,
+          },
+        );
+
+        // do not await (avoid UI lock)
+        safeSignOut();
+        return;
+      }
+
+      showSuccessToast("Login successful! Redirecting...", {
+        autoClose: 1800,
+        toastId: "login-success",
       });
 
-      setTimeout(() => {
-        navigate("/");
-      }, 500);
+      const from = location.state?.from?.pathname || "/";
+      setTimeout(() => navigate(from, { replace: true }), 300);
     } catch (error) {
       const message =
         firebaseErrorMessages[error.code] ||
         "An unexpected error occurred. Please try again.";
-      showErrorToast(message);
+      showErrorToast(message, { toastId: "login-error" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!formData.email || !formData.password) {
+      showErrorToast(
+        "Enter your email and password to resend the verification email.",
+      );
+      return;
+    }
+
+    setResendLoading(true);
+    try {
+      const cred = await signInWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password,
+      );
+
+      try {
+        await withTimeout(cred.user.reload(), 4000);
+      } catch (error) {
+        void error;
+      }
+
+      if (cred.user.emailVerified) {
+        showSuccessToast("Your email is already verified. Please log in.", {
+          toastId: "already-verified",
+        });
+        safeSignOut();
+        setVerifyRequired(false);
+        return;
+      }
+
+      await sendEmailVerification(cred.user);
+
+      showSuccessToast(
+        "Verification email sent again. Please check your inbox.",
+        {
+          toastId: "verify-resent",
+          autoClose: 3000,
+        },
+      );
+
+      safeSignOut();
+    } catch (error) {
+      const message =
+        firebaseErrorMessages[error.code] ||
+        "Could not resend verification email. Please try again.";
+      showErrorToast(message, { toastId: "verify-resent-error" });
+      safeSignOut();
+    } finally {
+      setResendLoading(false);
     }
   };
 
   const inputBase = "ui-input";
   const inputErr =
     "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-offset-0";
-
   const inputOk = "";
 
   return (
@@ -98,7 +197,6 @@ const Login = () => {
           aria-busy={loading ? "true" : "false"}
           className="mt-6 space-y-4"
         >
-          {/* Email */}
           <div className="space-y-2">
             <label htmlFor="email" className="ui-label">
               Email address
@@ -129,7 +227,6 @@ const Login = () => {
             )}
           </div>
 
-          {/* Password */}
           <div className="space-y-2">
             <label htmlFor="password" className="ui-label">
               Password
@@ -158,6 +255,57 @@ const Login = () => {
               </p>
             )}
           </div>
+
+          <div className="flex items-center justify-between pt-1 text-sm">
+            <Link
+              to="/forgot-password"
+              state={{ email: formData.email || "" }}
+              className="text-zinc-300 hover:text-zinc-100 hover:underline underline-offset-4"
+            >
+              Forgot password?
+            </Link>
+
+            <Link
+              to="/register"
+              className="text-zinc-300 hover:text-zinc-100 hover:underline underline-offset-4"
+            >
+              Create account
+            </Link>
+          </div>
+
+          {verifyRequired && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-zinc-100">
+              <p className="font-semibold">Verify your email</p>
+              <p className="mt-1 text-zinc-200/90">
+                We sent a verification email to your inbox. Please verify your
+                email and then log in again.
+              </p>
+
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="ui-button-primary w-full sm:w-auto"
+                >
+                  {resendLoading ? "Sending..." : "Resend verification"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVerifyRequired(false);
+                    showInfoToast("After verifying, please log in again.", {
+                      toastId: "verify-try-again",
+                    });
+                  }}
+                  className="ui-button-secondary w-full sm:w-auto"
+                >
+                  I verified, let me log in
+                </button>
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex justify-center py-2">

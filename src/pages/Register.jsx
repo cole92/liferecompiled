@@ -1,11 +1,20 @@
 import { useNavigate } from "react-router-dom";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
 import { auth, db } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
-import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showInfoToast,
+} from "../utils/toastUtils";
 import Spinner from "../components/Spinner";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
+
+const SUPPRESS_VERIFY_TOAST_KEY = "lr_suppress_verify_toast_once";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -68,44 +77,83 @@ const Register = () => {
     }
 
     setLoading(true);
+
+    // Suppress AuthProvider "verify required" toast once after successful register.
+    // (Register already shows the "verification email sent" toast.)
+    try {
+      sessionStorage.setItem(SUPPRESS_VERIFY_TOAST_KEY, "1");
+    } catch (err) {
+      void err;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
         formData.password,
       );
+
       const user = userCredential.user;
 
-      await setDoc(doc(db, "users", user.uid), {
+      // 1) Kick off user doc write (do NOT await)
+      setDoc(doc(db, "users", user.uid), {
         name: "",
         bio: "",
         status: "Active",
         profilePicture: DEFAULT_PROFILE_PICTURE,
         email: user.email,
         createdAt: new Date(),
+      }).catch((err) => {
+        void err;
+        showInfoToast(
+          "Account created, but we could not finish profile setup yet. Please try logging in again later.",
+          { toastId: "register-profile-write-failed", autoClose: 3500 },
+        );
       });
 
-      showSuccessToast("Registration successful! Redirecting...", {
-        autoClose: 1200,
-      });
+      // 2) Kick off verification email (do NOT await)
+      sendEmailVerification(user)
+        .then(() => {
+          showSuccessToast(
+            "Account created! Verification email sent. Please verify and then log in.",
+            { toastId: "register-verification-sent", autoClose: 3500 },
+          );
+        })
+        .catch((err) => {
+          void err;
+          showInfoToast(
+            "Account created, but we could not send the verification email. Please log in to resend it.",
+            { toastId: "register-verification-send-failed", autoClose: 3500 },
+          );
+        });
 
+      // 3) Immediately redirect to login
       setFormData({ email: "", password: "", confirmPassword: "" });
+      setLoading(false);
 
-      setTimeout(() => {
-        navigate("/dashboard/settings");
-      }, 1200);
+      navigate("/login", {
+        replace: true,
+        state: { email: user.email, justRegistered: true },
+      });
+
+      // NOTE: We do NOT signOut here. AuthProvider enforces signOut for unverified users globally.
     } catch (error) {
+      // If register failed, remove suppress flag so AuthProvider behaves normally
+      try {
+        sessionStorage.removeItem(SUPPRESS_VERIFY_TOAST_KEY);
+      } catch (err) {
+        void err;
+      }
+
       const message =
         firebaseErrorMessages[error.code] ||
         "An unexpected error occurred. Please try again.";
       showErrorToast(message);
-    } finally {
       setLoading(false);
     }
   };
 
   const inputBase = "ui-input";
-  // error: keep red border, disable ring to avoid layered outline
   const inputErr =
     "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-offset-0";
   const inputOk = "";
@@ -126,7 +174,6 @@ const Register = () => {
           aria-busy={loading ? "true" : "false"}
           className="mt-6 space-y-4"
         >
-          {/* Email */}
           <div className="space-y-2">
             <label htmlFor="register-email" className="ui-label">
               Email address
@@ -159,7 +206,6 @@ const Register = () => {
             )}
           </div>
 
-          {/* Password */}
           <div className="space-y-2">
             <label htmlFor="register-password" className="ui-label">
               Password
@@ -191,7 +237,6 @@ const Register = () => {
             )}
           </div>
 
-          {/* Confirm Password */}
           <div className="space-y-2">
             <label htmlFor="register-confirm-password" className="ui-label">
               Confirm Password
@@ -199,17 +244,16 @@ const Register = () => {
 
             <input
               type="password"
-              className={`${inputBase} ${
-                errors.confirmPassword ? inputErr : inputOk
-              }`}
+              className={`${inputBase} ${errors.confirmPassword ? inputErr : inputOk}`}
               id="register-confirm-password"
               name="confirmPassword"
               placeholder="Confirm your password"
               value={formData.confirmPassword}
               onChange={(e) => {
                 setFormData({ ...formData, confirmPassword: e.target.value });
-                if (errors.confirmPassword)
+                if (errors.confirmPassword) {
                   setErrors({ ...errors, confirmPassword: "" });
+                }
               }}
               autoComplete="new-password"
               aria-invalid={Boolean(errors.confirmPassword)}

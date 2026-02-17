@@ -1,23 +1,20 @@
-// Paketi
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
-// Komponente
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import OrientationGuard from "./components/common/OrientationGuard";
 
-// Stranice
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import MyPosts from "./pages/MyPosts";
 import CreatePost from "./pages/CreatePost";
 import EditPost from "./pages/EditPost";
 import PostDetails from "./pages/PostDetails";
 import Profile from "./pages/Profile";
 
-// Dashboard stranice
 import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
 import SavedPosts from "./pages/dashboard/components/saved/SavedPosts";
 import Stats from "./pages/dashboard/Stats";
@@ -34,6 +31,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/post/:postId" element={<PostDetails />} />
 
         {/* Protected routes */}

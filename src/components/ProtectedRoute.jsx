@@ -1,22 +1,23 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import Spinner from "./Spinner";
 
 /**
  * @component ProtectedRoute
- * Zasticena ruta koja prikazuje child komponente samo ako je korisnik autentifikovan.
+ * Protected route that renders children only when user is authenticated.
  *
- * - Prikazuje Spinner dok traje provera autentifikacije (`isCheckingAuth`)
- * - Ako korisnik nije autentifikovan, prikazuje kratak spinner pre redirekcije
- * - Nakon 500ms prikazuje <Navigate> ka /login
+ * - Shows Spinner while auth check is in progress (isCheckingAuth)
+ * - If user is not authenticated, shows a short spinner before redirect
+ * - After 500ms redirects to /login and preserves "from" location for post-login return
  *
- * @returns {JSX.Element} `Outlet` ako je user ulogovan, u suprotnom spinner ili redirekcija
+ * @returns {JSX.Element} Outlet if authenticated, otherwise spinner or redirect
  */
 
 const ProtectedRoute = () => {
   const { isAuthenticated, isCheckingAuth } = useContext(AuthContext);
   const [redirectDelay, setRedirectDelay] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     if (!isAuthenticated && !isCheckingAuth) {
@@ -25,6 +26,11 @@ const ProtectedRoute = () => {
       }, 500);
 
       return () => clearTimeout(timer);
+    }
+
+    // If auth becomes true again, reset delay state
+    if (isAuthenticated) {
+      setRedirectDelay(false);
     }
   }, [isAuthenticated, isCheckingAuth]);
 
@@ -37,7 +43,7 @@ const ProtectedRoute = () => {
   }
 
   if (!isAuthenticated && redirectDelay) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   return <Outlet />;
