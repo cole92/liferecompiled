@@ -63,10 +63,10 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
       (err) => {
         console.error(
           "AvatarDropdown: failed to read TopContributor badge",
-          err
+          err,
         );
         setIsTopContributor(false);
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -120,7 +120,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
     SURFACE_PANEL_INNER,
     "relative",
     "ring-1 ring-sky-200/10",
-    "border-sky-500/15"
+    "border-sky-500/15",
   );
 
   return (
@@ -166,7 +166,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                     to="/dashboard"
                     className={cx(
                       linkBase,
-                      location.pathname === "/dashboard" && linkActive
+                      location.pathname === "/dashboard" && linkActive,
                     )}
                   >
                     Dashboard
@@ -178,7 +178,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                     to="/profile"
                     className={cx(
                       linkBase,
-                      location.pathname === "/profile" && linkActive
+                      location.pathname === "/profile" && linkActive,
                     )}
                   >
                     Profile Info
@@ -190,10 +190,22 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                     to="/dashboard/settings"
                     className={cx(
                       linkBase,
-                      location.pathname === "/dashboard/settings" && linkActive
+                      location.pathname === "/dashboard/settings" && linkActive,
                     )}
                   >
                     Settings
+                  </NavLink>
+                </li>
+
+                <li>
+                  <NavLink
+                    to="/report"
+                    className={cx(
+                      linkBase,
+                      location.pathname === "/report" && linkActive,
+                    )}
+                  >
+                    Report issue
                   </NavLink>
                 </li>
 
@@ -202,7 +214,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                     type="button"
                     className={cx(
                       "w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition rounded-lg disabled:opacity-60",
-                      FOCUS_RING
+                      FOCUS_RING,
                     )}
                     onClick={logout}
                     disabled={isLoggingOut}

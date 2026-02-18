@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
+import ReportIssue from "./pages/ReportIssue";
 import MyPosts from "./pages/MyPosts";
 import CreatePost from "./pages/CreatePost";
 import EditPost from "./pages/EditPost";
@@ -48,6 +49,7 @@ function App() {
 
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/report" element={<ReportIssue />} />
         </Route>
 
         <Route path="/profile/:uid" element={<Profile />} />
