@@ -209,6 +209,18 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                   </NavLink>
                 </li>
 
+                <li>
+                  <NavLink
+                    to="/about"
+                    className={cx(
+                      linkBase,
+                      location.pathname === "/about" && linkActive,
+                    )}
+                  >
+                    About
+                  </NavLink>
+                </li>
+
                 <li className="pt-1 mt-1 border-t border-zinc-800/80">
                   <button
                     type="button"

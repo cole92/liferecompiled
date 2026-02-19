@@ -15,6 +15,7 @@ import CreatePost from "./pages/CreatePost";
 import EditPost from "./pages/EditPost";
 import PostDetails from "./pages/PostDetails";
 import Profile from "./pages/Profile";
+import About from "./pages/About";
 
 import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
 import SavedPosts from "./pages/dashboard/components/saved/SavedPosts";
@@ -34,6 +35,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/post/:postId" element={<PostDetails />} />
+        <Route path="/about" element={<About />} />
 
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
