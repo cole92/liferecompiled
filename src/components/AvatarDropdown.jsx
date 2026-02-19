@@ -205,7 +205,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                       location.pathname === "/report" && linkActive,
                     )}
                   >
-                    Report issue
+                    Support & feedback
                   </NavLink>
                 </li>
 

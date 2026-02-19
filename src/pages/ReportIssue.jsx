@@ -2,11 +2,7 @@
 import { useContext, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import {
-  showErrorToast,
-  showInfoToast,
-  showSuccessToast,
-} from "../utils/toastUtils";
+import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 
 const SUPPORT_EMAIL =
   import.meta.env.VITE_SUPPORT_EMAIL || "support@example.com";
@@ -28,14 +24,25 @@ function buildGmailComposeUrl({ to, subject, body }) {
   return `https://mail.google.com/mail/?${params.toString()}`;
 }
 
+const TYPE_OPTIONS = [
+  "Support",
+  "Bug",
+  "Feedback",
+  "Feature request",
+  "UI issue",
+  "Performance",
+  "Other",
+];
+
 const ReportIssue = () => {
   const { user } = useContext(AuthContext);
   const location = useLocation();
 
-  const [type, setType] = useState("Bug");
+  const [type, setType] = useState("Support");
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [steps, setSteps] = useState("");
+  const [showSteps, setShowSteps] = useState(false);
 
   const meta = useMemo(() => {
     const now = new Date().toISOString();
@@ -59,10 +66,10 @@ const ReportIssue = () => {
       `Type: ${type}`,
       `Title: ${title.trim() || "-"}`,
       "",
-      "Details:",
+      "Message:",
       details.trim() || "-",
       "",
-      "Steps to reproduce:",
+      "Steps (optional):",
       steps.trim() || "-",
       "",
       "---- Debug ----",
@@ -89,44 +96,12 @@ const ReportIssue = () => {
 
   const validateRequired = () => {
     if (!title.trim() || !details.trim()) {
-      showErrorToast("Please enter title and details.", {
+      showErrorToast("Please enter a title and a message.", {
         toastId: "report-required",
       });
       return false;
     }
     return true;
-  };
-
-  const handleOpenEmailApp = () => {
-    if (!validateRequired()) return;
-
-    try {
-      window.location.href = mailtoHref;
-      showSuccessToast("Opening your email app...", {
-        toastId: "report-open-mailto",
-      });
-    } catch (err) {
-      void err;
-      showInfoToast("Could not open email app. Use Gmail or Copy.", {
-        toastId: "report-mailto-fail",
-      });
-    }
-  };
-
-  const handleOpenGmail = () => {
-    if (!validateRequired()) return;
-
-    const win = window.open(gmailHref, "_blank", "noopener,noreferrer");
-    if (!win) {
-      showInfoToast("Popup blocked. Use Copy report instead.", {
-        toastId: "report-popup-blocked",
-      });
-      return;
-    }
-
-    showSuccessToast("Opening Gmail in a new tab...", {
-      toastId: "report-open-gmail",
-    });
   };
 
   const handleCopy = async () => {
@@ -141,7 +116,7 @@ const ReportIssue = () => {
 
     try {
       await navigator.clipboard.writeText(payload);
-      showSuccessToast("Report copied to clipboard.", {
+      showSuccessToast("Copied. Paste it into any email client.", {
         toastId: "report-copied",
       });
     } catch (err) {
@@ -156,16 +131,18 @@ const ReportIssue = () => {
     <div className="mx-auto w-full max-w-2xl px-4 py-10">
       <div className="ui-card p-6 sm:p-8">
         <h2 className="text-2xl font-semibold text-zinc-100">
-          Report an issue
+          Support & feedback
         </h2>
         <p className="mt-1 text-sm text-zinc-300">
-          Send us what you saw. Basic debug info is included automatically.
+          Send a bug report, feedback, or a feature request. Basic debug info is
+          included automatically.
         </p>
 
         <div className="mt-6 space-y-4">
+          {/* Type */}
           <div className="space-y-2">
             <label className="ui-label" htmlFor="report-type">
-              Type
+              Category
             </label>
             <select
               id="report-type"
@@ -173,53 +150,73 @@ const ReportIssue = () => {
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
-              <option>Bug</option>
-              <option>Feedback</option>
-              <option>UI issue</option>
-              <option>Performance</option>
+              {TYPE_OPTIONS.map((opt) => (
+                <option key={opt}>{opt}</option>
+              ))}
             </select>
           </div>
 
+          {/* Title */}
           <div className="space-y-2">
             <label className="ui-label" htmlFor="report-title">
-              Title
+              Title <span className="text-zinc-400">(required)</span>
             </label>
             <input
               id="report-title"
               className="ui-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Short summary"
+              placeholder="Short summary (e.g. 'Search freezes')"
               autoComplete="off"
+              maxLength={120}
             />
+            <p className="text-xs text-zinc-400">
+              Keep it short — you can explain below.
+            </p>
           </div>
 
+          {/* Details */}
           <div className="space-y-2">
             <label className="ui-label" htmlFor="report-details">
-              Details
+              Message <span className="text-zinc-400">(required)</span>
             </label>
             <textarea
               id="report-details"
-              className="ui-input min-h-[120px]"
+              className="ui-input min-h-[140px]"
               value={details}
               onChange={(e) => setDetails(e.target.value)}
-              placeholder="What happened? What did you expect?"
+              placeholder="What happened, what did you expect, or what should be improved?"
             />
           </div>
 
+          {/* Steps toggle + field */}
           <div className="space-y-2">
-            <label className="ui-label" htmlFor="report-steps">
-              Steps
-            </label>
-            <textarea
-              id="report-steps"
-              className="ui-input min-h-[120px]"
-              value={steps}
-              onChange={(e) => setSteps(e.target.value)}
-              placeholder={"1) ...\n2) ...\n3) ..."}
-            />
+            <div className="flex items-center justify-between gap-3">
+              <label className="ui-label" htmlFor="report-steps">
+                Steps <span className="text-zinc-400">(optional)</span>
+              </label>
+
+              <button
+                type="button"
+                className="text-xs text-zinc-300 hover:text-zinc-100 hover:underline underline-offset-4"
+                onClick={() => setShowSteps((v) => !v)}
+              >
+                {showSteps ? "Hide steps" : "Add steps"}
+              </button>
+            </div>
+
+            {showSteps && (
+              <textarea
+                id="report-steps"
+                className="ui-input min-h-[120px]"
+                value={steps}
+                onChange={(e) => setSteps(e.target.value)}
+                placeholder={"1) ...\n2) ...\n3) ..."}
+              />
+            )}
           </div>
 
+          {/* Debug info */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 text-xs text-zinc-300">
             <div className="font-semibold text-zinc-200">
               Included debug info
@@ -231,22 +228,29 @@ const ReportIssue = () => {
             </div>
           </div>
 
+          {/* Actions */}
           <div className="flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              className="ui-button-primary"
-              onClick={handleOpenGmail}
+            <a
+              href={gmailHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ui-button-primary text-center"
+              onClick={(e) => {
+                if (!validateRequired()) e.preventDefault();
+              }}
             >
               Open Gmail (web)
-            </button>
+            </a>
 
-            <button
-              type="button"
-              className="ui-button-secondary"
-              onClick={handleOpenEmailApp}
+            <a
+              href={mailtoHref}
+              className="ui-button-secondary text-center"
+              onClick={(e) => {
+                if (!validateRequired()) e.preventDefault();
+              }}
             >
-              Open email app
-            </button>
+              Open email app (device)
+            </a>
 
             <button
               type="button"
