@@ -123,6 +123,8 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
     "border-sky-500/15",
   );
 
+  const dividerClass = "my-1 border-t border-zinc-800/80";
+
   return (
     <div ref={dropdownRef} className="relative inline-block text-left">
       <button
@@ -141,7 +143,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
         />
 
         {isTopContributor && (
-          <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5 text-amber-300" />
+          <ShieldIcon className="absolute -top-2 -right-1 h-5 w-5 text-amber-300" />
         )}
       </button>
 
@@ -153,14 +155,14 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute right-0 mt-3.5 sm:mt-3 w-52 z-50"
+            className="absolute right-0 z-50 mt-3.5 w-52 sm:mt-3"
             role="menu"
           >
             <div className={dropdownSurfaceClass}>
               {/* Arrow */}
               <div className={SURFACE_PANEL_ARROW} />
 
-              <ul className="py-1 relative z-10">
+              <ul className="relative z-10 py-1">
                 <li>
                   <NavLink
                     to="/dashboard"
@@ -197,17 +199,8 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                   </NavLink>
                 </li>
 
-                <li>
-                  <NavLink
-                    to="/report"
-                    className={cx(
-                      linkBase,
-                      location.pathname === "/report" && linkActive,
-                    )}
-                  >
-                    Support & feedback
-                  </NavLink>
-                </li>
+                {/* Divider: meta/help section */}
+                <li aria-hidden="true" className={dividerClass} />
 
                 <li>
                   <NavLink
@@ -221,11 +214,24 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                   </NavLink>
                 </li>
 
-                <li className="pt-1 mt-1 border-t border-zinc-800/80">
+                <li>
+                  <NavLink
+                    to="/report"
+                    className={cx(
+                      linkBase,
+                      location.pathname === "/report" && linkActive,
+                    )}
+                  >
+                    Support & feedback
+                  </NavLink>
+                </li>
+
+                {/* Divider before logout */}
+                <li className="mt-1 border-t border-zinc-800/80 pt-1">
                   <button
                     type="button"
                     className={cx(
-                      "w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900/50 hover:text-zinc-100 transition rounded-lg disabled:opacity-60",
+                      "w-full rounded-lg px-4 py-2 text-left text-sm text-zinc-200 transition hover:bg-zinc-900/50 hover:text-zinc-100 disabled:opacity-60",
                       FOCUS_RING,
                     )}
                     onClick={logout}
