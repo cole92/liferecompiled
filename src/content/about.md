@@ -26,6 +26,7 @@ Here we talk about:
 - the reality behind trying to build something meaningful
 
 ## LifeRecompiled is evolving step by step.
+It’s still a work in progress — shaped by iteration and feedback.
 
 ## Support & feedback
 
