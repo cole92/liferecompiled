@@ -35,9 +35,10 @@ export function clampPageSize(n) {
   return num;
 }
 
-// Sortiranje feed-a (v1) – samo po datumu, bez metrika/score
+// Sortiranje feed-a (v1)
 export const SORT_NEWEST = "newest";
 export const SORT_OLDEST = "oldest";
+export const SORT_TRENDING = "trending";
 
 // Dozvoljeni smerovi – koristi se za sanitizaciju unosa (safeSort)
-export const ALLOWED_SORT = new Set([SORT_NEWEST, SORT_OLDEST]);
+export const ALLOWED_SORT = new Set([SORT_NEWEST, SORT_OLDEST, SORT_TRENDING]);

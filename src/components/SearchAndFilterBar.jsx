@@ -54,10 +54,13 @@ export const FiltersPanelContent = ({
   onFilterChange,
   onReset,
   onClose,
+  isTrending = false,
 }) => {
   const activeCount = selectedCategories?.length || 0;
 
   const handleCategoryChange = (event) => {
+    if (isTrending) return;
+
     const { value } = event.target;
     const isActive = selectedCategories.includes(value);
 
@@ -86,6 +89,12 @@ export const FiltersPanelContent = ({
           Categories{activeCount > 0 ? ` (${activeCount})` : ""}
         </h3>
 
+        {isTrending && (
+          <p className="mt-2 text-xs text-zinc-400">
+            Trending view disables category filters.
+          </p>
+        )}
+
         {/* Lista je jedino sto skroluje */}
         <div className="mt-3 min-h-0 flex-1 overflow-auto pr-1 ui-scrollbar">
           <div className="space-y-2">
@@ -100,7 +109,12 @@ export const FiltersPanelContent = ({
                 <label
                   key={categoryItem}
                   htmlFor={checkboxId}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2 hover:bg-zinc-900/40"
+                  className={[
+                    "flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/30 px-3 py-2",
+                    isTrending
+                      ? "opacity-60 cursor-not-allowed"
+                      : "cursor-pointer hover:bg-zinc-900/40",
+                  ].join(" ")}
                 >
                   <input
                     id={checkboxId}
@@ -109,6 +123,7 @@ export const FiltersPanelContent = ({
                     value={categoryItem}
                     checked={isActive}
                     onChange={handleCategoryChange}
+                    disabled={isTrending}
                     className="h-4 w-4 accent-sky-400"
                   />
                   <span className="text-sm text-zinc-100">{categoryItem}</span>
@@ -145,6 +160,7 @@ FiltersPanelContent.propTypes = {
   onFilterChange: PropTypes.func.isRequired,
   onReset: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
+  isTrending: PropTypes.bool,
 };
 
 /**
@@ -204,8 +220,21 @@ const SearchAndFilterBar = ({
     if (isLgUp) setIsFilterOpen(false);
   }, [isLgUp]);
 
+  // Sync local sort with global
+  useEffect(() => {
+    if (sortBy === "oldest" || sortBy === "newest" || sortBy === "trending") {
+      setLocalSortBy(sortBy);
+    } else {
+      setLocalSortBy("newest");
+    }
+  }, [sortBy]);
+
+  const isTrendingSort = localSortBy === "trending" || sortBy === "trending";
+
   const hasActiveCategory =
-    Array.isArray(selectedCategories) && selectedCategories.length === 1;
+    !isTrendingSort &&
+    Array.isArray(selectedCategories) &&
+    selectedCategories.length === 1;
 
   // Lock oldest sort in single-category mode
   useEffect(() => {
@@ -214,15 +243,6 @@ const SearchAndFilterBar = ({
       onSortChange("newest");
     }
   }, [hasActiveCategory, localSortBy, onSortChange]);
-
-  // Sync local sort with global
-  useEffect(() => {
-    if (sortBy === "oldest" || sortBy === "newest") {
-      setLocalSortBy(sortBy);
-    } else {
-      setLocalSortBy("newest");
-    }
-  }, [sortBy]);
 
   const closeFilters = useCallback(() => setIsFilterOpen(false), []);
 
@@ -302,6 +322,11 @@ const SearchAndFilterBar = ({
   const applySort = (value) => {
     if (hasActiveCategory && value === "oldest") return;
 
+    // Trending view ignores categories, so clear them to avoid confusing UI.
+    if (value === "trending") {
+      onFilterChange([]);
+    }
+
     setLocalSortBy(value);
     onSortChange(value);
     closeSort();
@@ -354,12 +379,25 @@ const SearchAndFilterBar = ({
   };
 
   const activeCount = selectedCategories?.length || 0;
-  const sortLabel = localSortBy === "oldest" ? "Oldest First" : "Newest First";
-  const sortLabelShort = localSortBy === "oldest" ? "Oldest" : "Newest";
+
+  const sortLabel =
+    localSortBy === "trending"
+      ? "Trending 🔥"
+      : localSortBy === "oldest"
+        ? "Oldest First"
+        : "Newest First";
+
+  const sortLabelShort =
+    localSortBy === "trending"
+      ? "Trending 🔥"
+      : localSortBy === "oldest"
+        ? "Oldest"
+        : "Newest";
 
   const sortOptions = [
     { value: "newest", label: "Newest First", disabled: false },
     { value: "oldest", label: "Oldest First", disabled: hasActiveCategory },
+    { value: "trending", label: "Trending 🔥", disabled: false },
   ];
 
   const wrapClass = variant === "card" ? "ui-card p-3 sm:p-4" : "w-full";
@@ -592,6 +630,7 @@ const SearchAndFilterBar = ({
                       onFilterChange={onFilterChange}
                       onReset={handleLocalClear}
                       onClose={closeFilters}
+                      isTrending={isTrendingSort}
                     />
                   </motion.div>
                 </div>

@@ -54,16 +54,22 @@ const Home = () => {
 
   const canShowCreateButton = !!user;
 
+  const isTrendingSort = sortBy === "trending";
+
   const activeCategory =
-    Array.isArray(selectedCategories) && selectedCategories.length === 1
+    !isTrendingSort &&
+    Array.isArray(selectedCategories) &&
+    selectedCategories.length === 1
       ? selectedCategories[0]
       : null;
 
-  const serverSort = activeCategory
-    ? "newest"
-    : sortBy === "oldest"
-      ? "oldest"
-      : "newest";
+  const serverSort = isTrendingSort
+    ? "trending"
+    : activeCategory
+      ? "newest"
+      : sortBy === "oldest"
+        ? "oldest"
+        : "newest";
 
   useEffect(() => {
     let isCanceled = false;
@@ -207,7 +213,6 @@ const Home = () => {
   }, [isMdUp, isDesktopSidebarOpen]);
 
   // Posts grid: 1 col until lg (1024) by default
-  // (If you later decide: when sidebar is open, keep 1 col until xl, we can do that too.)
   const feedGridClassName = isDesktopSidebarOpen
     ? "grid grid-cols-1 gap-5 sm:gap-6 items-stretch xl:grid-cols-2"
     : "grid grid-cols-1 gap-5 sm:gap-6 items-stretch lg:grid-cols-2";
@@ -240,11 +245,17 @@ const Home = () => {
           {isLoading ? (
             <SkeletonCard />
           ) : showNoResults ? (
-            <NoResultsMessage
-              posts={finalPosts}
-              searchTerm=""
-              selectedCategories={selectedCategories}
-            />
+            isTrendingSort ? (
+              <p className="ui-help text-center mt-6" aria-live="polite">
+                No trending posts right now.
+              </p>
+            ) : (
+              <NoResultsMessage
+                posts={finalPosts}
+                searchTerm=""
+                selectedCategories={selectedCategories}
+              />
+            )
           ) : (
             <>
               <div className={feedGridClassName}>
@@ -295,6 +306,7 @@ const Home = () => {
                   onFilterChange={setSelectedCategories}
                   onReset={handleResetFilters}
                   onClose={handleCloseDesktopSidebar}
+                  isTrending={isTrendingSort}
                 />
               </div>
             </div>

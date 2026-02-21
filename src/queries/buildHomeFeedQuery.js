@@ -14,6 +14,7 @@ import {
   ALLOWED_SORT,
   SORT_NEWEST,
   SORT_OLDEST,
+  SORT_TRENDING,
 } from "../constants/feed";
 
 /**
@@ -31,8 +32,8 @@ import {
  * - category je opcioni string (trimovan); ako je prazan → ignorise se
  *
  * Sortiranje:
+ * - Ako je trending view → filtrira samo trending i sortira po lastHotAt desc
  * - Ako postoji category → uvek orderBy(createdAt, desc)
- *   (jer se kategori-sani feed obicno prikazuje od najnovijeg)
  * - Ako nema category → koristi se selected sort (newest/oldest)
  *
  * Napomena:
@@ -43,7 +44,7 @@ import {
  * @param {DocumentSnapshot|null} [opts.afterDoc=null] - kursor za Load More
  * @param {number} [opts.pageSize] - trazena velicina stranice (klampuje se)
  * @param {string} [opts.category] - opcioni filter kategorije
- * @param {string} [opts.sortBy] - 'newest' ili 'oldest'
+ * @param {string} [opts.sortBy] - 'newest' | 'oldest' | 'trending'
  * @returns {Query} Firestore Query za posts
  */
 export function buildHomeFeedQuery({
@@ -68,8 +69,13 @@ export function buildHomeFeedQuery({
   const normalizedCategory =
     typeof category === "string" ? category.trim() : "";
 
-  // Sortiranje zavisi od toga da li je category aktivan filter
-  if (normalizedCategory) {
+  // Trending view: prikazuje samo trending postove (ignorisemo category)
+  if (safeSort === SORT_TRENDING) {
+    parts.push(where("badges.trending", "==", true));
+    parts.push(orderBy("lastHotAt", "desc"));
+    // Tie-breaker radi stabilnije paginacije
+    parts.push(orderBy("createdAt", "desc"));
+  } else if (normalizedCategory) {
     // Kada je kategorija aktivna, koristimo najnovije prvo (desc)
     parts.push(where("category", "==", normalizedCategory));
     parts.push(orderBy("createdAt", "desc"));
