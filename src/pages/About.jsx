@@ -4,47 +4,57 @@ import remarkGfm from "remark-gfm";
 
 import aboutMdRaw from "../content/about.md?raw";
 
-function extractMarkdownTitle(md) {
+function stripMarkdownTitle(md) {
   const lines = String(md || "").split("\n");
   const first = (lines[0] || "").trim();
 
   if (first.startsWith("# ")) {
-    const title = first.replace(/^#\s+/, "").trim();
     const rest = lines
       .slice(1)
       .join("\n")
       .replace(/^\s*\n+/, "");
-    return { title: title || "About", body: rest };
+    return rest;
   }
 
-  return { title: "About", body: String(md || "") };
+  return String(md || "");
 }
 
 const mdComponents = {
-  h1: ({ ...props }) => (
+  h1: (props) => (
     <h1 className="mt-10 text-2xl font-semibold text-zinc-100" {...props} />
   ),
-  h2: ({ ...props }) => (
+  h2: (props) => (
     <h2
       className="mt-10 text-xl font-semibold tracking-tight text-zinc-100"
       {...props}
     />
   ),
-  p: ({ ...props }) => (
-    <p className="mt-4 leading-7 text-zinc-300" {...props} />
-  ),
-  ul: ({ ...props }) => (
+  p: (props) => <p className="mt-4 leading-7 text-zinc-300" {...props} />,
+  ul: (props) => (
     <ul className="mt-4 list-disc space-y-2 pl-5 text-zinc-300" {...props} />
   ),
-  li: ({ ...props }) => <li className="leading-7" {...props} />,
-  strong: ({ ...props }) => (
+  li: (props) => <li className="leading-7" {...props} />,
+  strong: (props) => (
     <strong className="font-semibold text-zinc-100" {...props} />
   ),
-  hr: ({ ...props }) => <hr className="my-8 border-zinc-800" {...props} />,
+  hr: (props) => <hr className="my-8 border-zinc-800" {...props} />,
   a: ({ href = "", children, ...props }) => {
-    const isInternal = href.startsWith("/") || href.startsWith("#");
+    const isHash = href.startsWith("#");
+    const isRoute = href.startsWith("/");
 
-    if (isInternal) {
+    if (isHash) {
+      return (
+        <a
+          href={href}
+          className="text-sky-300 hover:text-sky-200 hover:underline underline-offset-4"
+          {...props}
+        >
+          {children}
+        </a>
+      );
+    }
+
+    if (isRoute) {
       return (
         <Link
           to={href}
@@ -67,7 +77,7 @@ const mdComponents = {
       </a>
     );
   },
-  blockquote: ({ ...props }) => (
+  blockquote: (props) => (
     <blockquote
       className="mt-6 border-l-2 border-zinc-800 pl-4 text-zinc-300/95 italic"
       {...props}
@@ -99,26 +109,17 @@ const mdComponents = {
 };
 
 const About = () => {
-  const { title, body } = extractMarkdownTitle(aboutMdRaw);
+  const body = stripMarkdownTitle(aboutMdRaw);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10">
+    <div className="mx-auto w-full max-w-3xl px-1.5 py-10 sm:px-4">
       <div className="ui-card p-6 sm:p-8">
-        {/* Hero */}
-        <div className="mb-8">
+        {/* Hero (no title, only eyebrow) */}
+        <div className="mb-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/40 px-3 py-1 text-xs font-medium text-zinc-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+            <span className="h-3.5 w-3.5 rounded-full bg-sky-300" />
             LifeRecompiled / About
           </div>
-
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
-            {title}
-          </h1>
-
-          <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
-            A living portfolio and an evolving community built around real
-            problems, real progress, and the journey behind building.
-          </p>
         </div>
 
         {/* Content with subtle premium line */}
