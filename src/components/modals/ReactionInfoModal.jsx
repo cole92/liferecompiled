@@ -63,19 +63,24 @@ const ReactionInfoModal = ({ onClose, isOpen }) => {
         <h2 className="text-base md:text-lg font-semibold mb-3 text-zinc-100">
           Badges from reactions — how to earn them
         </h2>
+
         <div className="space-y-2 text-sm text-zinc-200">
           <p>
-            💡 <strong>Most Inspiring (post):</strong> reaches 10x 💡 Idea
+            💡 <strong>Most Inspiring (post):</strong> reaches 5x 💡 Idea
             reactions on a single post.
           </p>
+
           <p>
-            🔥 <strong>Trending (post):</strong> collects 20x 🔥 Hot reactions
-            on one post in a short period.
+            🔥 <strong>Trending (post):</strong> collects 10x 🔥 Hot reactions
+            on one post. Stays Trending for 7 days since the last 🔥 (each new
+            Hot refreshes the timer).
           </p>
+
           <p>
-            ⚡ <strong>Top Contributor (author):</strong> totals 50x ⚡ Powerup
+            ⚡ <strong>Top Contributor (author):</strong> totals 30x ⚡ Powerup
             reactions across all posts by the author.
           </p>
+
           <p className="text-zinc-400 text-xs italic mt-1">
             (Note: thresholds may evolve as the platform grows.)
           </p>
