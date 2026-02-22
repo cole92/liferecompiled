@@ -246,7 +246,7 @@ const MyPosts = () => {
 
       setPostToLock(null);
       setIsLockModalOpen(false);
-      showSuccessToast("Post successfully locked.");
+      showSuccessToast("Post successfully arhived.");
 
       setPosts((prevPosts) =>
         prevPosts.map((post) =>
