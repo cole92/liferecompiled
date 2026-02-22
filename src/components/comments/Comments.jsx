@@ -1,4 +1,4 @@
-// components/comments/Comments.jsx
+// src/components/comments/Comments.jsx
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
@@ -33,6 +33,11 @@ const Comments = ({
   const [visibleCount, setVisibleCount] = useState(10);
 
   const shouldSubscribe = !commentsProp;
+
+  useEffect(() => {
+    // Reset pagination when post changes (prevents weird "half list" states)
+    setVisibleCount(10);
+  }, [postID]);
 
   useEffect(() => {
     if (!postID || !shouldSubscribe) return;
@@ -73,28 +78,27 @@ const Comments = ({
     });
   }, [comments]);
 
-  // Count shown in header: only non-deleted (same as before)
-  const totalCount = useMemo(() => {
-    return comments.filter((c) => !c.deleted).length;
-  }, [comments]);
+  // Count shown in header: only non-deleted
+  const totalCount = useMemo(
+    () => comments.filter((c) => !c.deleted).length,
+    [comments],
+  );
 
   useEffect(() => {
     onCountChange?.(totalCount);
   }, [totalCount, onCountChange]);
 
-  // NEW: hide deleted root comments that have no visible descendants
+  // Hide deleted root comments that have no visible descendants
   const hasVisibleDescendant = useCallback(
     (id, memo = {}) => {
       if (memo[id] !== undefined) return memo[id];
 
       const kids = childrenMap?.[id] || [];
       for (const k of kids) {
-        // if child is not deleted -> visible descendant exists
         if (!k.deleted) {
           memo[id] = true;
           return true;
         }
-        // child deleted, but maybe it has its own visible descendants
         if (hasVisibleDescendant(k.id, memo)) {
           memo[id] = true;
           return true;
@@ -157,7 +161,7 @@ const Comments = ({
 
       <div className={listWrapperClassName}>
         {slice.length > 0 ? (
-          <div className="divide-y divide-zinc-800/70">
+          <div className="divide-y divide-zinc-800/80">
             {slice.map((comment) => (
               <CommentItem
                 key={comment.id}
@@ -186,7 +190,7 @@ const Comments = ({
             <button
               type="button"
               onClick={() => setVisibleCount((prev) => prev + 10)}
-              className="text-sm text-sky-300 hover:text-sky-200 hover:underline"
+              className="text-sm text-sky-300 hover:text-sky-200 hover:underline underline-offset-4"
             >
               Load more
             </button>

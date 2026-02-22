@@ -1,3 +1,4 @@
+// src/components/comments/CommentReaction.jsx
 import PropTypes from "prop-types";
 import {
   arrayRemove,
@@ -14,10 +15,10 @@ import LikesModal from "../modals/LikesModal";
 import { showInfoToast } from "../../utils/toastUtils";
 
 /**
- * @component CommentReaction
- * Komponenta za prikaz i upravljanje lajkovima na komentaru.
+ * CommentReaction
+ * UI for likes on a comment.
+ * Note: keep it compact (Instagram-like) so it does not add visual noise.
  */
-
 const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -27,7 +28,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
 
-  // Real-time listener za Firestore polje 'likes'
+  // Real-time listener for Firestore field "likes"
   useEffect(() => {
     const ref = doc(db, "comments", commentId);
 
@@ -42,11 +43,11 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
 
       const likesArray = snap.data().likes || [];
 
-      setLiked(likesArray.includes(currentUserId));
+      setLiked(!!currentUserId && likesArray.includes(currentUserId));
       setLikeCount(likesArray.length);
       setLikeList(likesArray);
 
-      // Ucitaj do 3 najnovija korisnika
+      // Load up to 3 newest users (optional preview)
       const idsToShow =
         likesArray.length <= 3 ? likesArray : likesArray.slice(-3);
 
@@ -61,7 +62,6 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
     return () => unsubscribe();
   }, [commentId, currentUserId]);
 
-  // Klik na srce: dodaj/ukloni lajk
   const handleLike = async () => {
     if (!currentUserId) {
       showInfoToast("Please login to react 😊", { toastId: "react:auth" });
@@ -74,7 +74,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
 
     if (liked) {
       setLiked(false);
-      setLikeCount((c) => c - 1);
+      setLikeCount((c) => Math.max(0, c - 1));
       await updateDoc(ref, { likes: arrayRemove(currentUserId) });
     } else {
       setLiked(true);
@@ -83,14 +83,12 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
     }
   };
 
-  // Otvara modal i ucitava sve korisnike koji su lajkovali komentar
   const handleOpenLikesModal = async () => {
     try {
       setVisibleCount(10);
       setShowLikesModal(true);
       setLoadingUsers(true);
       const users = await Promise.all(likeList.map(getUserById));
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Vestacko kasnjenje radi estetike
       setTopLikers(users);
     } catch (err) {
       console.error("Error loading user:", err);
@@ -99,30 +97,21 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
     }
   };
 
-  // Tekst koji se prikazuje pored ikone srca
   const otherCount = liked ? likeCount - 1 : likeCount;
-  let likeText = "";
 
+  let likeText = "";
   if (liked) {
-    if (otherCount === 0) {
-      likeText = "You";
-    } else if (otherCount === 1) {
-      likeText = "You and 1 other";
-    } else {
-      likeText = `You and ${otherCount} others`;
-    }
+    if (otherCount === 0) likeText = "You";
+    else if (otherCount === 1) likeText = "You and 1 other";
+    else likeText = `You and ${otherCount} others`;
   } else {
-    likeText =
-      likeCount === 1
-        ? "1 person liked this"
-        : `${likeCount} people liked this`;
+    likeText = likeCount === 1 ? "1 like" : `${likeCount} likes`;
   }
 
   const likeBtnDisabled = locked;
 
   return (
-    <div className="inline-flex items-center gap-2">
-      {/* Dugme za like */}
+    <div className="inline-flex items-center gap-2 min-w-0">
       <button
         type="button"
         onClick={handleLike}
@@ -130,11 +119,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
         aria-disabled={likeBtnDisabled}
         className={`inline-flex items-center gap-1 rounded-md p-1 transition
           focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
-          ${
-            likeBtnDisabled
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:bg-zinc-900/40"
-          }`}
+          ${likeBtnDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-zinc-900/40"}`}
         title={locked ? "Reactions are locked" : liked ? "Unlike" : "Like"}
       >
         {liked ? (
@@ -144,26 +129,17 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
         )}
       </button>
 
-      {/* Poruka ako nema lajkova */}
-      {likeCount === 0 && (
-        <p className="text-sm text-zinc-500 italic">
-          No one has liked this comment yet.
-        </p>
-      )}
-
-      {/* Otvori modal ako postoji makar jedan lajk */}
       {likeCount > 0 && (
         <button
           type="button"
           onClick={handleOpenLikesModal}
-          className="text-sm text-zinc-300 hover:text-zinc-100 hover:underline"
+          className="text-xs text-zinc-300 hover:text-zinc-100 hover:underline underline-offset-4 truncate max-w-[12rem] sm:max-w-[16rem]"
           title={likeText}
         >
           {likeText}
         </button>
       )}
 
-      {/* Modal sa listom korisnika */}
       <LikesModal
         isOpen={showLikesModal}
         onClose={() => {

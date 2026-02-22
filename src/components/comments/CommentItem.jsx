@@ -1,9 +1,15 @@
+// src/components/comments/CommentItem.jsx
 import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { motion } from "framer-motion";
-import { FiMoreHorizontal } from "react-icons/fi";
+import {
+  FiMoreHorizontal,
+  FiChevronDown,
+  FiChevronUp,
+  FiCornerDownRight,
+} from "react-icons/fi";
 import { createPortal } from "react-dom";
 
 import { auth, db } from "../../firebase";
@@ -46,6 +52,13 @@ const COMMENT_DELETE_ERROR_TOAST_ID = "comment:delete:error";
 const COMMENT_EDIT_EMPTY_TOAST_ID = "comment:edit:empty";
 const COMMENT_EDIT_ERROR_TOAST_ID = "comment:edit:error";
 
+const getRepliesIndent = (depth) => {
+  // Each nested level adds indentation; we clamp so mobile does not get destroyed.
+  if (depth <= 0) return "pl-4 sm:pl-5";
+  if (depth === 1) return "pl-3 sm:pl-4";
+  return "pl-2 sm:pl-3";
+};
+
 const CommentItem = ({
   userId,
   content,
@@ -61,6 +74,7 @@ const CommentItem = ({
   disableBadgeModal = false,
   maxDepthForReply = 4,
   maxDepthForRender = Infinity,
+  parentAuthor = null, // { id, name } for "Replying to"
 }) => {
   const [user, setUser] = useState(null);
   const [isReplying, setIsReplying] = useState(false);
@@ -230,7 +244,7 @@ const CommentItem = ({
   const directReplies = visibleReplies.length;
 
   const handleDelete = async (id) => {
-    if (isDeleting) return; // anti double click
+    if (isDeleting) return;
     setIsDeleting(true);
 
     try {
@@ -315,15 +329,17 @@ const CommentItem = ({
 
   const closeMenu = () => setIsMenuOpen(false);
 
+  const showParentContext = depth > 0 && parentAuthor?.id;
+
   return (
     <>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="py-4"
+        className="py-3"
       >
-        <div className="rounded-xl px-2 sm:px-3 py-3 hover:bg-zinc-950/20 transition">
+        <div className="rounded-xl px-2 sm:px-3 py-2.5 hover:bg-zinc-950/20 transition">
           <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-3 items-start">
             <div className="relative">
               <Avatar
@@ -359,12 +375,12 @@ const CommentItem = ({
             </div>
 
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-semibold text-sm text-zinc-100">
-                  {user?.name || "Unknown Author"}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                <span className="font-semibold text-sm text-zinc-100 truncate max-w-[12rem] sm:max-w-[18rem]">
+                  {user?.name || "Unknown author"}
                 </span>
 
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-zinc-500 whitespace-nowrap">
                   {editedDate
                     ? `• edited ${dayjs(editedDate).fromNow()}`
                     : tsDate
@@ -372,6 +388,18 @@ const CommentItem = ({
                       : "• just now"}
                 </span>
               </div>
+
+              {showParentContext && (
+                <div className="mt-1 inline-flex items-center gap-1.5 text-xs text-zinc-500">
+                  <FiCornerDownRight className="shrink-0" />
+                  <span className="min-w-0 truncate">
+                    Replying to{" "}
+                    <span className="text-zinc-300">
+                      @{parentAuthor?.name || "user"}
+                    </span>
+                  </span>
+                </div>
+              )}
 
               {showEditHint && (
                 <div className="mt-1 text-xs text-sky-300">
@@ -393,7 +421,7 @@ const CommentItem = ({
                     <button
                       type="button"
                       onClick={handleSave}
-                      className="text-emerald-300 hover:text-emerald-200 hover:underline"
+                      className="text-emerald-300 hover:text-emerald-200 hover:underline underline-offset-4"
                       aria-label="Save edited comment"
                     >
                       Save
@@ -401,7 +429,7 @@ const CommentItem = ({
                     <button
                       type="button"
                       onClick={handleCancel}
-                      className="text-zinc-400 hover:text-zinc-200 hover:underline"
+                      className="text-zinc-400 hover:text-zinc-200 hover:underline underline-offset-4"
                       aria-label="Cancel editing"
                     >
                       Cancel
@@ -409,11 +437,11 @@ const CommentItem = ({
                   </div>
                 </div>
               ) : isDeleted ? (
-                <p className="italic text-zinc-400 mt-2">
+                <p className="italic text-zinc-400 mt-2 break-words [overflow-wrap:anywhere]">
                   This comment has been removed.
                 </p>
               ) : (
-                <p className="mt-2 whitespace-pre-wrap text-[0.95rem] leading-relaxed text-zinc-100">
+                <p className="mt-2 whitespace-pre-wrap text-[0.95rem] leading-relaxed text-zinc-100 break-words [overflow-wrap:anywhere]">
                   {!showAll && seeAllTruncation(content)
                     ? content.slice(0, 150) + "…"
                     : content}
@@ -429,7 +457,7 @@ const CommentItem = ({
                       className={
                         disableReplyButton
                           ? "cursor-not-allowed opacity-50 text-zinc-500"
-                          : "text-sky-300 hover:text-sky-200 hover:underline"
+                          : "text-sky-300 hover:text-sky-200 hover:underline underline-offset-4"
                       }
                       disabled={disableReplyButton}
                       aria-label={
@@ -480,12 +508,15 @@ const CommentItem = ({
                   <button
                     type="button"
                     onClick={() => setIsRepliesOpen((v) => !v)}
-                    className="text-xs text-sky-300 hover:text-sky-200 hover:underline"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-xs text-sky-200 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                     aria-label={isRepliesOpen ? "Hide replies" : "View replies"}
                   >
-                    {isRepliesOpen
-                      ? "Hide replies"
-                      : `View replies (${directReplies})`}
+                    {isRepliesOpen ? <FiChevronUp /> : <FiChevronDown />}
+                    <span className="relative top-px">
+                      {isRepliesOpen
+                        ? "Hide replies"
+                        : `View replies (${directReplies})`}
+                    </span>
                   </button>
                 </div>
               )}
@@ -499,10 +530,17 @@ const CommentItem = ({
           directReplies > 0 && (
             <div
               className={[
-                "mt-3 space-y-2",
-                depth === 0 ? "border-l-2 border-zinc-800/40" : "",
+                "mt-3 space-y-2 relative",
+                "border-l-2 border-zinc-800/40",
+                getRepliesIndent(depth),
               ].join(" ")}
             >
+              {/* small anchor dot for the thread rail */}
+              <span
+                className="absolute -left-[5px] top-2 h-2 w-2 rounded-full bg-zinc-800/60"
+                aria-hidden="true"
+              />
+
               {visibleReplies.map((reply) => (
                 <CommentItem
                   key={reply.id}
@@ -520,6 +558,7 @@ const CommentItem = ({
                   disableBadgeModal={disableBadgeModal}
                   maxDepthForReply={maxDepthForReply}
                   maxDepthForRender={maxDepthForRender}
+                  parentAuthor={{ id: userId, name: user?.name || "user" }}
                 />
               ))}
             </div>
@@ -644,6 +683,10 @@ CommentItem.propTypes = {
   disableBadgeModal: PropTypes.bool,
   maxDepthForReply: PropTypes.number,
   maxDepthForRender: PropTypes.number,
+  parentAuthor: PropTypes.shape({
+    id: PropTypes.string,
+    name: PropTypes.string,
+  }),
 };
 
 export default CommentItem;
