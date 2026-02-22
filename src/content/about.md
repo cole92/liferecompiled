@@ -2,6 +2,9 @@
 
 **Growth requires structure — and structure requires discipline.**
 
+> **Work in progress**
+> LifeRecompiled is still evolving step by step. Some features may feel slow or change over time — thanks for your patience and feedback. 🙂
+
 This project started as a way to improve my technical skills.  
 But somewhere between solving real problems and rebuilding broken systems — it became something bigger.
 
@@ -24,9 +27,6 @@ Here we talk about:
 - burnout, recovery, and mental clarity
 - fitness, structure, and consistency
 - the reality behind trying to build something meaningful
-
-## LifeRecompiled is evolving step by step.
-It’s still a work in progress — shaped by iteration and feedback.
 
 ## Support & feedback
 

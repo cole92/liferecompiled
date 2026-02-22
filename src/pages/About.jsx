@@ -4,19 +4,20 @@ import remarkGfm from "remark-gfm";
 
 import aboutMdRaw from "../content/about.md?raw";
 
-function stripMarkdownTitle(md) {
+function getMarkdownTitleAndBody(md) {
   const lines = String(md || "").split("\n");
   const first = (lines[0] || "").trim();
 
   if (first.startsWith("# ")) {
-    const rest = lines
+    const title = first.replace(/^#\s+/, "").trim();
+    const body = lines
       .slice(1)
       .join("\n")
       .replace(/^\s*\n+/, "");
-    return rest;
+    return { title, body };
   }
 
-  return String(md || "");
+  return { title: "", body: String(md || "") };
 }
 
 const mdComponents = {
@@ -79,7 +80,7 @@ const mdComponents = {
   },
   blockquote: (props) => (
     <blockquote
-      className="mt-6 border-l-2 border-zinc-800 pl-4 text-zinc-300/95 italic"
+      className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 text-zinc-300"
       {...props}
     />
   ),
@@ -109,20 +110,24 @@ const mdComponents = {
 };
 
 const About = () => {
-  const body = stripMarkdownTitle(aboutMdRaw);
+  const { title, body } = getMarkdownTitleAndBody(aboutMdRaw);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-1.5 py-10 sm:px-4">
       <div className="ui-card p-6 sm:p-8">
-        {/* Hero (no title, only eyebrow) */}
+        {/* Hero */}
         <div className="mb-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/40 px-3 py-1 text-xs font-medium text-zinc-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/40 px-3 py-1 text-[11px] font-semibold tracking-wide uppercase text-zinc-300">
             <span className="h-3.5 w-3.5 rounded-full bg-sky-300" />
-            LifeRecompiled / About
+            About
           </div>
+
+          <h1 className="mt-4 text-3xl sm:text-4xl font-bold tracking-tight text-zinc-100">
+            {title || "About"}
+          </h1>
         </div>
 
-        {/* Content with subtle premium line */}
+        {/* Content */}
         <div className="relative border-t border-zinc-800 pt-6">
           <div
             aria-hidden="true"
