@@ -11,6 +11,7 @@ import {
   FiCornerDownRight,
 } from "react-icons/fi";
 import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 
 import { auth, db } from "../../firebase";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
@@ -53,11 +54,17 @@ const COMMENT_EDIT_EMPTY_TOAST_ID = "comment:edit:empty";
 const COMMENT_EDIT_ERROR_TOAST_ID = "comment:edit:error";
 
 const getRepliesIndent = (depth) => {
-  // Each nested level adds indentation; we clamp so mobile does not get destroyed.
   if (depth <= 0) return "pl-4 sm:pl-5";
   if (depth === 1) return "pl-3 sm:pl-4";
   return "pl-2 sm:pl-3";
 };
+
+const NAME_LINK_BASE =
+  "font-semibold text-sm text-zinc-100 " +
+  "hover:text-zinc-100 hover:underline underline-offset-4 decoration-zinc-500/70 " +
+  "transition " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-md";
 
 const CommentItem = ({
   userId,
@@ -101,7 +108,6 @@ const CommentItem = ({
     return getPortalRoot();
   }, []);
 
-  // Standardize: AuthContext provides { user }
   const { user: ctxUser } = useContext(AuthContext);
   const currentUser = ctxUser || auth.currentUser;
 
@@ -165,7 +171,7 @@ const CommentItem = ({
         toastId: REPORT_COMMENT_SUCCESS_TOAST_ID,
         autoClose: 1400,
       });
-    } catch (error) {
+    } catch {
       showErrorToast("Report failed. Try again.", {
         toastId: REPORT_COMMENT_ERROR_TOAST_ID,
       });
@@ -376,9 +382,22 @@ const CommentItem = ({
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                <span className="font-semibold text-sm text-zinc-100 truncate max-w-[12rem] sm:max-w-[18rem]">
-                  {user?.name || "Unknown author"}
-                </span>
+                {/* NEW: clickable author name */}
+                {userId ? (
+                  <Link
+                    to={`/profile/${userId}`}
+                    className={`${NAME_LINK_BASE} truncate max-w-[12rem] sm:max-w-[18rem]`}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Open profile: ${user?.name || "author"}`}
+                    title={user?.name || "Unknown author"}
+                  >
+                    {user?.name || "Unknown author"}
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-sm text-zinc-100">
+                    {user?.name || "Unknown author"}
+                  </span>
+                )}
 
                 <span className="text-xs text-zinc-500 whitespace-nowrap">
                   {editedDate
@@ -394,9 +413,14 @@ const CommentItem = ({
                   <FiCornerDownRight className="shrink-0" />
                   <span className="min-w-0 truncate">
                     Replying to{" "}
-                    <span className="text-zinc-300">
+                    <Link
+                      to={`/profile/${parentAuthor.id}`}
+                      className="text-zinc-300 hover:text-zinc-100 hover:underline underline-offset-4 decoration-zinc-500/70"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Open profile: ${parentAuthor?.name || "user"}`}
+                    >
                       @{parentAuthor?.name || "user"}
-                    </span>
+                    </Link>
                   </span>
                 </div>
               )}
@@ -437,11 +461,11 @@ const CommentItem = ({
                   </div>
                 </div>
               ) : isDeleted ? (
-                <p className="italic text-zinc-400 mt-2 break-words [overflow-wrap:anywhere]">
+                <p className="italic text-zinc-400 mt-2 [overflow-wrap:anywhere]">
                   This comment has been removed.
                 </p>
               ) : (
-                <p className="mt-2 whitespace-pre-wrap text-[0.95rem] leading-relaxed text-zinc-100 break-words [overflow-wrap:anywhere]">
+                <p className="mt-2 whitespace-pre-wrap text-[0.95rem] leading-relaxed text-zinc-100 [overflow-wrap:anywhere]">
                   {!showAll && seeAllTruncation(content)
                     ? content.slice(0, 150) + "…"
                     : content}
@@ -535,7 +559,6 @@ const CommentItem = ({
                 getRepliesIndent(depth),
               ].join(" ")}
             >
-              {/* small anchor dot for the thread rail */}
               <span
                 className="absolute -left-[5px] top-2 h-2 w-2 rounded-full bg-zinc-800/60"
                 aria-hidden="true"

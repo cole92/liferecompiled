@@ -11,6 +11,10 @@ const COMMENT_AUTH_TOAST_ID = "comment:auth";
 const COMMENT_RATE_TOAST_ID = "comment:rate";
 const COMMENT_ERROR_TOAST_ID = "comment:error";
 
+// Cold start hint (session-only)
+const COLD_START_HINT_SESSION_KEY = "comments:coldStartHintShown";
+const COLD_START_HINT_DELAY_MS = 1000;
+
 const CommentForm = ({
   postId,
   parentId,
@@ -18,10 +22,9 @@ const CommentForm = ({
   autoFocus = false,
   wrapperClassName = "",
   replyingTo = null, // { id: string, name: string } optional
-  rows, // NEW
-  textareaClassName = "", // NEW
+  rows,
+  textareaClassName = "",
 }) => {
-  // Standardize: AuthContext provides { user }
   const { user: ctxUser } = useContext(AuthContext);
   const user = ctxUser || auth.currentUser;
 
@@ -29,7 +32,12 @@ const CommentForm = ({
   const [error, setError] = useState("");
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showColdStartHint, setShowColdStartHint] = useState(false);
+
   const textareaRef = useRef(null);
+  const coldHintTimerRef = useRef(null);
+
   const isCommentValid = commentContent.trim().length > 0;
 
   useEffect(() => {
@@ -42,9 +50,43 @@ const CommentForm = ({
     }
   }, [autoFocus]);
 
+  useEffect(() => {
+    return () => {
+      if (coldHintTimerRef.current) clearTimeout(coldHintTimerRef.current);
+    };
+  }, []);
+
+  const startColdStartTimer = () => {
+    // Only show once per session
+    try {
+      const alreadyShown = sessionStorage.getItem(COLD_START_HINT_SESSION_KEY);
+      if (alreadyShown) return;
+    } catch {
+      // ignore (some browsers/settings)
+    }
+
+    coldHintTimerRef.current = setTimeout(() => {
+      setShowColdStartHint(true);
+      try {
+        sessionStorage.setItem(COLD_START_HINT_SESSION_KEY, "1");
+      } catch {
+        // ignore
+      }
+    }, COLD_START_HINT_DELAY_MS);
+  };
+
+  const stopColdStartTimer = () => {
+    if (coldHintTimerRef.current) clearTimeout(coldHintTimerRef.current);
+    coldHintTimerRef.current = null;
+    setShowColdStartHint(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (isSubmitting) return;
+
     setHasSubmitted(true);
 
     try {
@@ -59,6 +101,9 @@ const CommentForm = ({
         setError("Comment cannot be empty.");
         return;
       }
+
+      setIsSubmitting(true);
+      startColdStartTimer();
 
       await addComment(postId, commentContent, parentId ?? null);
 
@@ -78,6 +123,9 @@ const CommentForm = ({
           toastId: COMMENT_ERROR_TOAST_ID,
         });
       }
+    } finally {
+      stopColdStartTimer();
+      setIsSubmitting(false);
     }
   };
 
@@ -115,6 +163,7 @@ const CommentForm = ({
           "w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-zinc-100 placeholder:text-zinc-500",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
           "resize-none max-h-40 overflow-y-auto",
+          isSubmitting ? "opacity-80" : "",
           textareaClassName,
         ].join(" ")}
         rows={rows ?? (parentId ? 2 : 3)}
@@ -125,11 +174,19 @@ const CommentForm = ({
         }}
         maxLength={500}
         autoComplete="off"
+        disabled={isSubmitting}
       />
 
       {showInlineError && (
         <p className="mt-2 text-sm text-rose-200">
           {error || "Comment cannot be empty."}
+        </p>
+      )}
+
+      {showColdStartHint && (
+        <p className="mt-2 text-xs text-zinc-400">
+          Heads up: the first comment may take a few seconds while the server
+          wakes up. Thanks for your patience 🙂
         </p>
       )}
 
@@ -150,14 +207,14 @@ const CommentForm = ({
 
         <button
           type="submit"
-          disabled={!isCommentValid}
+          disabled={!isCommentValid || isSubmitting}
           className={`ui-button ${
-            isCommentValid
+            isCommentValid && !isSubmitting
               ? "bg-sky-600 text-zinc-50 hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
               : "ui-button-secondary opacity-60 cursor-not-allowed"
           }`}
         >
-          {parentId ? "Reply" : "Send"}
+          {isSubmitting ? "Sending..." : parentId ? "Reply" : "Send"}
         </button>
       </div>
     </form>
