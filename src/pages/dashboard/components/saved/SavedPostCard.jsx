@@ -2,7 +2,6 @@ import PropTypes from "prop-types";
 import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
-import { FiLock } from "react-icons/fi";
 
 import { AuthContext } from "../../../../context/AuthContext";
 import { useCheckSavedStatus } from "../../../../hooks/useCheckSavedStatus";
@@ -163,7 +162,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
                 post.title ||
                 "Post is no longer available"}
             </h2>
-            <div className="mt-2 flex items-center gap-2 text-xs text-zinc-400">
+            <div className="mt-2 flex flex-col items-start gap-1 text-xs text-zinc-400 sm:flex-row sm:items-center sm:gap-2">
               <span className={PILL_META}>Unavailable</span>
               <span className="line-clamp-1">
                 Saved on:{" "}
@@ -204,10 +203,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
       ? post.content.slice(0, CONTENT_PREVIEW_MAX)
       : "";
 
-  const archivedAtLabel = post?.lockedAt?.toDate?.()
-    ? post.lockedAt.toDate().toLocaleDateString()
-    : "";
-
+  
   return (
     <>
       <article
@@ -317,33 +313,17 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
           )}
         </div>
 
-        {(isUpdatedSinceSaved || post?.locked) && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {isUpdatedSinceSaved && (
-              <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
-                Updated since saved
-              </span>
-            )}
+       {/* Status slot (keep layout stable) */}
+<div className="mt-2 min-h-[22px] flex flex-wrap items-center gap-2">
+  {isUpdatedSinceSaved && (
+    <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+      Updated since saved
+    </span>
+  )}
 
-            {post?.locked && (
-              <span
-                className={`${PILL_META} inline-flex items-center gap-1`}
-                title={
-                  archivedAtLabel
-                    ? `Archived on: ${archivedAtLabel}`
-                    : "Archived"
-                }
-              >
-                <FiLock className="text-sm" />
-                <span className="truncate">
-                  {archivedAtLabel
-                    ? `Archived: ${archivedAtLabel}`
-                    : "Archived"}
-                </span>
-              </span>
-            )}
-          </div>
-        )}
+  {/* Archived pill removed on Saved cards (grayscale is enough). */}
+  {!isUpdatedSinceSaved && <span className="sr-only"> </span>}
+</div>
 
         {previewText ? (
           <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">

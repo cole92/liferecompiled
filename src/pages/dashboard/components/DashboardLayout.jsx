@@ -190,17 +190,17 @@ const DashboardLayout = () => {
                   )}
 
                   {isSavedPage && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center justify-between gap-2">
                       <button
                         type="button"
                         onClick={() => setSavedSortDirection("desc")}
-                        className={`px-3 py-1 text-xs rounded-full border transition
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-                          focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
-                            savedSortDirection === "desc"
-                              ? "bg-zinc-100 text-zinc-950 border-zinc-100"
-                              : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
-                          }`}
+                        className={`shrink-0 px-3 py-1 text-xs rounded-full border transition
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+        focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+          savedSortDirection === "desc"
+            ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+            : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+        }`}
                       >
                         Recently saved
                       </button>
@@ -208,13 +208,13 @@ const DashboardLayout = () => {
                       <button
                         type="button"
                         onClick={() => setSavedSortDirection("asc")}
-                        className={`px-3 py-1 text-xs rounded-full border transition
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
-                          focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
-                            savedSortDirection === "asc"
-                              ? "bg-zinc-100 text-zinc-950 border-zinc-100"
-                              : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
-                          }`}
+                        className={`shrink-0 px-3 py-1 text-xs rounded-full border transition
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+        focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+          savedSortDirection === "asc"
+            ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+            : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+        }`}
                       >
                         Oldest saved
                       </button>
