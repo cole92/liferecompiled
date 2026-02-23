@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { updateDoc, doc } from "firebase/firestore";
 
 import { db } from "../../../firebase";
@@ -28,6 +28,39 @@ const NAME_MIN = 3;
 const NAME_MAX = 30;
 const BIO_MAX = 280;
 
+// Avatar positioning (percent-based)
+const DEFAULT_AVATAR_POS = { x: 50, y: 20 };
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function splitUrlAndPos(url) {
+  const raw = String(url || "");
+  const [base, hash] = raw.split("#");
+
+  if (!hash) return { baseUrl: base || raw, pos: DEFAULT_AVATAR_POS };
+
+  const m = hash.match(/(?:pos|crop)=([0-9]{1,3}),([0-9]{1,3})/);
+  if (!m) return { baseUrl: base || raw, pos: DEFAULT_AVATAR_POS };
+
+  return {
+    baseUrl: base || raw,
+    pos: {
+      x: clamp(parseInt(m[1], 10), 0, 100),
+      y: clamp(parseInt(m[2], 10), 0, 100),
+    },
+  };
+}
+
+function buildUrlWithPos(baseUrl, pos) {
+  const base = String(baseUrl || "").split("#")[0];
+  if (!base) return "";
+  const x = clamp(Math.round(pos?.x ?? DEFAULT_AVATAR_POS.x), 0, 100);
+  const y = clamp(Math.round(pos?.y ?? DEFAULT_AVATAR_POS.y), 0, 100);
+  return `${base}#pos=${x},${y}`;
+}
+
 const EditProfileForm = ({ userData }) => {
   const [originalData, setOriginalData] = useState({
     name: "",
@@ -38,28 +71,54 @@ const EditProfileForm = ({ userData }) => {
   const [formData, setFormData] = useState({
     name: "",
     bio: "",
-    profilePicture: "",
+    profilePicture: "", // store base url (no hash)
   });
+
+  const [originalAvatarPos, setOriginalAvatarPos] =
+    useState(DEFAULT_AVATAR_POS);
+  const [avatarPos, setAvatarPos] = useState(DEFAULT_AVATAR_POS);
 
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [touchedName, setTouchedName] = useState(false);
 
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0, posX: 50, posY: 20 });
+  const pointerIdRef = useRef(null);
+
   useEffect(() => {
     if (!userData) return;
+
+    const { baseUrl, pos } = splitUrlAndPos(userData.profilePicture || "");
 
     const next = {
       name: userData.name || "",
       bio: userData.bio || "",
-      profilePicture: userData.profilePicture || "",
+      profilePicture: baseUrl || "",
     };
 
     setFormData(next);
     setOriginalData(next);
+
+    setAvatarPos(pos);
+    setOriginalAvatarPos(pos);
   }, [userData]);
 
   const cleanName = useMemo(() => sanitizeName(formData.name), [formData.name]);
+
+  const currentProfilePictureWithPos = useMemo(() => {
+    return formData.profilePicture
+      ? buildUrlWithPos(formData.profilePicture, avatarPos)
+      : "";
+  }, [formData.profilePicture, avatarPos]);
+
+  const originalProfilePictureWithPos = useMemo(() => {
+    return originalData.profilePicture
+      ? buildUrlWithPos(originalData.profilePicture, originalAvatarPos)
+      : "";
+  }, [originalData.profilePicture, originalAvatarPos]);
 
   const hasChanges = useMemo(() => {
     const cleanOriginalName = sanitizeName(originalData.name);
@@ -67,9 +126,16 @@ const EditProfileForm = ({ userData }) => {
     return (
       cleanName !== cleanOriginalName ||
       formData.bio !== originalData.bio ||
-      formData.profilePicture !== originalData.profilePicture
+      currentProfilePictureWithPos !== originalProfilePictureWithPos
     );
-  }, [cleanName, formData.bio, formData.profilePicture, originalData]);
+  }, [
+    cleanName,
+    formData.bio,
+    originalData.bio,
+    currentProfilePictureWithPos,
+    originalProfilePictureWithPos,
+    originalData.name,
+  ]);
 
   const validateForm = useCallback(() => {
     const newErrors = {};
@@ -115,8 +181,10 @@ const EditProfileForm = ({ userData }) => {
 
     if (cleanName !== cleanOriginalName) updatedData.name = cleanName;
     if (formData.bio !== originalData.bio) updatedData.bio = formData.bio;
-    if (formData.profilePicture !== originalData.profilePicture) {
-      updatedData.profilePicture = formData.profilePicture;
+
+    // profile picture includes saved position
+    if (currentProfilePictureWithPos !== originalProfilePictureWithPos) {
+      updatedData.profilePicture = currentProfilePictureWithPos;
     }
 
     if (Object.keys(updatedData).length === 0) {
@@ -135,12 +203,20 @@ const EditProfileForm = ({ userData }) => {
       const normalized = {
         name: updatedData.name ?? originalData.name,
         bio: updatedData.bio ?? originalData.bio,
+        // store base in form/original state, pos is stored separately
         profilePicture:
-          updatedData.profilePicture ?? originalData.profilePicture,
+          (updatedData.profilePicture ?? originalProfilePictureWithPos).split(
+            "#",
+          )[0] || "",
       };
 
       setFormData(normalized);
       setOriginalData(normalized);
+
+      // update original pos if we saved picture position
+      if (updatedData.profilePicture) {
+        setOriginalAvatarPos({ ...avatarPos });
+      }
 
       showSuccessToast("Profile updated", {
         toastId: PROFILE_SUCCESS_TOAST_ID,
@@ -163,9 +239,63 @@ const EditProfileForm = ({ userData }) => {
       profilePicture: originalData.profilePicture,
     });
 
+    setAvatarPos(originalAvatarPos);
+
     setErrors({});
     setTouchedName(false);
     setIsSaving(false);
+  };
+
+  // Drag handlers for avatar preview
+  const onAvatarPointerDown = (e) => {
+    if (!formData.profilePicture) return; // only draggable for custom image
+    if (e.button != null && e.button !== 0) return;
+
+    pointerIdRef.current = e.pointerId;
+    setIsDragging(true);
+
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      posX: avatarPos.x,
+      posY: avatarPos.y,
+    };
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const onAvatarPointerMove = (e) => {
+    if (!isDragging) return;
+    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current)
+      return;
+
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+
+    // Convert px movement -> percent movement (based on avatar preview size)
+    const previewSize = 112; // matches Avatar size below
+    const nextX = clamp(
+      dragStartRef.current.posX + (dx / previewSize) * 100,
+      0,
+      100,
+    );
+    const nextY = clamp(
+      dragStartRef.current.posY + (dy / previewSize) * 100,
+      0,
+      100,
+    );
+
+    setAvatarPos({ x: nextX, y: nextY });
+  };
+
+  const endDrag = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    pointerIdRef.current = null;
   };
 
   const labelClass = "block text-sm font-medium text-zinc-200 mb-1";
@@ -176,6 +306,9 @@ const EditProfileForm = ({ userData }) => {
   const errorText = "text-rose-400 text-sm mt-1";
 
   const avatarSrc = formData.profilePicture || DEFAULT_PROFILE_PICTURE;
+  const avatarObjectPosition = `${Math.round(avatarPos.x)}% ${Math.round(
+    avatarPos.y,
+  )}%`;
 
   return (
     <form
@@ -183,7 +316,6 @@ const EditProfileForm = ({ userData }) => {
       aria-busy={isSaving ? "true" : "false"}
       noValidate
     >
-      {/* NOTE: moved lg -> xl so "medium desktop" widths don't squeeze inputs */}
       <div className="grid gap-6 xl:gap-8 xl:grid-cols-[240px_1fr] xl:items-start">
         {/* Avatar + upload */}
         <div className="xl:text-center">
@@ -191,14 +323,58 @@ const EditProfileForm = ({ userData }) => {
             Profile picture
           </label>
 
-          <div className="mt-2 flex items-center gap-4 xl:flex-col xl:items-center">
-            <Avatar
-              src={avatarSrc}
-              size={112} // isto kao h-28/w-28
-              zoomable
-            />
+         <div className="mt-2 flex flex-col items-center gap-4 sm:flex-row sm:items-center xl:flex-col xl:items-center">
+            {/* Drag preview wrapper */}
+           <div className="flex flex-col items-center gap-2 mx-auto sm:mx-0 xl:mx-auto">
+              <div
+                className={[
+                  "inline-flex rounded-full",
+                  formData.profilePicture
+                    ? "cursor-grab active:cursor-grabbing"
+                    : "",
+                  "touch-none select-none",
+                ].join(" ")}
+                onPointerDown={onAvatarPointerDown}
+                onPointerMove={onAvatarPointerMove}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                aria-label="Drag to reposition profile picture"
+                title={
+                  formData.profilePicture
+                    ? "Drag to reposition"
+                    : "Upload a picture to reposition"
+                }
+              >
+                <Avatar
+                  src={avatarSrc}
+                  size={112}
+                  zoomable={false}
+                  objectPosition={
+                    formData.profilePicture ? avatarObjectPosition : undefined
+                  }
+                />
+              </div>
 
-            <div className="min-w-0 flex-1 xl:w-full">
+              {formData.profilePicture ? (
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-zinc-400">Drag to reposition</p>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarPos(DEFAULT_AVATAR_POS)}
+                    className="text-xs text-sky-300 hover:text-sky-200 hover:underline underline-offset-4"
+                    disabled={isSaving || isUploading}
+                  >
+                    Reset position
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-zinc-500">
+                  Upload a picture to adjust the crop
+                </p>
+              )}
+            </div>
+
+           <div className="w-full sm:flex-1 sm:min-w-0 xl:w-full flex flex-col items-center sm:items-start xl:items-center">
               <p
                 id="profile-picture-status"
                 className="sr-only"
@@ -217,7 +393,12 @@ const EditProfileForm = ({ userData }) => {
                 onUploadStart={() => setIsUploading(true)}
                 onUploadComplete={(url) => {
                   setIsUploading(false);
-                  setFormData((prev) => ({ ...prev, profilePicture: url }));
+
+                  const baseUrl = String(url || "").split("#")[0];
+                  setFormData((prev) => ({ ...prev, profilePicture: baseUrl }));
+
+                  // Default head-safe position for new uploads
+                  setAvatarPos(DEFAULT_AVATAR_POS);
                 }}
                 onUploadError={() => setIsUploading(false)}
               />

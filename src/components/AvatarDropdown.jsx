@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
@@ -7,6 +7,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import ShieldIcon from "./ui/ShieldIcon";
+import Avatar from "./common/Avatar";
 
 import {
   cx,
@@ -14,18 +15,10 @@ import {
   SURFACE_PANEL,
   SURFACE_PANEL_INNER,
   SURFACE_PANEL_ARROW,
-  AVATAR_FRAME_BASE,
-  AVATAR_RING_DEFAULT,
-  AVATAR_RING_TOP,
 } from "../constants/uiClasses";
 
 /**
- * @component AvatarDropdown
- *
- * Dropdown menu ispod avatara:
- * - klik na avatar otvara/zatvara meni
- * - ESC i klik van menija zatvaraju meni
- * - Top Contributor status se cita sa servera: users/{uid}.badges.topContributor
+ * AvatarDropdown
  */
 const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const location = useLocation();
@@ -38,12 +31,10 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const [isTopContributor, setIsTopContributor] = useState(false);
   const [liveProfilePicture, setLiveProfilePicture] = useState(null);
 
-  // Close menu on route change
   useEffect(() => {
     setShowMenu(false);
   }, [location.pathname]);
 
-  // Read Top Contributor + live profilePicture from public user doc
   useEffect(() => {
     if (!userId) {
       setIsTopContributor(false);
@@ -61,10 +52,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
         setLiveProfilePicture(data?.profilePicture || null);
       },
       (err) => {
-        console.error(
-          "AvatarDropdown: failed to read TopContributor badge",
-          err,
-        );
+        console.error("AvatarDropdown: failed to read user doc", err);
         setIsTopContributor(false);
       },
     );
@@ -72,7 +60,6 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
     return () => unsubscribe();
   }, [userId]);
 
-  // Close on outside click + ESC
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -85,9 +72,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
     };
 
     const handleKeyDown = (event) => {
-      if (showMenu && event.key === "Escape") {
-        setShowMenu(false);
-      }
+      if (showMenu && event.key === "Escape") setShowMenu(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -109,12 +94,6 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const avatarSrc =
     liveProfilePicture || user?.profilePicture || DEFAULT_PROFILE_PICTURE;
 
-  const avatarClassName = useMemo(() => {
-    const ring = isTopContributor ? AVATAR_RING_TOP : AVATAR_RING_DEFAULT;
-    return cx("w-10 h-10 rounded-full object-cover", AVATAR_FRAME_BASE, ring);
-  }, [isTopContributor]);
-
-  // Subtle premium tint on dropdown surface
   const dropdownSurfaceClass = cx(
     SURFACE_PANEL,
     SURFACE_PANEL_INNER,
@@ -135,11 +114,13 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
         aria-expanded={showMenu}
         aria-label="Open user menu"
       >
-        <img
+        {/* IMPORTANT: use Avatar so #pos=x,y works everywhere */}
+        <Avatar
           src={avatarSrc}
           alt="User Avatar"
-          draggable={false}
-          className={avatarClassName}
+          size={40}
+          zoomable={false}
+          badge={isTopContributor}
         />
 
         {isTopContributor && (
@@ -159,7 +140,6 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
             role="menu"
           >
             <div className={dropdownSurfaceClass}>
-              {/* Arrow */}
               <div className={SURFACE_PANEL_ARROW} />
 
               <ul className="relative z-10 py-1">
@@ -199,7 +179,6 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                   </NavLink>
                 </li>
 
-                {/* Divider: meta/help section */}
                 <li aria-hidden="true" className={dividerClass} />
 
                 <li>
@@ -226,7 +205,6 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
                   </NavLink>
                 </li>
 
-                {/* Divider before logout */}
                 <li className="mt-1 border-t border-zinc-800/80 pt-1">
                   <button
                     type="button"
