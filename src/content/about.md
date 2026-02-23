@@ -5,14 +5,16 @@
 > **Work in progress**
 > LifeRecompiled is still evolving step by step. Some features may feel slow or change over time — thanks for your patience and feedback. 🙂
 
-This project started as a way to improve my technical skills.  
-But somewhere between solving real problems and rebuilding broken systems — it became something bigger.
+This project started as a way to improve my technical skills.
+
+But the more I worked on it, the more I realized it wasn’t only about features or clean architecture.
+It became a structure for discipline, focus, and long-term growth.
 
 **This project didn’t just rebuild code.**
 
-LifeRecompiled is now a place to share ideas, document progress, and connect through building.
+LifeRecompiled is now a place to share ideas, document progress, and connect with others on a similar path.
 
-It’s about the real journey behind building: consistency, mindset, health, burnout, recovery, and growth.
+It’s about the real journey behind growth: consistency, mindset, health, burnout, recovery, and progress.
 
 If you're building something of your own — you're welcome here.
 

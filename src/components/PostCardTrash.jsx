@@ -64,10 +64,6 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
     `${PILL_TAG} ` +
     "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
 
-  const lockedAtLabel = post?.lockedAt?.toDate?.()
-    ? post.lockedAt.toDate().toLocaleDateString()
-    : "";
-
   const cardBase =
     "relative w-full h-full overflow-hidden p-4 " +
     "rounded-2xl border border-zinc-800/70 " +
@@ -105,17 +101,15 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
           </span>
         </div>
 
-        {post?.locked && (
-          <span
-            className={`${PILL_META} inline-flex items-center gap-1 max-w-[45%] sm:max-w-none`}
-            title={lockedAtLabel ? `Archived on: ${lockedAtLabel}` : "Archived"}
-          >
-            <FiLock className="text-sm shrink-0" />
-            <span className="truncate">
-              {lockedAtLabel ? `Archived: ${lockedAtLabel}` : "Archived"}
-            </span>
-          </span>
-        )}
+      {post?.locked && (
+  <span
+    className={`${PILL_META} inline-flex items-center gap-1`}
+    title="Archived"
+  >
+    <FiLock className="text-sm shrink-0" />
+    <span>Archived</span>
+  </span>
+)}
       </div>
 
       {/* Title */}
