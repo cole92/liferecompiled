@@ -1,17 +1,20 @@
 import dayjs from "dayjs";
 
 /**
- * @function getPostsPerMonth
- * Agregira broj postova po mesecima na osnovu datuma kreiranja.
+ * @helper getPostsPerMonth
  *
- * - Koristi `dayjs` za formatiranje datuma u "YYYY-MM" oblik
- * - Grupise postove po mesecu i racuna broj postova u svakom mesecu
- * - Vraca sortirani niz objekata sa `month` i `count`
+ * Aggregates post counts per month based on `createdAt`.
  *
- * @param {Array} posts - Niz postova sa `createdAt` poljem (Firestore Timestamp)
- * @returns {Array} Niz objekata: { month: "YYYY-MM", count: brojPostova }
+ * Why:
+ * - Produces chart-friendly `{ month: "YYYY-MM", count }` buckets.
+ * - Uses a stable month key format ("YYYY-MM") for easy sorting and merging.
+ *
+ * Assumptions:
+ * - Each post has a Firestore Timestamp in `createdAt` (must support `toDate()`).
+ *
+ * @param {Array<Object>} posts - Posts array (expects `createdAt` Firestore Timestamp).
+ * @returns {Array<{month: string, count: number}>} Sorted monthly counts by `month` ascending.
  */
-
 export const getPostsPerMonth = (posts) => {
   const counts = {};
 
@@ -19,12 +22,9 @@ export const getPostsPerMonth = (posts) => {
     const date = post.createdAt.toDate();
     const month = dayjs(date).format("YYYY-MM");
 
-    if (counts[month]) {
-      counts[month]++;
-    } else {
-      counts[month] = 1;
-    }
+    counts[month] = (counts[month] || 0) + 1;
   });
+
   const result = Object.entries(counts).map(([month, count]) => ({
     month,
     count,
@@ -34,14 +34,36 @@ export const getPostsPerMonth = (posts) => {
   return result;
 };
 
-// NOVO — helper za popunjavanje praznih meseci
+/**
+ * @helper last12MonthKeys
+ *
+ * Generates month keys for the last 12 months (including the current month).
+ *
+ * Why:
+ * - Keeps stats charts stable by ensuring a fixed 12-slot window.
+ * - Re-usable building block for filling missing months with zero counts.
+ *
+ * @returns {string[]} Array of month keys in "YYYY-MM" format.
+ */
 export function last12MonthKeys() {
   const start = dayjs().startOf("month").subtract(11, "month");
   return Array.from({ length: 12 }, (_, i) =>
-    start.add(i, "month").format("YYYY-MM")
+    start.add(i, "month").format("YYYY-MM"),
   );
 }
 
+/**
+ * @helper normalizeMonthlyArray
+ *
+ * Normalizes a month->count map into a fixed 12-month array with zero-filled gaps.
+ *
+ * Why:
+ * - Chart components typically expect a consistent array length and continuous x-axis.
+ * - Prevents "missing months" from collapsing the chart scale.
+ *
+ * @param {Object} pmObj - Map of `{ [monthKey]: count }` where monthKey is "YYYY-MM".
+ * @returns {Array<{month: string, count: number}>} Last-12-month array with zero-filled months.
+ */
 export function normalizeMonthlyArray(pmObj) {
   const keys = last12MonthKeys();
   return keys.map((m) => ({ month: m, count: pmObj?.[m] || 0 }));

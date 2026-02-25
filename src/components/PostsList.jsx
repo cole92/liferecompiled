@@ -1,25 +1,28 @@
 import PropTypes from "prop-types";
-import PostCard from "./PostCard"; // Renderuje pojedinacnu post karticu
-import "../styles/PostsList.css"; // Stilovi specifični za grid/layout liste
+import PostCard from "./PostCard";
 
 /**
  * @component PostsList
  *
- * Wrapper koji renderuje mrezu PostCard kartica.
+ * Generic posts grid renderer.
  *
- * - Ne sadrzi logiku fetch-a (cisto prezentacioni sloj)
- * - Prihvata listu postova i prosledjuje ih dalje u PostCard
- * - Podrzava razlicite rezime kroz prop-ove (MyPosts, Trash, Home feed)
- * - `showCommentsThread` omogucava granularnu kontrolu prikaza komentara
+ * - Renders a responsive grid and delegates the actual card UI to `CardComponent`
+ * - Keeps list plumbing (map + shared props) in one place to reduce duplication
+ * - Supports optional modes (MyPosts, delete action, comment thread visibility)
  *
- * Props:
- * - posts: niz post objekata koji su vec UI-safe (normalizovani + enriched author)
- * - isMyPost: da li je lista u kontekstu korisnikovih sopstvenih postova
- * - showDeleteButton: kontrolise prikaz Delete akcije (Dashboard/Trash)
- * - onDelete: callback koji parent definise (UI or CF onCall)
- * - onLock: callback za zakljucavanje posta (vidljivo samo autoru)
- * - showCommentsThread: da li PostCard prikazuje Comments thread (Home=off, ostalo=on)
+ * Notes:
+ * - `CardComponent` must accept the same core props as `PostCard`
+ * - `gridClassName` allows screens/routes to override layout without forking logic
  *
+ * @param {Object} props
+ * @param {Array} props.posts - Array of post objects (must include `id`)
+ * @param {boolean} [props.showDeleteButton] - Show delete action on cards
+ * @param {Function} [props.onDelete] - Called with post id when delete is requested
+ * @param {boolean} [props.isMyPost] - Enables author-only affordances (edit/lock)
+ * @param {Function} [props.onLock] - Called with post id when lock/archive is requested
+ * @param {boolean} [props.showCommentsThread] - Toggle comments thread inside cards
+ * @param {string} [props.gridClassName] - Optional grid override for special layouts
+ * @param {React.ElementType} [props.CardComponent] - Card renderer (defaults to `PostCard`)
  * @returns {JSX.Element}
  */
 const PostsList = ({
@@ -29,12 +32,17 @@ const PostsList = ({
   isMyPost,
   onLock,
   showCommentsThread = true,
+  gridClassName,
+  CardComponent = PostCard,
 }) => {
+  // Default: 1 column -> 2 columns on md, keeps card heights aligned in a grid.
+  const defaultGridClass =
+    "grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 items-stretch";
+
   return (
-    <div className="posts-list">
-      {/* Render UI-safe postova bez dodatne logike (cisti prikaz) */}
+    <div className={gridClassName || defaultGridClass}>
       {posts.map((post) => (
-        <PostCard
+        <CardComponent
           key={post.id}
           isMyPost={isMyPost}
           post={post}
@@ -48,23 +56,15 @@ const PostsList = ({
   );
 };
 
-// PropTypes – minimalna validacija za odrzavanje UI konzistentnosti
 PostsList.propTypes = {
-  posts: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired, // Firestore ID
-      title: PropTypes.string.isRequired, // Minimalni naslov za prikaz
-      description: PropTypes.string, // UI opis; fallback resen u PostCard
-      createdAt: PropTypes.object, // Firestore Timestamp (vec normalizovan)
-      tags: PropTypes.arrayOf(PropTypes.shape({ text: PropTypes.string })),
-    })
-  ).isRequired,
-
+  posts: PropTypes.array.isRequired,
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
   isMyPost: PropTypes.bool,
   onLock: PropTypes.func,
   showCommentsThread: PropTypes.bool,
+  gridClassName: PropTypes.string,
+  CardComponent: PropTypes.elementType,
 };
 
 export default PostsList;

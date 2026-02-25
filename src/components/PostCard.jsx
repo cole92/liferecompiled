@@ -25,42 +25,28 @@ import Avatar from "./common/Avatar";
 import { toggleSavePost } from "../utils/savedPostUtils";
 
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
-import "../styles/PostCard.css";
 
 /**
  * @component PostCard
  *
- * Vizuelna kartica za prikaz jednog posta sa interakcijama i state indikatorima.
+ * Interactive post card used across multiple feeds (Home, MyPosts, Saved, Trash).
  *
- * Namena:
- * - Prikazuje naslov, autora, opis, tagove i kategoriju
- * - Rukuje reakcijama, komentarima, sacuvanim statusom i lock/trash stanjima
- * - Prati unified Trash UX (daysLeft badge, Restore / Delete Permanently)
- * - Odrzava Trending / Most Inspiring bedzeve i Top Contributor modal
- * - Kada je `post.locked === true` post je efektivno read-only za reakcije i komentare
+ * Responsibilities:
+ * - Displays post meta (title, author, description, tags, category, timestamps)
+ * - Handles interactions: open details, save/unsave, reactions, comments, badge modals
+ * - Supports unified Trash UX (restore window + permanent delete)
+ * - Respects lock state: locked posts are effectively read-only for reactions/comments
  *
- * Layout varijante:
- * - Regularni prikaz (Home, MyPosts, Saved) – kartica je klikabilna i vodi na `/post/:id`
- * - Trash mod – kartica nije klikabilna, prikazuje TTL badge i Trash akcije
- * - MyPosts – prikazuje Edit dugme + auto-lock countdown prvih 7 dana
+ * Variants:
+ * - Regular: card is clickable and navigates to `/post/:id`
+ * - Trash mode: not clickable, shows TTL badge + restore/delete actions
+ * - MyPosts: shows Edit button + auto-lock countdown (first 7 days)
  *
- * Kontrola komentara:
- * - `showCommentsThread === false` gasi prikaz Comments thread-a bez menjanja same Comments logike
- *
- * @param {Object} post - UI-safe post objekat (normalizovan + enriched author)
- * @param {boolean} [showDeleteButton=false] - Prikaz Delete dugmeta (Dashboard lista, ne Trash)
- * @param {Function} [onDelete] - Handler za soft delete (prebacaj u Trash)
- * @param {Function} [onRestore] - Handler za restore iz Trash-a
- * @param {Function} [onDeletePermanently] - Handler za hard delete (Cloud Function cascade)
- * @param {boolean} [isTrashMode=false] - Da li kartica radi u Trash kontekstu
- * @param {boolean} [isMyPost=false] - Da li post pripada trenutnom user-u
- * @param {number} [daysLeft] - Broj dana do trajnog brisanja (Trash mod)
- * @param {Function} [onLock] - Handler za manuelno zakljucavanje posta
- * @param {boolean} [showCommentsThread=true] - Kontrola da li se prikazuje Comments thread
+ * Notes:
+ * - `showCommentsThread=false` disables thread rendering without changing Comments logic
  *
  * @returns {JSX.Element}
  */
-
 const PostCard = ({
   post,
   showDeleteButton = false,
@@ -82,6 +68,7 @@ const PostCard = ({
     author,
     category,
   } = post;
+
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const formattedDate = post.lockedAt?.toDate().toLocaleDateString();
@@ -91,34 +78,26 @@ const PostCard = ({
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
 
-  // Hook koji proverava da li je post sacuvan od strane trenutnog korisnika
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
-  // Provera da li je proslo vise od 7 dana od kreiranja posta — koristi se za automatsko zakljucavanje
   const createdDate = post.createdAt?.toDate?.();
   const isAutoLocked =
     createdDate && Date.now() > createdDate.getTime() + 7 * 24 * 60 * 60 * 1000;
 
   const handleClick = () => {
-    if (isTrashMode) return; // Ako smo u Trash modu, kartica nije klikabilna
+    if (isTrashMode) return;
     navigate(`/post/${post.id}`);
   };
 
-  // Vizuelna boja badge-a u zavisnosti od broja preostalih dana za restore
   const getBadgeColor = (daysLeft) => {
-    if (daysLeft > 20) return "bg-green-100 text-green-800";
-    if (daysLeft > 10) return "bg-yellow-100 text-yellow-800";
-    if (daysLeft > 0) return "bg-red-100 text-red-800";
-    return "bg-gray-800 text-white";
+    if (daysLeft > 20)
+      return "border border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
+    if (daysLeft > 10)
+      return "border border-amber-500/25 bg-amber-500/10 text-amber-200";
+    if (daysLeft > 0)
+      return "border border-rose-500/25 bg-rose-500/10 text-rose-200";
+    return "border border-zinc-700 bg-zinc-950/40 text-zinc-200";
   };
-
-  /**
-   * Racuna koliko je dana ostalo do auto-lock praga (7 dana nakon kreiranja).
-   * Koristi se za prikaz countdown poruke pored Edit dugmeta na MyPosts.
-   *
-   * @param {Object} createdAt - Firestore Timestamp (ocekuje validan `toDate`)
-   * @returns {number} Broj dana do isteka roka za izmenu (0 ako je rok prosao)
-   */
 
   const calculateDaysLeft = (createdAt) => {
     if (!createdAt?.toDate) return 0;
@@ -130,17 +109,16 @@ const PostCard = ({
     return timeLeft > 0 ? Math.ceil(timeLeft / (1000 * 60 * 60 * 24)) : 0;
   };
 
-  // Otvara modal sa PNG bedzevima za post (preventuje bubbling do PostCard)
   const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
     setSelectedBadge(badgeKey);
     setShowBadgeModal(true);
   };
 
-  // Menja status sacuvanosti posta (toggle), uz feedback kroz toast
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
 
+    // Snapshot helps SavedPosts detect stale saves after edits (title/updatedAt)
     const currentUpdated = updatedAt || createdAt;
 
     const snapshot = {
@@ -152,21 +130,49 @@ const PostCard = ({
     setIsSaved(newState);
   };
 
+  const cardBase =
+    "ui-card relative w-full overflow-hidden p-4 shadow-sm transition duration-200";
+  const cardInteractive = isTrashMode
+    ? ""
+    : "cursor-pointer hover:shadow-md hover:scale-[1.01]";
+  const cardTrending = post.badges?.trending ? "ring-2 ring-rose-500/40" : "";
+
   return (
     <>
       <div
-        className={`post-card ${
-          post.badges?.trending ? "border-2 border-red-500" : ""
-        }`}
+        className={`${cardBase} ${cardInteractive} ${cardTrending}`}
         onClick={handleClick}
-        style={{
-          cursor: "pointer",
-          overflow: "hidden",
-          position: "relative",
-        }}
       >
-        {/* Klikabilni PNG bedzevi (💡, 🔥) — otvaraju BadgeModal (pasivni prikaz ako je post zakljucan) */}
-        <div className="absolute top-2 right-10 z-10 flex flex-col gap-1">
+        {/* Top-right actions: keep Info + Delete separated (no overlap) */}
+        <div className="absolute top-2 right-2 z-20 flex items-center gap-2">
+          {showDeleteButton && (
+            <button
+              type="button"
+              className="rounded-lg bg-rose-500/15 px-3 py-1 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(post.id);
+              }}
+            >
+              Delete
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowModal(true);
+            }}
+            aria-label="Info"
+            className="rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+          >
+            <FaInfoCircle className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Clickable badge chips (Most Inspiring / Trending) */}
+        <div className="absolute top-2 right-16 z-10 flex flex-col gap-1">
           {post.badges?.mostInspiring && (
             <Badge
               text="Most Inspiring"
@@ -190,7 +196,8 @@ const PostCard = ({
               : ""
           }`}
         >
-          <div className="post-author flex items-center gap-2">
+          {/* Author row */}
+          <div className="flex items-center gap-2">
             <div className="relative inline-block">
               <Avatar
                 src={author.profilePicture || DEFAULT_PROFILE_PICTURE}
@@ -215,32 +222,22 @@ const PostCard = ({
 
             {author?.id ? (
               <AuthorLink author={author}>
-                <span className="font-semibold text-sm">{author.name}</span>
+                <span className="font-semibold text-sm text-zinc-100">
+                  {author.name}
+                </span>
               </AuthorLink>
             ) : (
-              <span className="font-semibold text-sm text-gray-500">
+              <span className="font-semibold text-sm text-zinc-500">
                 {author.name}
               </span>
             )}
           </div>
 
-          {/* Info dugme otvara ReactionInfoModal (UX fallback za mobilne uredjaje) */}
-          <div className="absolute top-2 right-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowModal(true);
-              }}
-              aria-label="Info"
-            >
-              <FaInfoCircle className="text-gray-400 hover:text-blue-500" />
-            </button>
-          </div>
-
+          {/* Lock state indicators */}
           {post.locked && !isTrashMode && (
-            <div className="text-sm text-gray-600 flex items-center gap-1 mb-2">
+            <div className="mt-3 flex items-center gap-2">
               <span
-                className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
                 title="This post is locked and cannot be edited or commented"
               >
                 <FiLock className="text-sm" />
@@ -249,162 +246,172 @@ const PostCard = ({
             </div>
           )}
 
-          {/* Badge prikaz koji informise da je post bio zakljucan pre nego sto je obrisan (Trash mod)*/}
           {post.locked && isTrashMode && (
-            <span
-              className="bg-gray-300 text-gray-800 text-sm font-medium px-2 py-1 rounded-full"
-              title="This post was locked before being deleted"
-            >
-              🔒 Locked before deletion
-            </span>
+            <div className="mt-3">
+              <span
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-200"
+                title="This post was locked before being deleted"
+              >
+                🔒 Locked before deletion
+              </span>
+            </div>
           )}
 
-          {/* Dugme za Delete ako nije u Trash modu */}
-          {showDeleteButton && (
-            <button
-              className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1 rounded shadow transition"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(post.id);
-              }}
-            >
-              Delete
-            </button>
-          )}
-
-          {/* Dugme za zakljucavanje (vidljivo samo autoru ako post nije vec zakljucan*/}
+          {/* MyPosts: manual lock action (only when unlocked) */}
           {isMyPost && post.locked === false && (
+            <div className="mt-3">
+              <button
+                type="button"
+                className="rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLock(post.id);
+                }}
+              >
+                Lock this post
+              </button>
+            </div>
+          )}
+
+          {/* Title + Save */}
+          <div className="mt-3 flex items-start justify-between gap-3">
+            <h2 className="text-lg font-semibold leading-snug text-zinc-100">
+              {title}
+            </h2>
+
             <button
-              className="bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1 rounded shadow transition"
-              onClick={(e) => {
-                e.stopPropagation();
-                onLock(post.id);
-              }}
+              type="button"
+              onClick={handleSaveToggle}
+              className="shrink-0 rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              title={isSaved ? "Remove from saved" : "Save this post"}
             >
-              Lock this post
+              {isSaved ? (
+                <BsBookmarkFill className="h-4 w-4 text-sky-200" />
+              ) : (
+                <BsBookmark className="h-4 w-4" />
+              )}
             </button>
-          )}
+          </div>
 
-          {/* Naslov i opis */}
-          <h2 className="post-title">{title}</h2>
-
-          {/* Dugme za snimanje posta toggle */}
-          <button
-            onClick={handleSaveToggle}
-            className="hover:scale-110 transition"
-            title={isSaved ? "Remove from saved" : "Save this post"}
-          >
-            {isSaved ? (
-              <BsBookmarkFill className="text-slate-950" />
-            ) : (
-              <BsBookmark className="text-gray-400" />
-            )}
-          </button>
-
-          {/* Vraca Tailwind klase u zavisnosti od dana preostalih za restore (Trash prikaz) */}
+          {/* Trash TTL badge (restore window) */}
           {isTrashMode && daysLeft !== null && (
-            <span
-              className={`text-xs font-medium px-2.5 py-0.5 rounded w-fit ${getBadgeColor(
-                daysLeft
-              )}`}
-            >
-              ⏳{" "}
-              {daysLeft === 0
-                ? "Last chance to restore!"
-                : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left to restore`}
-            </span>
+            <div className="mt-2">
+              <span
+                className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getBadgeColor(
+                  daysLeft,
+                )}`}
+              >
+                ⏳{" "}
+                {daysLeft === 0
+                  ? "Last chance to restore!"
+                  : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left to restore`}
+              </span>
+            </div>
           )}
-          <p className="post-description">{description}</p>
 
-          {/* Datum kreiranja ili izmene (sakriven u trash modu) */}
+          {/* Description */}
+          <p className="mt-2 text-sm text-zinc-300">{description}</p>
+
+          {/* Dates */}
           {!isTrashMode && (
-            <span className="post-date">
+            <span className="mt-3 block text-xs text-zinc-400">
               {updatedAt
                 ? `Last edited on: ${updatedAt.toDate().toLocaleDateString()}`
                 : `Posted on: ${createdAt.toDate().toLocaleDateString()}`}
             </span>
           )}
+
           {isTrashMode && deletedAt && (
-            <span className="post-date text-xs text-gray-500">
+            <span className="mt-3 block text-xs text-zinc-400">
               {updatedAt
                 ? `Last edited on: ${updatedAt.toDate().toLocaleDateString()}`
                 : `Posted on: ${createdAt.toDate().toLocaleDateString()}`}
             </span>
           )}
-          {/* Tagovi */}
-          {post.tags.map((tag, index) => (
-            <span
-              key={`${tag.text}-${index}`}
-              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs"
-            >
-              #{tag.text}
+
+          {/* Tags + Category */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {post.tags.map((tag, index) => (
+              <span
+                key={`${tag.text}-${index}`}
+                className="inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-200"
+              >
+                #{tag.text}
+              </span>
+            ))}
+
+            <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-0.5 text-xs font-semibold text-zinc-200">
+              {category}
             </span>
-          ))}
+          </div>
 
-          {/* Reakcije (sakriva se u Trash modu) */}
+          {/* Reactions (disabled in Trash mode) */}
           {!isTrashMode && (
-            <ReactionSummary
-              postId={post.id}
-              locked={post.locked}
-              reactionCounts={
-                post.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
-              }
-            />
+            <div className="mt-4">
+              <ReactionSummary
+                postId={post.id}
+                locked={post.locked}
+                reactionCounts={
+                  post.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
+                }
+              />
+            </div>
           )}
 
-          {/* Kategorija */}
-          <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
-            {category}
-          </span>
-
-          {/* Komentari (sakriva se u Trash modu) */}
+          {/* Comments thread (optional, does not affect Comments internals) */}
           {!isTrashMode && showCommentsThread && (
-            <Comments
-              postID={post.id}
-              userId={auth.currentUser?.uid}
-              locked={post.locked}
-            />
+            <div className="mt-4">
+              <Comments
+                postID={post.id}
+                userId={auth.currentUser?.uid}
+                locked={post.locked}
+              />
+            </div>
           )}
 
-          {/* Uslovni prikaz edit dugmeta u myPosts */}
+          {/* MyPosts: edit + countdown (only within 7-day edit window) */}
           {!isTrashMode && isMyPost && !post.locked && !isAutoLocked && (
-            <>
+            <div className="mt-4">
               <Link
                 to={`/dashboard/edit/${post.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="inline-block px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition"
+                className="ui-button-primary inline-flex"
               >
                 Edit
               </Link>
-              <p className="text-xs text-gray-500 italic mt-1 flex items-center gap-1">
-                <MdLockClock className="text-blue-500" />
+
+              <p className="mt-2 flex items-center gap-1 text-xs text-zinc-400 italic">
+                <MdLockClock className="text-sky-400" />
                 {calculateDaysLeft(post.createdAt)} day
                 {calculateDaysLeft(post.createdAt) !== 1 ? "s" : ""} left to
                 edit this post
               </p>
-            </>
+            </div>
           )}
 
-          {/* Upozorenje ako je rok za izmenu istekao — prikazuje se samo autoru */}
+          {/* Auto-lock notice (MyPosts only) */}
           {isAutoLocked && isMyPost && (
-            <div className="alert alert-warning mt-3">
+            <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-200">
               <strong>Note:</strong> Editing is disabled. This post was locked
               after 7 days.
             </div>
           )}
 
-          {/* Dugmad dostupna samo u Trash prikazu */}
+          {/* Trash actions */}
           {isTrashMode && (
-            <div className="flex gap-2 mt-4">
+            <div className="mt-4 flex flex-wrap gap-2">
               <button
+                type="button"
                 onClick={onRestore}
-                className="px-3 py-1 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 hover:scale-105 transition duration-200"
+                className="rounded-lg bg-emerald-500/15 px-3 py-2 text-sm font-semibold text-emerald-200 ring-1 ring-emerald-500/25 hover:bg-emerald-500/25 transition"
               >
                 Restore
               </button>
+
               <button
+                type="button"
                 onClick={onDeletePermanently}
-                className="px-3 py-1 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 hover:scale-105 transition duration-200"
+                className="rounded-lg bg-rose-500/15 px-3 py-2 text-sm font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition"
               >
                 Delete Permanently
               </button>
@@ -412,7 +419,7 @@ const PostCard = ({
           )}
         </div>
       </div>
-      {/* Uslovni prikaz informativnog modala za znacenje reakcija */}
+
       {showModal && (
         <ReactionInfoModal
           isOpen={showModal}
@@ -420,7 +427,6 @@ const PostCard = ({
         />
       )}
 
-      {/* Modal koji prikazuje osvojene bedzeve za ovaj post (pasivan prikaz ako je post zakljucan) */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
@@ -430,7 +436,6 @@ const PostCard = ({
         />
       )}
 
-      {/* Modal koji prikazuje Top Contributor Bagde za datog korisnika (pasivan prikaz ako je post zakljucan) */}
       {showTopContributorModal && (
         <BadgeModal
           isOpen={showTopContributorModal}
@@ -445,7 +450,6 @@ const PostCard = ({
 
 PostCard.propTypes = {
   post: PropTypes.shape({
-    // Osnovne informacije
     id: PropTypes.string.isRequired,
     category: PropTypes.string.isRequired,
     title: PropTypes.string.isRequired,
@@ -455,13 +459,13 @@ PostCard.propTypes = {
     deletedAt: PropTypes.object,
     lockedAt: PropTypes.object,
     locked: PropTypes.bool,
-    // Tagovi
+
     tags: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string.isRequired,
-      })
+      }),
     ).isRequired,
-    // Autor
+
     author: PropTypes.shape({
       id: PropTypes.oneOfType([PropTypes.string, PropTypes.oneOf([null])]),
       name: PropTypes.string.isRequired,
@@ -470,27 +474,25 @@ PostCard.propTypes = {
         topContributor: PropTypes.bool,
       }),
     }).isRequired,
-    // Komentari
+
     comments: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string,
-      })
+      }),
     ),
 
-    // Reakcije (backend agregati)
     reactionCounts: PropTypes.shape({
       idea: PropTypes.number,
       hot: PropTypes.number,
       powerup: PropTypes.number,
     }),
 
-    // Bedzevi posta
     badges: PropTypes.shape({
       mostInspiring: PropTypes.bool,
       trending: PropTypes.bool,
     }),
   }).isRequired,
-  // Kontrolne opcije i funkcije
+
   showDeleteButton: PropTypes.bool,
   onDelete: PropTypes.func,
   isTrashMode: PropTypes.bool,

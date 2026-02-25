@@ -1,6 +1,5 @@
-// Paketi
 import { useContext, useEffect, useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import {
   doc,
   getDocs,
@@ -9,74 +8,58 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-// Konfiguracija i kontekst
 import { db } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
 
-// Util funkcije i konstante
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 import ConfirmModal from "../components/modals/ConfirmModal";
 
-// Komponente
 import SkeletonCard from "../components/ui/skeletonLoader/SkeletonCard";
 import PostsList from "../components/PostsList";
+import PostCardDashboard from "../components/PostCardDashboard";
 
-// Dashboard komponente
 import EmptyState from "./dashboard/components/EmptyState";
 import buildPostsQuery from "../services/postsService";
 
 /**
  * @component MyPosts
  *
- * Dashboard lista postova trenutnog korisnika sa filterima, paginacijom,
- * server-side prefix search-om i akcijama (soft delete, lock).
+ * Dashboard page for managing the current user's posts.
+ * - Fetches paginated post lists from Firestore with server-side search support
+ * - Applies client-side "active/locked/all" view filtering (when not in search mode)
+ * - Supports soft delete (move to Trash) and manual lock (archive) via transactions
  *
- * Namena:
- * - Dohvata postove preko `buildPostsQuery` u dva moda:
- *   • Normal mod → filteri (active/locked/all) + sort po datumu (desc)
- *   • Search mod → server-side prefix search po `title_lc` (case-insensitive), filteri se ignorisu
- * - Debounce search (300ms) da se spreci visak Firestore upita
- * - Paginacija pomocu startAfter kursora i “Load more” dugmeta
- * - Soft delete (deleted:true + deletedAt) uz lokalno uklanjanje bez refetch-a
- * - Manual lock (locked:true + lockedAt) sa instant lokalnim azuriranjem
- * - `Outlet` kontekst obezbedjuje centralizovano stanje filtera i search-a
- *
- * UI logika:
- * - `visiblePosts` = posts u search modu, filteredPosts u normal modu
- * - EmptyState poruke zavise od moda
- * - SkeletonCard se prikazuje tokom inicijalnog i “load more” ucitavanja
+ * UI notes:
+ * - Uses dashboard header controls from `DashboardLayout` (tabs + filters/search via Outlet context)
+ * - Uses `PostsList` with `PostCardDashboard` for consistent card rendering
  *
  * @returns {JSX.Element}
  */
-
-// Dashboard komponenta za prikaz podataka korisnika
 const MyPosts = () => {
   const { user } = useContext(AuthContext);
   const { filter, myPostsSearch } = useOutletContext();
-  const navigate = useNavigate();
 
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal stanja za delete i lock
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [isLockModalOpen, setIsLockModalOpen] = useState(false);
   const [postToLock, setPostToLock] = useState(null);
 
-  // Paginacija
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
   const POST_PER_PAGE = 10;
 
-  // Debounce search (300ms)
   const rawSearch = myPostsSearch || "";
   const [debouncedSearch, setDebouncedSearch] = useState(rawSearch.trim());
 
   useEffect(() => {
+    // Debounce search input so we do not re-query Firestore on every keystroke.
+    // Keeps the UI responsive and reduces read volume.
     const trimmed = rawSearch.trim();
 
     if (trimmed === "") {
@@ -97,6 +80,7 @@ const MyPosts = () => {
     let canceled = false;
 
     const fetchPosts = async () => {
+      // Reset pagination state on any filter/search change to keep cursors valid.
       setPosts([]);
       setLastDoc(null);
       setHasMore(true);
@@ -104,12 +88,11 @@ const MyPosts = () => {
       setIsLoadingMore(false);
 
       try {
-        // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
         const q = buildPostsQuery({
           userId: user.uid,
           filter,
           afterDoc: null,
-          pageSize: POST_PER_PAGE + 1,
+          pageSize: POST_PER_PAGE + 1, // prefetch +1 to avoid showing "Load more" when exact page size
           q: trimmedSearch,
         });
 
@@ -122,6 +105,8 @@ const MyPosts = () => {
           return;
         }
 
+        // Author snapshot is embedded into cards so UI can render consistently
+        // even if post docs do not include denormalized author fields.
         const author = {
           id: user.uid,
           name: user.name || "Unknown author",
@@ -149,11 +134,7 @@ const MyPosts = () => {
         });
 
         setPosts(userPosts);
-
-        // Cursor mora da bude poslednji prikazan doc (ne onaj +1)
         setLastDoc(pageDocs[pageDocs.length - 1]);
-
-        // Ima jos samo ako smo dobili vise od POST_PER_PAGE
         setHasMore(docs.length > POST_PER_PAGE);
       } catch (error) {
         console.error("Error fetching posts:", error);
@@ -178,12 +159,11 @@ const MyPosts = () => {
     setIsLoadingMore(true);
 
     try {
-      // Prefetch +1 da znamo da li ima jos (bez dodatnog upita)
       const q = buildPostsQuery({
         userId: user.uid,
         filter,
         afterDoc: lastDoc,
-        pageSize: POST_PER_PAGE + 1,
+        pageSize: POST_PER_PAGE + 1, // prefetch +1 for accurate `hasMore`
         q: trimmedSearch,
       });
 
@@ -216,16 +196,14 @@ const MyPosts = () => {
         comments: docSnap.data().comments || [],
       }));
 
+      // De-dup by id to stay stable if Firestore returns overlaps across pages.
       setPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         newPosts.forEach((p) => map.set(p.id, p));
         return Array.from(map.values());
       });
 
-      // Cursor mora da bude poslednji prikazan doc (ne onaj +1)
       setLastDoc(pageDocs[pageDocs.length - 1]);
-
-      // Ima jos samo ako smo dobili vise od POST_PER_PAGE
       setHasMore(docs.length > POST_PER_PAGE);
     } catch (error) {
       console.error("Error loading more posts:", error);
@@ -237,9 +215,11 @@ const MyPosts = () => {
 
   const handleDelete = async (postId) => {
     try {
+      // Transaction prevents races (e.g., double delete or state changed by another client).
       await runTransaction(db, async (tx) => {
         const postRef = doc(db, "posts", postId);
         const snapshot = await tx.get(postRef);
+
         if (!snapshot.exists()) throw new Error("Post does not exist.");
         if (snapshot.data().deleted) throw new Error("Already deleted.");
 
@@ -250,6 +230,8 @@ const MyPosts = () => {
       });
 
       showSuccessToast("Post moved to Trash.");
+
+      // Optimistic UI: remove immediately after success to keep list snappy.
       setPosts((prev) => prev.filter((p) => p.id !== postId));
     } catch (error) {
       console.error("Error during soft delete:", error);
@@ -262,6 +244,7 @@ const MyPosts = () => {
 
   const handleLock = async (postId) => {
     try {
+      // Transaction keeps lock operation idempotent and avoids stale writes.
       await runTransaction(db, async (transaction) => {
         const postRef = doc(db, "posts", postId);
         const snapshot = await transaction.get(postRef);
@@ -278,8 +261,9 @@ const MyPosts = () => {
 
       setPostToLock(null);
       setIsLockModalOpen(false);
-      showSuccessToast("Post successfully locked.");
+      showSuccessToast("Post successfully arhived.");
 
+      // Update local cache so the UI reflects "locked" without refetching.
       setPosts((prevPosts) =>
         prevPosts.map((post) =>
           post.id === postId
@@ -288,8 +272,8 @@ const MyPosts = () => {
                 locked: true,
                 lockedAt: Timestamp.fromDate(new Date()),
               }
-            : post
-        )
+            : post,
+        ),
       );
     } catch (error) {
       console.error("Locking error", error);
@@ -297,6 +281,8 @@ const MyPosts = () => {
     }
   };
 
+  // Filter mode is client-side and only affects the current in-memory list.
+  // Search mode uses server-side query, so we do not apply extra client filtering.
   const filteredPosts = posts.filter((post) => {
     if (filter === "active") return !post.locked;
     if (filter === "locked") return post.locked;
@@ -306,9 +292,9 @@ const MyPosts = () => {
   const isSearchMode = trimmedSearch.length > 0;
   const visiblePosts = isSearchMode ? posts : filteredPosts;
 
-  // Auto-load sledece strane ako je trenutna strana ispraznjena (npr. sve prebaceno u Trash),
-  // a cursor kaze da postoji jos podataka.
   useEffect(() => {
+    // Auto-fill: if current page becomes empty (e.g., after delete/lock),
+    // and there are more pages, pull the next page to avoid a blank grid.
     if (isLoading) return;
     if (isLoadingMore) return;
     if (!hasMore) return;
@@ -319,19 +305,11 @@ const MyPosts = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, isLoadingMore, hasMore, lastDoc, visiblePosts.length]);
 
+  const gridClassName =
+    "grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2 items-stretch";
+
   return (
-    <div className="mb-6">
-      <h2 className="text-2xl font-semibold mb-2">
-        Welcome, {user ? user.email : "Guest"}
-      </h2>
-
-      <button
-        onClick={() => navigate("/dashboard/create")}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-      >
-        Create New Post
-      </button>
-
+    <div className="pb-2">
       {!isLoading && visiblePosts.length === 0 && !hasMore && (
         <EmptyState
           message={
@@ -347,6 +325,9 @@ const MyPosts = () => {
           posts={visiblePosts}
           isMyPost={true}
           showDeleteButton={true}
+          showCommentsThread={false}
+          gridClassName={gridClassName}
+          CardComponent={PostCardDashboard}
           onDelete={(postId) => {
             setPostToDelete(postId);
             setIsModalOpen(true);
@@ -359,7 +340,7 @@ const MyPosts = () => {
       )}
 
       {isLoading && (
-        <div className="grid gap-4" role="status" aria-live="polite">
+        <div className={gridClassName} role="status" aria-live="polite">
           {Array.from({ length: 10 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -367,28 +348,28 @@ const MyPosts = () => {
       )}
 
       {isLoadingMore && (
-        <div className="mt-2 space-y-2" role="status" aria-live="polite">
-          <SkeletonCard />
+        <div className="mt-4" role="status" aria-live="polite">
           <SkeletonCard />
         </div>
       )}
 
       {hasMore && (
-        <button
-          onClick={handleLoadMore}
-          disabled={isLoadingMore || !hasMore}
-          aria-busy={isLoadingMore}
-          aria-disabled={isLoadingMore || !hasMore}
-        >
-          {isLoadingMore ? "Loading..." : "Load more"}
-        </button>
+        <div className="mt-6 flex justify-center">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore || !hasMore}
+            aria-busy={isLoadingMore}
+            aria-disabled={isLoadingMore || !hasMore}
+            className="ui-button-primary py-2.5"
+          >
+            {isLoadingMore ? "Loading..." : "Load more"}
+          </button>
+        </div>
       )}
 
       {!hasMore && visiblePosts.length > 0 && (
-        <p
-          className="mt-4 text-sm text-gray-500 text-center"
-          aria-live="polite"
-        >
+        <p className="ui-help text-center mt-6" aria-live="polite">
           You reached the end.
         </p>
       )}
@@ -406,9 +387,9 @@ const MyPosts = () => {
 
       <ConfirmModal
         isOpen={isLockModalOpen}
-        title="Lock Post?"
-        confirmText={"Lock"}
-        message="Are you sure you want to lock this post? It will be archived and you wont be able to edit or comment anymore."
+        title="Archive Post?"
+        confirmText={"Archive"}
+        message="Are you sure you want to archive this post? You won't be able to edit or comment anymore."
         onCancel={() => {
           setIsLockModalOpen(false);
           setPostToLock(null);

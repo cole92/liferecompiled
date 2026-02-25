@@ -1,73 +1,105 @@
-import { createPortal } from "react-dom";
 import { useEffect } from "react";
+import ReactDOM from "react-dom";
 import PropTypes from "prop-types";
+
+// Tiny helper to keep className composition readable.
+const join = (...classes) => classes.filter(Boolean).join(" ");
 
 /**
  * @component ModalPortal
- * Omotac za sve modalne prozore — renderuje sadrzaj izvan glavnog DOM stabla preko React Portala.
  *
- * - Zakljucava skrolovanje tela dok je modal otvoren
- * - Zatvara se na ESC taster
- * - Klik van modala (na overlay) takodje zatvara modal
- * - Renderuje se unutar #modal-root elementa (ili kao fallback u document.body)
+ * Generic modal wrapper rendered via React portal (to `document.body`) to:
+ * - avoid stacking context / z-index issues
+ * - lock background scroll while open
+ * - support consistent close behavior (ESC + backdrop click)
  *
- * @param {boolean} isOpen - Da li je modal trenutno prikazan
- * @param {Function} onClose - Funkcija koja zatvara modal
- * @param {ReactNode} children - Sadrzaj koji ce biti prikazan unutar modala
+ * `locked` is a UI/UX gate:
+ * - disables ESC and overlay click close
+ * - still renders content (used for "read-only" / passive states)
  *
- * @returns {JSX.Element|null} Portal sa modalom ili null ako nije prikazan
+ * Styling hooks:
+ * - overlay/container/panel className props allow reuse across different modal layouts
+ * - `withPanel=false` lets callers render custom panels (no ui-card/maxWidth/padding)
+ *
+ * @param {boolean} isOpen
+ * @param {Function=} onClose
+ * @param {boolean=} locked
+ * @param {React.ReactNode} children
+ * @param {string=} overlayClassName
+ * @param {string=} containerClassName
+ * @param {string=} panelClassName
+ * @param {boolean=} withPanel
+ * @returns {JSX.Element|null}
  */
-
-export default function ModalPortal({
+const ModalPortal = ({
   isOpen,
   onClose,
+  locked = false,
   children,
-  backdropClassName = "bg-black/80",
-  contentClassName = "bg-amber-100 border-[3px] border-amber-700 rounded-xl shadow-xl p-6 max-w-xl w-full",
-}) {
-  // Zakljucava skrol tela dok je modal otvoren
+
+  // Optional styling hooks
+  overlayClassName = "bg-zinc-950/60",
+  containerClassName = "fixed inset-0 z-50 flex items-center justify-center px-4",
+  panelClassName = "",
+
+  // When false -> no ui-card / no max-w-lg / no p-6
+  withPanel = true,
+}) => {
   useEffect(() => {
     if (!isOpen) return;
-    const original = document.body.style.overflow;
+
+    const onKeyDown = (e) => {
+      if (locked) return;
+      if (e.key === "Escape") onClose?.();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+
+    // Prevent background scroll while modal is open.
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => (document.body.style.overflow = original);
-  }, [isOpen]);
 
-  // Zatvara modal kada korisnik pritisne ESC
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, onClose, locked]);
 
-  // Ako modal nije otvoren — ne renderujemo nista
   if (!isOpen) return null;
 
-  // Portal render modala unutar #modal-root
-  return createPortal(
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center ${backdropClassName}`}
-      onClick={(e) => {
-        e.stopPropagation()
-        onClose()
-      }}
-    >
-      <div
-        className={contentClassName}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
+  const panelBase = withPanel
+    ? "relative w-full max-w-lg ui-card p-6"
+    : "relative";
+
+  return ReactDOM.createPortal(
+    <div className={containerClassName} role="dialog" aria-modal="true">
+      {/* Backdrop is a real button for accessibility + simple click-to-close. */}
+      <button
+        type="button"
+        aria-label="Close modal"
+        className={join("absolute inset-0", overlayClassName)}
+        onClick={() => {
+          if (!locked) onClose?.();
+        }}
+      />
+
+      {/* Modal content wrapper (optionally provides standard panel styling). */}
+      <div className={join(panelBase, panelClassName)}>{children}</div>
     </div>,
-    document.getElementById("modal-root") || document.body
+    document.body,
   );
-}
+};
 
 ModalPortal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
+  onClose: PropTypes.func,
+  locked: PropTypes.bool,
   children: PropTypes.node.isRequired,
-  backdropClassName: PropTypes.string,   
-  contentClassName: PropTypes.string,    
+
+  overlayClassName: PropTypes.string,
+  containerClassName: PropTypes.string,
+  panelClassName: PropTypes.string,
+  withPanel: PropTypes.bool,
 };
+
+export default ModalPortal;

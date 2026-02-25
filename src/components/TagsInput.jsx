@@ -1,21 +1,114 @@
 import PropTypes from "prop-types";
-import { useState, useRef, useEffect } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { WithContext as ReactTags } from "react-tag-input";
-import { predefinedTags } from "../constants/tags";
-import { categorizedTags } from "../constants/tags";
+import { predefinedTags, categorizedTags } from "../constants/tags";
 
-import "../styles/TagsDropDown.css";
-import "../styles/TagsInput.css";
+const MOBILE_PREDEFINED_LIMIT = 12;
+const MAX_TAGS = 5;
+const MAX_PER_CATEGORY = 50;
 
+/**
+ * Convert category keys (camelCase / snake_case) into a readable label.
+ * This keeps UI labels stable without duplicating config.
+ */
+function formatCategoryName(key) {
+  const s = String(key ?? "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .trim();
+  return s ? s[0].toUpperCase() + s.slice(1) : "";
+}
+
+/**
+ * Build a canonical tag index (module-scope, runs once).
+ *
+ * Why:
+ * - We only allow tags that exist in our curated sets (predefined + categorized).
+ * - We normalize by lowercase and store a canonical version to keep casing consistent.
+ *
+ * Returns:
+ * - `all`: Map<lowercasedTag, canonicalTagText>
+ * - `categories`: [{ key, label, tags: [{ text, lc }] }]
+ */
+function buildTagIndex() {
+  const all = new Map();
+  const categories = [];
+
+  Object.entries(categorizedTags).forEach(([key, list]) => {
+    // Support a special "predefined" bucket inside categorizedTags.
+    if (key === "predefined") {
+      (list || []).forEach((t) => {
+        const text = String(t);
+        const lc = text.toLowerCase();
+        if (!all.has(lc)) all.set(lc, text);
+      });
+      return;
+    }
+
+    const raw = Array.isArray(list) ? list : [];
+    const indexed = raw.map((text) => {
+      const s = String(text);
+      const lc = s.toLowerCase();
+      if (!all.has(lc)) all.set(lc, s);
+      return { text: s, lc };
+    });
+
+    categories.push({
+      key,
+      label: formatCategoryName(key),
+      tags: indexed,
+    });
+  });
+
+  // Also merge top-level predefinedTags for mobile/desktop quick picks.
+  predefinedTags.forEach((t) => {
+    const text = String(t);
+    const lc = text.toLowerCase();
+    if (!all.has(lc)) all.set(lc, text);
+  });
+
+  return { all, categories };
+}
+
+const TAG_INDEX = buildTagIndex();
+
+/**
+ * @component TagsInput
+ *
+ * Curated tag picker with two entry paths:
+ * - Quick picks (predefined tags) for fast selection (mobile + desktop).
+ * - Typeahead search (react-tag-input) limited to the curated tag index.
+ *
+ * Key rules:
+ * - Only tags present in `TAG_INDEX` can be added (prevents arbitrary/free-form tags).
+ * - Max 5 tags total.
+ * - No duplicates (case-insensitive).
+ *
+ * UX details:
+ * - `useDeferredValue` reduces re-render pressure while the user types.
+ * - Clicking outside or pressing ESC clears the typeahead input (does not remove tags).
+ * - When maxed, remaining options become disabled except already-selected tags.
+ *
+ * @param {object} props
+ * @param {{id: string, text: string}[]} props.tags - Selected tags (controlled).
+ * @param {(next: {id: string, text: string}[]) => void} props.setTags - Setter for selected tags.
+ * @returns {JSX.Element}
+ */
 const TagsInput = ({ tags, setTags }) => {
   const [error, setError] = useState(null);
   const [inputValue, setInputValue] = useState("");
+  const [showAllMobile, setShowAllMobile] = useState(false);
   const containerRef = useRef(null);
 
+  // Defer filtering work while typing (keeps UI responsive on large tag sets).
+  const deferredInput = useDeferredValue(inputValue);
+
+  // Clear error when user removes all tags (common "reset" flow).
   useEffect(() => {
     if (tags.length === 0) setError(null);
   }, [tags]);
 
+  // Input reset helpers: click outside + ESC clears only the input text.
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -39,54 +132,42 @@ const TagsInput = ({ tags, setTags }) => {
     };
   }, []);
 
+  // Guard against leading spaces (prevents weird empty query states).
   const handleInputChange = (value) => {
-    if (value.startsWith(" ")) {
-      setInputValue("");
-    } else {
-      setInputValue(value);
-    }
-  };
-
-  const filterTags = (value) => {
-    if (!value) return [];
-
-    return Object.entries(categorizedTags)
-      .map(([category, list]) => ({
-        name: category,
-        tags: list.filter((t) => t.toLowerCase().includes(value.toLowerCase())),
-      }))
-      .filter((cat) => cat.tags.length > 0);
+    if (value.startsWith(" ")) setInputValue("");
+    else setInputValue(value);
   };
 
   const handleAddition = (tag) => {
-    const isPredefinedTag = predefinedTags.includes(tag.text);
+    const raw = String(tag?.text ?? "").trim();
+    if (!raw) return;
 
-    const filteredTags = filterTags(inputValue);
-    const allFilteredTags = filteredTags.flatMap((c) => c.tags);
+    const lc = raw.toLowerCase();
+    const canonical = TAG_INDEX.all.get(lc);
 
-    const foundTag = isPredefinedTag
-      ? tag.text
-      : allFilteredTags.find((t) => t.toLowerCase() === tag.text.toLowerCase());
-
-    if (!foundTag) {
+    // This component is curated-only: free-form tags are rejected.
+    if (!canonical) {
       setError("Please select a tag from the list.");
       return;
     }
 
-    if (tags.length >= 5) {
-      setError("You can add up to 5 tags only.");
+    if (tags.length >= MAX_TAGS) {
+      setError(`You can add up to ${MAX_TAGS} tags only.`);
       return;
     }
 
-    if (tags.some((t) => t.text.toLowerCase() === foundTag.toLowerCase())) {
+    // Case-insensitive dedupe to keep canonical casing stable.
+    if (
+      tags.some(
+        (t) => String(t.text ?? "").toLowerCase() === canonical.toLowerCase(),
+      )
+    ) {
       setError("Duplicate tags are not allowed.");
       return;
     }
 
     setError(null);
-    setTags([...tags, { id: foundTag, text: foundTag }]);
-
-    // MVP: reset input after successful add
+    setTags([...tags, { id: canonical, text: canonical }]);
     setInputValue("");
   };
 
@@ -94,76 +175,260 @@ const TagsInput = ({ tags, setTags }) => {
     setTags(tags.filter((_, i) => i !== index));
   };
 
-  const isTagDisabled = (tag) => {
+  // Disable unselected options once we reach max tags.
+  const isTagDisabled = (tagText) => {
     return (
-      tags.length >= 5 &&
-      !tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
+      tags.length >= MAX_TAGS &&
+      !tags.some(
+        (t) =>
+          String(t.text ?? "").toLowerCase() === String(tagText).toLowerCase(),
+      )
     );
   };
 
+  const isActiveTag = (tagText) =>
+    tags.some(
+      (t) =>
+        String(t.text ?? "").toLowerCase() === String(tagText).toLowerCase(),
+    );
+
+  // Filtering is always based on the deferred input (smoother typing).
+  const query = useMemo(
+    () => deferredInput.trim().toLowerCase(),
+    [deferredInput],
+  );
+
+  const filteredForRender = useMemo(() => {
+    if (!query) return [];
+
+    const out = [];
+
+    // Group matches by category label, capped per category for predictable dropdown size.
+    for (const cat of TAG_INDEX.categories) {
+      const matches = [];
+      for (const t of cat.tags) {
+        if (t.lc.includes(query)) {
+          matches.push(t.text);
+          if (matches.length >= MAX_PER_CATEGORY) break;
+        }
+      }
+      if (matches.length) out.push({ name: cat.label, tags: matches });
+    }
+
+    return out;
+  }, [query]);
+
   const renderFilteredTags = () => {
-    const filtered = filterTags(inputValue);
-    if (filtered.length === 0) return <p>No matching tags found</p>;
+    if (filteredForRender.length === 0) {
+      return (
+        <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-lg">
+          <p className="text-sm text-zinc-400">No matching tags found</p>
+        </div>
+      );
+    }
 
     return (
-      <div className="dropdown-container">
-        {filtered.map(({ name, tags: list }) => (
-          <div key={name} className="dropdown-category">
-            <h5 className="category-name">{name}</h5>
+      <div className="absolute left-0 top-full z-50 mt-2 w-full max-h-72 overflow-auto ui-scrollbar rounded-xl border border-zinc-800 bg-zinc-950 shadow-lg">
+        <div className="p-3">
+          {filteredForRender.map(({ name, tags: list }, idx) => (
+            <div key={name} className={idx === 0 ? "" : "mt-4"}>
+              <h5 className="sticky top-0 z-10 -mx-3 mb-2 border-b border-zinc-800 bg-zinc-950/95 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 backdrop-blur">
+                {name}
+              </h5>
 
-            <div className="tags-container">
-              {list.slice(0, 50).map((tag) => (
-                <button
-                  type="button"
-                  key={`${name}-${tag}`}
-                  className="tag-btn"
-                  onClick={() => handleAddition({ id: tag, text: tag })}
-                >
-                  {tag}
-                </button>
-              ))}
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-1.5 sm:gap-2">
+                {list.map((tagText) => {
+                  const isActive = isActiveTag(tagText);
+                  const isMaxed = tags.length >= MAX_TAGS;
+                  const disabledBecauseMax = isMaxed && !isActive;
+
+                  const base =
+                    "inline-flex w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-0.5 " +
+                    "text-[11px] leading-none font-medium transition " +
+                    "sm:px-3 sm:py-1 sm:text-xs " +
+                    "truncate " +
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
+                  const activeCls =
+                    "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500";
+                  const normalCls =
+                    "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100";
+
+                  return (
+                    <button
+                      type="button"
+                      key={`${name}-${tagText}`}
+                      title={tagText}
+                      className={`${base} ${isActive ? activeCls : normalCls} ${
+                        disabledBecauseMax
+                          ? "cursor-not-allowed opacity-50"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (isActive) return;
+                        if (disabledBecauseMax) return;
+                        handleAddition({ id: tagText, text: tagText });
+                      }}
+                      disabled={disabledBecauseMax}
+                      aria-pressed={isActive}
+                    >
+                      {isActive ? (
+                        <span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-zinc-950/25 text-[11px] leading-none">
+                          ✓
+                        </span>
+                      ) : null}
+                      <span className="truncate">{tagText}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {idx !== filteredForRender.length - 1 ? (
+                <div className="mt-4 h-px w-full bg-zinc-800" />
+              ) : null}
             </div>
+          ))}
 
-            <hr className="divider" />
-          </div>
-        ))}
+          {tags.length >= MAX_TAGS ? (
+            <p className="mt-3 text-xs text-zinc-400">
+              Max {MAX_TAGS} tags selected.
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   };
 
+  const tagButtonBase =
+    "inline-flex w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-0.5 " +
+    "text-[11px] leading-none font-medium transition " +
+    "sm:px-3 sm:py-1 sm:text-xs " +
+    "truncate " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
+  // Mobile: show a subset by default to keep the grid compact.
+  const mobilePredefined = showAllMobile
+    ? predefinedTags
+    : predefinedTags.slice(0, MOBILE_PREDEFINED_LIMIT);
+
+  const moreCount = Math.max(
+    0,
+    predefinedTags.length - MOBILE_PREDEFINED_LIMIT,
+  );
+
+  const showMoreBtnBase =
+    "mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-800/80 " +
+    "bg-zinc-950/30 px-3 py-2 text-xs font-semibold text-zinc-200 " +
+    "hover:bg-zinc-900/60 hover:text-zinc-100 transition " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+    "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
   return (
-    <div className="mb-3">
-      <label htmlFor="tags" className="form-label">
+    <div className="space-y-2">
+      <label htmlFor="tags" className="ui-label">
         Tags
       </label>
 
-      {/* Predefined tags */}
-      <div className="mb-2">
-        {predefinedTags.map((tag) => (
+      {/* Mobile quick picks */}
+      <div className="sm:hidden">
+        <div
+          id="mobile-predefined-tags"
+          className="grid grid-cols-[repeat(auto-fit,minmax(92px,1fr))] gap-1.5"
+        >
+          {mobilePredefined.map((tagText) => {
+            const isActive = isActiveTag(tagText);
+            const disabled = isTagDisabled(tagText);
+
+            return (
+              <button
+                key={tagText}
+                type="button"
+                title={tagText}
+                className={`${tagButtonBase} ${
+                  isActive
+                    ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
+                } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                onClick={() => {
+                  if (isActive) return;
+                  handleAddition({ id: tagText, text: tagText });
+                }}
+                disabled={disabled}
+                aria-pressed={isActive}
+              >
+                <span className="truncate">{tagText}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {moreCount > 0 ? (
           <button
-            key={tag}
             type="button"
-            className={`btn btn-outline-primary btn-sm me-2 mb-2 ${
-              tags.some((t) => t.text.toLowerCase() === tag.toLowerCase())
-                ? "active"
-                : ""
-            }`}
-            onClick={() => handleAddition({ id: tag, text: tag })}
-            disabled={isTagDisabled(tag)}
+            className={showMoreBtnBase}
+            onClick={() => setShowAllMobile((v) => !v)}
+            aria-expanded={showAllMobile}
+            aria-controls="mobile-predefined-tags"
           >
-            {tag}
+            <span>
+              {showAllMobile ? "Less tags" : `More tags (${moreCount})`}
+            </span>
+
+            <svg
+              viewBox="0 0 20 20"
+              className={`h-4 w-4 transition-transform ${showAllMobile ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            >
+              <path
+                fill="currentColor"
+                d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"
+              />
+            </svg>
           </button>
-        ))}
+        ) : null}
       </div>
 
-      <small className="form-text text-light">
-        Add up to 5 tags to describe your post.
-      </small>
+      {/* Desktop quick picks */}
+      <div className="hidden sm:grid sm:grid-cols-[repeat(auto-fit,minmax(110px,1fr))] sm:gap-2">
+        {predefinedTags.map((tagText) => {
+          const isActive = isActiveTag(tagText);
+          const disabled = isTagDisabled(tagText);
 
+          return (
+            <button
+              key={tagText}
+              type="button"
+              title={tagText}
+              className={`${tagButtonBase} ${
+                isActive
+                  ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
+              } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+              onClick={() => {
+                if (isActive) return;
+                handleAddition({ id: tagText, text: tagText });
+              }}
+              disabled={disabled}
+              aria-pressed={isActive}
+            >
+              <span className="truncate">{tagText}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-zinc-400">
+        Add up to {MAX_TAGS} tags to describe your post.
+      </p>
+
+      {/* Typeahead input (curated-only) */}
       <div
-        className="tags-input-wrapper"
+        className="relative"
         ref={containerRef}
         onKeyDown={(e) => {
+          // Prevent accidental form submit while tag input is focused.
           if (e.key === "Enter") e.preventDefault();
         }}
       >
@@ -178,18 +443,32 @@ const TagsInput = ({ tags, setTags }) => {
           handleInputChange={handleInputChange}
           inputFieldPosition="bottom"
           placeholder="Start typing to search for tags"
+          classNames={{
+            tags: "space-y-2",
+            selected: "flex flex-wrap gap-1.5 sm:gap-2",
+            tag:
+              "inline-flex items-center gap-2 rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] leading-none font-medium text-zinc-100 " +
+              "sm:px-3 sm:py-1 sm:text-xs",
+            remove:
+              "inline-flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 " +
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+            tagInput: "w-full",
+            tagInputField: "ui-input mt-0 text-sm sm:text-base",
+          }}
         />
 
-        {inputValue && renderFilteredTags()}
+        {inputValue ? renderFilteredTags() : null}
       </div>
 
       {!error ? (
-        <small className="form-text text-light">
+        <p className="text-xs text-zinc-400">
           Allowed characters: letters, numbers, spaces, dots, underscores, plus
           (+), hyphens (-), hashtags (#).
-        </small>
+        </p>
       ) : (
-        <div className="invalid-feedback d-block">{error}</div>
+        <p className="ui-error" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );
@@ -200,7 +479,7 @@ TagsInput.propTypes = {
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       text: PropTypes.string.isRequired,
-    })
+    }),
   ).isRequired,
   setTags: PropTypes.func.isRequired,
 };

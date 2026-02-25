@@ -3,34 +3,38 @@ import { db } from "../firebase";
 import { serverTimestamp } from "firebase/firestore";
 
 /**
- * Cuva post kao omiljeni za korisnika.
+ * Saves a post into the user's `savedPosts` subcollection.
  *
- * - Dodaje dokument u subkolekciju `savedPosts` korisnika
- * - Upisuje vreme cuvanja preko `serverTimestamp()`
+ * - Writes to `users/{userId}/savedPosts/{postId}` so the saved doc id is stable per post.
+ * - Uses `serverTimestamp()` for `savedAt` to keep ordering consistent across clients.
+ * - Optionally stores a lightweight snapshot for faster saved list rendering.
  *
- * @param {string} userId - ID korisnika
- * @param {string} postId - ID posta koji se cuva
+ * @async
+ * @param {string} userId - User id who saves the post.
+ * @param {string} postId - Post id used as the saved doc id.
+ * @param {Object} [snapshot={}] - Optional cached fields (e.g. title/author) for list UI.
+ * @returns {Promise<void>} Resolves when the write completes.
  */
-
 export const savePost = async (userId, postId, snapshot = {}) => {
-    const ref = doc(db, "users", userId, "savedPosts", postId);
+  const ref = doc(db, "users", userId, "savedPosts", postId);
 
-    await setDoc(ref, {
-        savedAt: serverTimestamp(),
-        ...snapshot
-    });
+  await setDoc(ref, {
+    savedAt: serverTimestamp(),
+    ...snapshot,
+  });
 };
 
 /**
- * Uklanja post iz sacuvanih postova korisnika.
+ * Removes a post from the user's saved list.
  *
- * - Brise dokument iz subkolekcije `savedPosts`
+ * - Deletes `users/{userId}/savedPosts/{postId}`.
  *
- * @param {string} userId - ID korisnika
- * @param {string} postId - ID posta koji se uklanja
+ * @async
+ * @param {string} userId - User id who unsaves the post.
+ * @param {string} postId - Saved doc id (same as post id).
+ * @returns {Promise<void>} Resolves when the delete completes.
  */
-
 export const unsavePost = async (userId, postId) => {
-    const ref = doc(db, "users", userId, "savedPosts", postId);
-    await deleteDoc(ref);
+  const ref = doc(db, "users", userId, "savedPosts", postId);
+  await deleteDoc(ref);
 };

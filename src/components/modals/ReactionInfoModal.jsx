@@ -3,32 +3,35 @@ import ModalPortal from "./ModalPortal";
 
 /**
  * @component ReactionInfoModal
- * Modalni prozor koji prikazuje znacenje svakog tipa reakcije (💡, 🔥, ⚡).
- * Sluzi kao UX edukativni fallback za mobilne uredjaje gde tooltip nije pouzdan.
- * Zatvara se klikom na dugme ili pritiskom ESC tastera.
  *
- * @param {Function} onClose - Callback koji zatvara modal.
- * @param {boolean} isOpen - Kontrolise vidljivost modala.
- * @returns {JSX.Element} Modal sa objasnjenjem reakcija i dugmetom za zatvaranje.
+ * Educational modal that explains reaction meanings (💡/🔥/⚡) + related badges.
+ * Primary purpose: mobile-friendly fallback when hover tooltips are unreliable.
+ *
+ * Behavior:
+ * - Closes via backdrop/ESC through `ModalPortal` and via explicit CTA button.
+ * - Copy can mention current thresholds, but treat them as adjustable platform rules.
+ *
+ * @param {Function} onClose - Close handler for the modal.
+ * @param {boolean} isOpen - Visibility flag.
+ * @returns {JSX.Element}
  */
-
 const ReactionInfoModal = ({ onClose, isOpen }) => {
   return (
-    <ModalPortal isOpen={isOpen} onClose={onClose}>
-      {/* Naslov modala */}
-      <h2 className="text-base md:text-lg font-semibold mb-3">
+    <ModalPortal isOpen={isOpen} onClose={onClose} panelClassName="!p-5">
+      {/* Clear title to set context immediately (no tooltip dependency). */}
+      <h2 className="text-base md:text-lg font-semibold mb-3 text-zinc-100">
         What do the reactions mean?
       </h2>
 
-      {/* Reakcije */}
-      <div className="text-sm space-y-4 mb-4">
+      {/* Compact, scannable explanation list: icon -> label -> meaning + short hint. */}
+      <div className="text-sm space-y-4 mb-4 text-zinc-200">
         <div className="flex items-start gap-2">
           <span>💡</span>
           <div>
             <p>
               <strong>Idea</strong> — This post inspired you.
             </p>
-            <p className="text-gray-500 dark:text-gray-400 text-xs italic mt-1">
+            <p className="text-zinc-400 text-xs italic mt-1">
               Hint: share thoughtful insights — ideas inspire reactions.
             </p>
           </div>
@@ -40,7 +43,7 @@ const ReactionInfoModal = ({ onClose, isOpen }) => {
             <p>
               <strong>Hot</strong> — This post is on fire.
             </p>
-            <p className="text-gray-500 dark:text-gray-400 text-xs italic mt-1">
+            <p className="text-zinc-400 text-xs italic mt-1">
               Hint: timing matters — fresh, active posts rise faster.
             </p>
           </div>
@@ -52,40 +55,45 @@ const ReactionInfoModal = ({ onClose, isOpen }) => {
             <p>
               <strong>Powerup</strong> — Show support for the author.
             </p>
-            <p className="text-gray-500 dark:text-gray-400 text-xs italic mt-1">
+            <p className="text-zinc-400 text-xs italic mt-1">
               Hint: consistency pays off — steady posting builds reputation.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Bedzevi */}
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <h2 className="text-base md:text-lg font-semibold mb-3">
+      {/* Badge section: connects reactions to longer-term incentives/achievements. */}
+      <div className="mt-4 pt-4 border-t border-zinc-800">
+        <h2 className="text-base md:text-lg font-semibold mb-3 text-zinc-100">
           Badges from reactions — how to earn them
         </h2>
-        <div className="space-y-2 text-sm">
+
+        <div className="space-y-2 text-sm text-zinc-200">
           <p>
-            💡 <strong>Most Inspiring (post):</strong> reaches 10x 💡 Idea reactions on a single post.
+            💡 <strong>Most Inspiring (post):</strong> reaches 5x 💡 Idea
+            reactions on a single post.
           </p>
+
           <p>
-            🔥 <strong>Trending (post):</strong> collects 20x 🔥 Hot reactions on one post in a short period.
+            🔥 <strong>Trending (post):</strong> collects 10x 🔥 Hot reactions
+            on one post. Stays Trending for 7 days since the last 🔥 (each new
+            Hot refreshes the timer).
           </p>
+
           <p>
-            ⚡ <strong>Top Contributor (author):</strong> totals 50x ⚡ Powerup reactions across all posts by the author.
+            ⚡ <strong>Top Contributor (author):</strong> totals 30x ⚡ Powerup
+            reactions across all posts by the author.
           </p>
-          <p className="text-gray-500 dark:text-gray-400 text-xs italic mt-1">
+
+          <p className="text-zinc-400 text-xs italic mt-1">
             (Note: thresholds may evolve as the platform grows.)
           </p>
         </div>
       </div>
 
-      {/* Dugme */}
+      {/* Single CTA keeps the close action obvious on mobile. */}
       <div className="flex justify-end mt-4">
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
-        >
+        <button onClick={onClose} className="ui-button-primary">
           Got it
         </button>
       </div>

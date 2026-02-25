@@ -3,35 +3,43 @@ import dayjs from "dayjs";
 
 /**
  * @component CustomTooltip
- * Prilagodjeni prikaz za tooltip unutar Recharts grafikona.
  *
- * - Formatira mesec iz `label` vrednosti (npr. "2024-06" → "June 2024")
- * - Prikazuje broj postova za odgovarajući mesec
+ * Custom tooltip renderer for Recharts.
+ *
+ * Behavior:
+ * - Formats a month label like "2024-06" into a human label ("June 2024").
+ * - Reads the first payload value as the monthly post count.
+ * - Highlights the `mostActiveMonth` with an extra message.
+ *
+ * Data assumptions:
+ * - `label` is in "YYYY-MM" format (month bucket key).
+ * - `payload[0].value` contains the aggregated count for that bucket.
  *
  * @param {Object} props
- * @param {boolean} props.active - Da li je tooltip trenutno aktivan
- * @param {Array} props.payload - Podaci koje prosleđuje Recharts
- * @param {string} props.label - Labela meseca (npr. "2024-06")
- *
- * @returns {JSX.Element|null} Prikaz tooltips ili `null` ako nije aktivan
+ * @param {boolean} props.active - Whether Recharts considers the tooltip active.
+ * @param {Array} props.payload - Recharts series payload for the hovered point.
+ * @param {string} props.label - Month key ("YYYY-MM").
+ * @param {string} props.mostActiveMonth - Month key to highlight ("YYYY-MM").
+ * @returns {JSX.Element|null}
  */
-
 const CustomTooltip = ({ active, payload, label, mostActiveMonth }) => {
+  // Recharts may render tooltip in "inactive" state during transitions.
   if (!active || !payload || !payload.length) return null;
 
   const rawMonth = label;
-  const formatted = dayjs(`${rawMonth}-01`).format("MMMM YYYY"); // Pretvaranje "2024-06" u "June 2024"
+  const formatted = dayjs(`${rawMonth}-01`).format("MMMM YYYY");
   const count = payload[0].value;
 
   return (
-    <div className="bg-white text-black px-3 py-2 rounded shadow-md text-sm">
-      <strong>{formatted}</strong>
-      <div>
+    <div className="ui-card p-3 text-sm border border-zinc-800 bg-zinc-950/90 backdrop-blur">
+      <div className="font-semibold text-zinc-100">{formatted}</div>
+
+      <div className="mt-1 text-zinc-200">
         {count} post{count > 1 ? "s" : ""}
       </div>
 
       {label === mostActiveMonth && (
-        <div className="mt-1 text-yellow-600 font-semibold">
+        <div className="mt-2 text-xs font-semibold text-amber-200">
           This was your most active month!
         </div>
       )}

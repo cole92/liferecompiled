@@ -1,6 +1,6 @@
+// src/components/comments/Comments.jsx
 import PropTypes from "prop-types";
-import CommentForm from "./CommentForm";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   collection,
   query,
@@ -8,139 +8,230 @@ import {
   onSnapshot,
   orderBy,
 } from "firebase/firestore";
+
 import { db } from "../../firebase";
+import CommentForm from "./CommentForm";
 import CommentItem from "./CommentItem";
 
 /**
  * @component Comments
- * Rukuje prikazom i real-time osvezavanjem komentara za dati post.
  *
- * - Real-time slusanje Firestore kolekcije `comments` za postID
- * - Prikaz glavnih (root) komentara hronoloski (stariji → noviji)
- * - Opcioni "see more" kada je `showAll` aktivan
- * - Post-responder forma (sakrivena kada je `locked`)
- * - "Samo forma" rezim preko `renderOnlyForm`
+ * Comments list + composer for a post.
  *
- * @param {string}  postID                  - ID posta na koji se komentari odnose
- * @param {string}  [userId]                - ID trenutnog korisnika (moze biti undefined za goste)
- * @param {boolean} [showAll=false]         - Ako je true, primenjuje paginaciju preko `visibleCount`
- * @param {boolean} [locked=false]          - Zakljucava formu i interakcije
- * @param {boolean} [disableBadgeModal]     - Iskljucuje modal za badge u child komponentama
- * @param {number}  [repliesPreviewCount=1] - Koliko odgovora prikazati pre "Show replies"
- * @param {boolean} [renderOnlyForm=false]  - Kada je true, renderuje samo formu (bez liste)
+ * Supports two data modes:
+ * - Controlled: `comments` prop provided by parent (no Firestore subscription here).
+ * - Uncontrolled: subscribes to Firestore for the post (`shouldSubscribe`), keeps local state in sync.
  *
- * @returns {JSX.Element}
+ * Key behaviors:
+ * - Builds an adjacency list (`childrenMap`) for nested replies.
+ * - Hides deleted root comments unless they still have visible (non-deleted) descendants.
+ * - "showAll" toggles between compact preview (2 roots) and paged list with "Load more".
+ * - Emits a non-deleted count via `onCountChange` for header/badges elsewhere in the UI.
+ *
+ * @param {string} postID - Current post id.
+ * @param {Array<Object>|undefined} comments - Optional externally-provided comments array.
+ * @param {boolean} showAll - If false, render a compact preview; if true, render paged list.
+ * @param {boolean} locked - If true, disable composing and show archived message.
+ * @param {boolean} disableBadgeModal - Prop forwarded to CommentItem for read-only contexts.
+ * @param {boolean} renderOnlyForm - Used when parent wants only the composer (no list/header).
+ * @param {(count:number)=>void} onCountChange - Notifies parent about non-deleted comment count.
+ * @param {boolean} hideHeader - Hide "Comments" header and total.
+ * @param {boolean} hideForm - Hide composer even when unlocked.
+ * @param {string} formWrapperClassName - Layout hook for composer container.
+ * @param {string} listWrapperClassName - Layout hook for list container.
+ * @returns {JSX.Element|null}
  */
 const Comments = ({
   postID,
-  userId,
+  comments: commentsProp,
   showAll = false,
   locked = false,
   disableBadgeModal,
-  repliesPreviewCount = 1,
   renderOnlyForm = false,
+
+  onCountChange,
+  hideHeader = false,
+  hideForm = false,
+  formWrapperClassName = "mt-4",
+  listWrapperClassName = "mt-5",
 }) => {
-  const [comments, setComments] = useState([]);
+  const [localComments, setLocalComments] = useState([]);
+  const comments = commentsProp ?? localComments;
+
   const [visibleCount, setVisibleCount] = useState(10);
-  const [activeThreadId, setActiveThreadId] = useState(null);
+
+  // Subscribe only when parent does not supply comments.
+  const shouldSubscribe = !commentsProp;
 
   useEffect(() => {
-    if (!postID) return;
+    // Reset pagination on post change to avoid carrying UI state across routes.
+    setVisibleCount(10);
+  }, [postID]);
 
-    const q = query(
+  useEffect(() => {
+    if (!postID || !shouldSubscribe) return;
+
+    // Live query: newest first, client builds tree from parentID.
+    const qRef = query(
       collection(db, "comments"),
       where("postID", "==", postID),
-      orderBy("timestamp", "desc")
+      orderBy("timestamp", "desc"),
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const results = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setComments(results);
+    const unsubscribe = onSnapshot(qRef, (snapshot) => {
+      const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setLocalComments(results);
     });
 
     return unsubscribe;
-  }, [postID]);
+  }, [postID, shouldSubscribe]);
 
-  // Glavni (root) komentari — stariji gore (prirodniji tok citanja)
-  const mainComments = useMemo(() => {
-    const roots = comments.filter((c) => c.parentID === null);
-    return roots.sort((a, b) => {
+  const childrenMap = useMemo(() => {
+    // Adjacency list: parentCommentId -> array of direct child comments.
+    const map = {};
+    for (const c of comments) {
+      const pid = c.parentID ?? null;
+      if (!pid) continue;
+      if (!map[pid]) map[pid] = [];
+      map[pid].push(c);
+    }
+    return map;
+  }, [comments]);
+
+  const rootComments = useMemo(() => {
+    // Roots are comments without `parentID`. Sort newest-first for consistent feed ordering.
+    const roots = comments.filter((c) => !c.parentID);
+    return [...roots].sort((a, b) => {
       const aT =
         a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
       const bT =
         b.timestamp?.toMillis?.() || b.timestamp?.toDate?.()?.getTime?.() || 0;
-      return aT - bT;
+      return bT - aT; // newest first
     });
   }, [comments]);
 
-  // Samo forma ispod posta (bez liste)
+  // Header count: non-deleted only (deleted items remain for thread structure).
+  const totalCount = useMemo(
+    () => comments.filter((c) => !c.deleted).length,
+    [comments],
+  );
+
+  useEffect(() => {
+    // Lift count to parent (e.g., for tabs/badges) without requiring parent to recompute.
+    onCountChange?.(totalCount);
+  }, [totalCount, onCountChange]);
+
+  const hasVisibleDescendant = useCallback(
+    (id, memo = {}) => {
+      // Memoized DFS: checks if a (possibly deleted) root still has visible children.
+      // This prevents hiding an entire conversation thread when only the root is deleted.
+      if (memo[id] !== undefined) return memo[id];
+
+      const kids = childrenMap?.[id] || [];
+      for (const k of kids) {
+        if (!k.deleted) {
+          memo[id] = true;
+          return true;
+        }
+        if (hasVisibleDescendant(k.id, memo)) {
+          memo[id] = true;
+          return true;
+        }
+      }
+
+      memo[id] = false;
+      return false;
+    },
+    [childrenMap],
+  );
+
+  const visibleRootComments = useMemo(() => {
+    // Deleted roots are hidden unless they still have any visible descendants.
+    const memo = {};
+    return rootComments.filter(
+      (c) => !c.deleted || hasVisibleDescendant(c.id, memo),
+    );
+  }, [rootComments, hasVisibleDescendant]);
+
   if (renderOnlyForm) {
+    // Composer-only variant for embedded UIs (e.g., sheet/modal).
     return !locked ? (
-      <CommentForm postId={postID} userId={userId} parentId={null} />
+      <CommentForm
+        postId={postID}
+        parentId={null}
+        wrapperClassName={formWrapperClassName}
+      />
     ) : null;
   }
 
+  // Compact view renders only first 2 visible roots; full view uses client-side paging.
+  const slice = showAll
+    ? visibleRootComments.slice(0, visibleCount)
+    : visibleRootComments.slice(0, 2);
+
   return (
     <div className="w-full">
-      {/* Forma je uvek gore, osim kada je zakljucano */}
-      {!locked && (
-        <div className="mb-6">
-          <CommentForm postId={postID} userId={userId} parentId={null} />
+      {!hideHeader && (
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-semibold text-zinc-100">
+              Comments
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500">{totalCount} total</p>
+          </div>
         </div>
       )}
 
-      {/* Lista root komentara sa diskretnim divider-ima */}
-      <div>
-        {(showAll
-          ? mainComments.slice(0, visibleCount)
-          : mainComments.slice(0, 2)
-        ).map((comment, idx) => (
-          <div
-            key={comment.id}
-            className={idx === 0 ? "" : "border-t border-gray-200 pt-4"}
-          >
-            {/* Blaga leva vodilja za nit */}
-            <div className="pl-2 md:pl-3">
+      {locked && (
+        <p className={`${hideHeader ? "" : "mt-2"} text-sm text-zinc-400`}>
+          This post is archived. Commenting is disabled.
+        </p>
+      )}
+
+      {!locked && !hideForm && (
+        <CommentForm
+          postId={postID}
+          parentId={null}
+          wrapperClassName={formWrapperClassName}
+        />
+      )}
+
+      <div className={listWrapperClassName}>
+        {slice.length > 0 ? (
+          <div className="divide-y divide-zinc-800/80">
+            {slice.map((comment) => (
               <CommentItem
+                key={comment.id}
                 commentId={comment.id}
                 userId={comment.userID}
                 content={comment.content}
                 timestamp={comment.timestamp}
                 editedAt={comment.editedAt}
                 postID={comment.postID}
-                comments={comments}
+                childrenMap={childrenMap}
                 showAll={showAll}
                 deleted={comment.deleted}
                 locked={locked}
                 disableBadgeModal={disableBadgeModal}
-                repliesPreviewCount={repliesPreviewCount}
-                activeThreadId={activeThreadId}
-                setActiveThreadId={setActiveThreadId}
               />
-            </div>
+            ))}
           </div>
-        ))}
-
-        {/* See more */}
-        {showAll && visibleCount < mainComments.length && (
-          <div className="text-center mt-4">
-            <button
-              onClick={() => setVisibleCount((prev) => prev + 10)}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              See more comments
-            </button>
-          </div>
+        ) : (
+          <p className="text-sm text-zinc-500 italic">
+            {locked ? "No comments." : "Be the first to comment."}
+          </p>
         )}
 
-        {/* Zakljucano — info */}
-        {locked && mainComments.length === 0 && (
-          <p className="text-sm text-gray-500">
-            Comments are locked for this post.
-          </p>
+        {showAll && visibleCount < visibleRootComments.length && (
+          <div className="text-center mt-5">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((prev) => prev + 10)}
+              className="text-sm text-sky-300 hover:text-sky-200 hover:underline underline-offset-4"
+            >
+              Load more
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -149,12 +240,17 @@ const Comments = ({
 
 Comments.propTypes = {
   postID: PropTypes.string.isRequired,
-  userId: PropTypes.string,
+  comments: PropTypes.array,
   showAll: PropTypes.bool,
   locked: PropTypes.bool,
   disableBadgeModal: PropTypes.bool,
-  repliesPreviewCount: PropTypes.number,
   renderOnlyForm: PropTypes.bool,
+
+  onCountChange: PropTypes.func,
+  hideHeader: PropTypes.bool,
+  hideForm: PropTypes.bool,
+  formWrapperClassName: PropTypes.string,
+  listWrapperClassName: PropTypes.string,
 };
 
 export default Comments;

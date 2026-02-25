@@ -1,12 +1,11 @@
 import { useContext, useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, NavLink } from "react-router-dom";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 
 import { db } from "../../../firebase";
 import { AuthContext } from "../../../context/AuthContext";
 
 import DashboardBreadcrumb from "./DashboardBreadcrumb";
-import WelcomeBanner from "./WelcomeBanner";
 import DashboardTabs from "./DashboardTabs";
 import TrashFilterBar from "./TrashFilterBar";
 import PostFilterBar from "./PostFilterBar";
@@ -14,42 +13,45 @@ import PostFilterBar from "./PostFilterBar";
 /**
  * @component DashboardLayout
  *
- * Glavni layout za Dashboard sekciju (privatne rute).
+ * Shared layout shell for all `/dashboard/*` routes.
  *
- * Namena:
- * - Prikazuje breadcrumb, opcioni welcome banner i tabs (ukljucujuci Trash badge sa brojem obrisanih postova)
- * - Obezbedjuje sticky header (breadcrumb + tabs + filteri) i skrolabilan sadrzaj ispod
- * - Slusa Firestore u realnom vremenu da bi pratila broj obrisanih postova za aktivnog korisnika
- * - Na osnovu rute prikazuje dodatne kontrole:
- *   - `/dashboard/trash` → `TrashFilterBar` (filtriranje po vremenskom opsegu za Trash)
- *   - `/dashboard` (MyPosts) → `PostFilterBar` (Active/Locked/All + search po naslovu)
- * - Prosledjuje filter stanje kroz `Outlet` context tako da child rute (MyPosts, Trash) dele isti izvor istine
+ * Responsibilities:
+ * - Renders a sticky header panel with tabs + page-specific controls.
+ * - Exposes shared dashboard UI state to nested routes via `Outlet` context.
+ * - Subscribes to trash count in real time to keep the Trash tab badge accurate.
+ *
+ * Responsive behavior:
+ * - md+: uses a 2-col grid so controls can align (tabs left, actions/search right).
+ * - < md: stacks controls vertically to keep the header compact on mobile.
  *
  * @returns {JSX.Element}
  */
-
 const DashboardLayout = () => {
   const location = useLocation();
-  const isTrashPage = location.pathname.includes("/trash"); // Trash ruta prikazuje dodatni filter bar za TTL (0–10 / 11–20 / 21–30)
+
+  // Route-derived UI mode flags for conditional header controls.
+  const isTrashPage = location.pathname.includes("/trash");
   const isMyPostsPage = location.pathname === "/dashboard";
   const isSavedPage = location.pathname.includes("/saved");
-  const showBanner = true; // (kasnije povezati sa localStorage za dismiss logiku)
 
   const { user } = useContext(AuthContext);
+
   const [trashCount, setTrashCount] = useState(0);
   const [filterRange, setFilterRange] = useState(null);
   const [filter, setFilter] = useState("all");
   const [savedSortDirection, setSavedSortDirection] = useState("desc");
-  const [myPostsSearch, setMyPostsSearch] = useState(""); // Search string za MyPosts (server-side prefix search po title_lc)
+  const [myPostsSearch, setMyPostsSearch] = useState("");
 
-  // Efekat: slusaj promene obrisanih postova u Firestore-u za trenutno ulogovanog korisnika
   useEffect(() => {
-    if (!user.uid) return;
+    // Guard: do not subscribe until we have a stable uid.
+    if (!user?.uid) return;
 
+    // Live trash count is derived from the user's `deleted === true` posts.
+    // Keeps tab badge accurate without manual refresh.
     const q = query(
       collection(db, "posts"),
       where("userId", "==", user.uid),
-      where("deleted", "==", true)
+      where("deleted", "==", true),
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -57,89 +59,212 @@ const DashboardLayout = () => {
     });
 
     return () => unsubscribe();
-  }, [user.uid]);
+  }, [user?.uid]);
+
+  const dashboardPanel =
+    "ui-card p-2.5 sm:p-4 " +
+    "border-zinc-800/70 " +
+    "bg-gradient-to-b from-sky-500/5 via-zinc-950/20 to-zinc-950/30 " +
+    "ring-sky-200/10";
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100">
-      <div className="sticky top-0 z-20 bg-gray-100 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <DashboardBreadcrumb />
+    <div className="pb-2">
+      <div className="sticky top-16 z-40">
+        <div className="w-full border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur">
+          <div className="py-2 sm:py-3">
+            <div className={dashboardPanel}>
+              {/* md+ uses a 2-col / 2-row grid so Search can live on the far right */}
+              <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(320px,28rem)] md:gap-6">
+                {/* Row 1, Col 1 */}
+                <div className="min-w-0">
+                  <div className="hidden lg:block">
+                    <DashboardBreadcrumb />
+                  </div>
 
-          {showBanner && (
-            <div className="mt-4">
-              <WelcomeBanner />
-            </div>
-          )}
+                  <div className="mt-1.5 sm:mt-2">
+                    <DashboardTabs
+                      trashCount={trashCount}
+                      isAdmin={Boolean(user?.isAdmin)}
+                    />
+                  </div>
+                </div>
 
-          <div className="mt-4">
-            <DashboardTabs trashCount={trashCount} />
+                {/* Row 1, Col 2 */}
+                <div className="flex items-center justify-end gap-2">
+                  {/* Email is informational only (truncate prevents header overflow). */}
+                  {user?.email ? (
+                    <span className="text-sm text-zinc-300 max-w-[360px] truncate">
+                      {user.email}
+                    </span>
+                  ) : null}
 
-            {isTrashPage && (
-              <TrashFilterBar
-                filterRange={filterRange}
-                onFilterChange={setFilterRange}
-              />
-            )}
+                  {isMyPostsPage && (
+                    <NavLink
+                      to="/dashboard/create"
+                      className="ui-button-primary"
+                    >
+                      Create post
+                    </NavLink>
+                  )}
+                </div>
 
-            {/* Prikaz filtera za postove samo na MyPosts stranici (ruta: /dashboard) */}
-            {isMyPostsPage && (
-              <PostFilterBar
-                activeFilter={filter}
-                onFilterChange={setFilter}
-                searchTerm={myPostsSearch}
-                onSearchChange={setMyPostsSearch}
-              />
-            )}
+                {/* Row 2, Col 1 */}
+                <div className="min-w-0 mt-2 sm:mt-3">
+                  {isTrashPage && (
+                    <TrashFilterBar
+                      filterRange={filterRange}
+                      onFilterChange={setFilterRange}
+                    />
+                  )}
 
-            {/* Sort bar za Saved sekciju (ruta: /dashboard/saved) */}
-            {isSavedPage && (
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSavedSortDirection("desc")}
-                  className={`px-3 py-1 text-xs rounded-full border ${
-                    savedSortDirection === "desc"
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-700 border-gray-300"
-                  }`}
-                >
-                  Recently saved
-                </button>
+                  {isMyPostsPage && (
+                    <PostFilterBar
+                      activeFilter={filter}
+                      onFilterChange={setFilter}
+                      searchTerm={myPostsSearch}
+                      onSearchChange={setMyPostsSearch}
+                      showDesktopSearch={false}
+                    />
+                  )}
 
-                <button
-                  type="button"
-                  onClick={() => setSavedSortDirection("asc")}
-                  className={`px-3 py-1 text-xs rounded-full border ${
-                    savedSortDirection === "asc"
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-700 border-gray-300"
-                  }`}
-                >
-                  Oldest saved
-                </button>
+                  {isSavedPage && (
+                    <div className="flex flex-wrap gap-2">
+                      {/* Saved sort is stored in Outlet context and consumed by SavedPosts page. */}
+                      <button
+                        type="button"
+                        onClick={() => setSavedSortDirection("desc")}
+                        className={`px-3 py-1 text-xs rounded-full border transition
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                          focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                            savedSortDirection === "desc"
+                              ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                              : "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+                          }`}
+                      >
+                        Recently saved
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSavedSortDirection("asc")}
+                        className={`px-3 py-1 text-xs rounded-full border transition
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                          focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                            savedSortDirection === "asc"
+                              ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                              : "border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+                          }`}
+                      >
+                        Oldest saved
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Row 2, Col 2 (Search on far right) */}
+                <div className="min-w-0 mt-2 sm:mt-3">
+                  {isMyPostsPage && (
+                    <div className="w-full">
+                      <label htmlFor="my-posts-search-md" className="sr-only">
+                        Search your posts by title
+                      </label>
+                      <input
+                        id="my-posts-search-md"
+                        name="myPostsSearch"
+                        type="text"
+                        value={myPostsSearch}
+                        onChange={(e) => setMyPostsSearch(e.target.value)}
+                        placeholder="Search your posts by title..."
+                        autoComplete="off"
+                        className="ui-input w-full"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* Mobile-only bars keep the same controls, stacked for smaller screens. */}
+              <div className="md:hidden">
+                <div className="hidden lg:block">
+                  <DashboardBreadcrumb />
+                </div>
+
+                <div className="mt-1.5 sm:mt-2">
+                  <DashboardTabs
+                    trashCount={trashCount}
+                    isAdmin={Boolean(user?.isAdmin)}
+                  />
+                </div>
+
+                <div className="mt-2 sm:mt-3 space-y-2">
+                  {isTrashPage && (
+                    <TrashFilterBar
+                      filterRange={filterRange}
+                      onFilterChange={setFilterRange}
+                    />
+                  )}
+
+                  {isMyPostsPage && (
+                    <PostFilterBar
+                      activeFilter={filter}
+                      onFilterChange={setFilter}
+                      searchTerm={myPostsSearch}
+                      onSearchChange={setMyPostsSearch}
+                    />
+                  )}
+
+                  {isSavedPage && (
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSavedSortDirection("desc")}
+                        className={`shrink-0 px-3 py-1 text-xs rounded-full border transition
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+        focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+          savedSortDirection === "desc"
+            ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+            : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+        }`}
+                      >
+                        Recently saved
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSavedSortDirection("asc")}
+                        className={`shrink-0 px-3 py-1 text-xs rounded-full border transition
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+        focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+          savedSortDirection === "asc"
+            ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+            : "border border-zinc-800 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-900/40"
+        }`}
+                      >
+                        Oldest saved
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Skrolabilni sadrzaj */}
-      <div className="flex-grow overflow-y-auto">
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Prosledjujemo filter stanje kroz Outlet context (Trash i MyPosts dele iste kontrolere) */}
-          <Outlet
-            context={{
-              filterRange,
-              setFilterRange,
-              filter,
-              setFilter,
-              myPostsSearch,
-              setMyPostsSearch,
-              savedSortDirection,
-              setSavedSortDirection,
-            }}
-          />
-        </main>
+      <div className="pt-6">
+        {/* Outlet context is the single shared source for dashboard filter/sort UI state. */}
+        <Outlet
+          context={{
+            filterRange,
+            setFilterRange,
+            filter,
+            setFilter,
+            myPostsSearch,
+            setMyPostsSearch,
+            savedSortDirection,
+            setSavedSortDirection,
+          }}
+        />
       </div>
     </div>
   );

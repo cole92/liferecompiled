@@ -1,38 +1,60 @@
-import { useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
 import Header from "./Header";
 import Footer from "./Footer";
 import { SearchProvider } from "../context/SearchContext";
 
 /**
- * Layout komponenta - sluzi kao glavni omotac aplikacije.
- * Sadrzi Header, Footer i dinamicki sadrzaj (children),
- * koji se menja u zavisnosti od rute.
+ * @component Layout
+ *
+ * Application shell wrapper used across routes.
+ *
+ * - Provides global context via `SearchProvider`
+ * - Renders consistent app chrome (Header + Footer) around route content
+ * - Includes "Skip to content" link for keyboard accessibility
+ * - Keeps footer pinned to bottom on short pages via flex column layout
+ *
+ * Notes:
+ * - Header is rendered in a sticky wrapper so page content scrolls under it
+ * - Main content is wrapped in `ui-shell` to keep widths consistent across pages
+ *
+ * @param {React.ReactNode} children - Route content
+ * @returns {JSX.Element}
  */
-
 const Layout = ({ children }) => {
-  const location = useLocation();
-  const isDashboard = location.pathname.startsWith("/dashboard");
-
   return (
-    // Omotavamo celu aplikaciju unutar SearchProvider-a
     <SearchProvider>
-      <div className="d-flex flex-column vh-100">
-        {/* Header se prikazuje na svim stranicama */}
-        <div className="container-fluid bg-light border-bottom">
+      <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
+        {/* A11y: allows keyboard users to jump past navigation */}
+        <a
+          href="#main-content"
+          className="
+            sr-only focus:not-sr-only
+            focus:fixed focus:left-1/2 focus:-translate-x-1/2
+            focus:top-16 sm:focus:top-4
+            focus:z-[60]
+            focus:rounded-md focus:bg-zinc-900
+            focus:px-2 focus:py-1 focus:text-xs
+            sm:focus:px-3 sm:focus:py-2 sm:focus:text-sm
+            focus:font-medium focus:text-zinc-100
+            focus:max-w-[calc(100vw-2rem)] focus:truncate
+          "
+        >
+          Skip to content
+        </a>
+
+        {/* Sticky header (body scrolls underneath) */}
+        <div className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
           <Header />
         </div>
-        {/* Glavni sadrzaj stranice (dinamicki menja stranice unutar aplikacije) */}
-        <main className="flex-grow-1 overflow-auto">
-          {/* Glavni wrapper: full-width za dashboard, centriran za ostale stranice */}
-          <div
-            className={isDashboard ? "container-fluid mt-4" : "container mt-4"}
-          >
-            {children}
-          </div>
+
+        {/* Main grows to push Footer to the bottom when content is short */}
+        <main id="main-content" className="flex-1 pt-4 pb-6">
+          {/* IMPORTANT: keep page width consistent across the app */}
+          <div className="ui-shell">{children}</div>
         </main>
-        {/* Footer se prikazuje na svim stranicama */}
-        <div className="container-fluid bg-light border-top">
+
+        {/* Footer */}
+        <div className="w-full border-t border-zinc-800 bg-zinc-950">
           <Footer />
         </div>
       </div>
@@ -40,7 +62,6 @@ const Layout = ({ children }) => {
   );
 };
 
-// Validacija props-a - children mora biti React element
 Layout.propTypes = {
   children: PropTypes.node.isRequired,
 };

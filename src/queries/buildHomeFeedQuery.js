@@ -1,4 +1,4 @@
-// Cist builder: sastavlja Firestore Query za Home feed, ne izvrsava ga.
+// Clean builder: builds a Firestore Query for the Home feed, does not execute it.
 import {
   collection,
   query,
@@ -14,37 +14,40 @@ import {
   ALLOWED_SORT,
   SORT_NEWEST,
   SORT_OLDEST,
+  SORT_TRENDING,
 } from "../constants/feed";
 
 /**
  * @helper buildHomeFeedQuery
- * Gradi Firestore Query za Home feed; bez side-effecta, samo vraca Query objekat.
  *
- * Namena:
- * - Centralizuje logiku filtriranja (deleted=false), kategorije i sortiranja
- * - Obezbedjuje stabilnu paginaciju (limit + startAfter)
- * - Sanitizuje ulaze (pageSize, sortBy, category)
+ * Builds a Firestore Query for the Home feed.
+ * No side effects: it only returns a Query object.
  *
- * Pravila i fallback:
- * - pageSize se klampuje na [PAGE_SIZE_MIN, PAGE_SIZE_MAX]
- * - sortBy mora biti u ALLOWED_SORT; fallback je newest
- * - category je opcioni string (trimovan); ako je prazan → ignorise se
+ * Purpose:
+ * - Centralizes feed rules (deleted=false), optional category filtering, and sorting.
+ * - Ensures stable pagination (limit + startAfter).
+ * - Sanitizes inputs (pageSize, sortBy, category).
  *
- * Sortiranje:
- * - Ako postoji category → uvek orderBy(createdAt, desc)
- *   (jer se kategori-sani feed obicno prikazuje od najnovijeg)
- * - Ako nema category → koristi se selected sort (newest/oldest)
+ * Rules and fallbacks:
+ * - pageSize is clamped to the allowed range (see clampPageSize()).
+ * - sortBy must be in ALLOWED_SORT; fallback is SORT_NEWEST.
+ * - category is an optional string (trimmed); empty -> ignored.
  *
- * Napomena:
- * - Funkcija ne poziva Firestore; UI sloj poziva getDocs(query).
+ * Sorting behavior:
+ * - Trending view: only trending posts, ordered by lastHotAt desc (then createdAt desc).
+ * - Category active: always newest first (createdAt desc).
+ * - No category: uses selected sort (newest/oldest) over createdAt.
+ *
+ * Note:
+ * - This function does not call Firestore. The caller should run getDocs(query).
  *
  * @param {Object} opts
- * @param {Firestore} opts.db - Firestore instanca
- * @param {DocumentSnapshot|null} [opts.afterDoc=null] - kursor za Load More
- * @param {number} [opts.pageSize] - trazena velicina stranice (klampuje se)
- * @param {string} [opts.category] - opcioni filter kategorije
- * @param {string} [opts.sortBy] - 'newest' ili 'oldest'
- * @returns {Query} Firestore Query za posts
+ * @param {import("firebase/firestore").Firestore} opts.db - Firestore instance
+ * @param {import("firebase/firestore").DocumentSnapshot|null} [opts.afterDoc=null] - cursor for Load More
+ * @param {number} [opts.pageSize] - requested page size (clamped)
+ * @param {string} [opts.category] - optional category filter
+ * @param {string} [opts.sortBy] - 'newest' | 'oldest' | 'trending'
+ * @returns {import("firebase/firestore").Query} Firestore Query for posts
  */
 export function buildHomeFeedQuery({
   db,
@@ -53,40 +56,46 @@ export function buildHomeFeedQuery({
   category,
   sortBy = SORT_NEWEST,
 }) {
-  // Sanitizacija pageSize i sortBy
+  // Sanitize pageSize and sortBy
   const size = clampPageSize(pageSize ?? PAGE_SIZE_DEFAULT);
   const safeSort = ALLOWED_SORT.has(sortBy) ? sortBy : SORT_NEWEST;
 
-  // Bazna kolekcija + delovi Query-a
+  // Base collection + query parts
   const col = collection(db, "posts");
   const parts = [];
 
-  // Minimalni filter: nikada ne prikazujemo obrisane postove
+  // Minimal filter: never show deleted posts
   parts.push(where("deleted", "==", false));
 
-  // Normalizacija kategorije (trim; ignorisi ako je prazno)
+  // Normalize category (trim; ignore if empty)
   const normalizedCategory =
     typeof category === "string" ? category.trim() : "";
 
-  // Sortiranje zavisi od toga da li je category aktivan filter
-  if (normalizedCategory) {
-    // Kada je kategorija aktivna, koristimo najnovije prvo (desc)
+  // Trending view: only trending posts (category ignored)
+  if (safeSort === SORT_TRENDING) {
+    parts.push(where("badges.trending", "==", true));
+    parts.push(orderBy("lastHotAt", "desc"));
+
+    // Tie-breaker for more stable pagination
+    parts.push(orderBy("createdAt", "desc"));
+  } else if (normalizedCategory) {
+    // Category view always uses newest first
     parts.push(where("category", "==", normalizedCategory));
     parts.push(orderBy("createdAt", "desc"));
   } else {
-    // Globalni feed: koristi izabrani smer sortiranja
+    // Global feed uses the selected createdAt direction
     const dir = safeSort === SORT_OLDEST ? "asc" : "desc";
     parts.push(orderBy("createdAt", dir));
   }
 
-  // Cursor paginacija (Load More)
+  // Cursor pagination (Load More)
   if (afterDoc) {
     parts.push(startAfter(afterDoc));
   }
 
-  // Limit uvek poslednji deo Query-a
+  // Limit should be last
   parts.push(limit(size));
 
-  // Vraca cist Firestore Query (nema side-effect-a)
+  // Return a pure Firestore Query (no side effects)
   return query(col, ...parts);
 }

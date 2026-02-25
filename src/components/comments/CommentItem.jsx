@@ -1,12 +1,20 @@
-import { useEffect, useState, useRef, useContext } from "react";
+// src/components/comments/CommentItem.jsx
+import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import PropTypes from "prop-types";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { motion } from "framer-motion";
+import {
+  FiMoreHorizontal,
+  FiChevronDown,
+  FiChevronUp,
+  FiCornerDownRight,
+} from "react-icons/fi";
+import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 
 import { auth, db } from "../../firebase";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-// import { deleteComment } from "../../firebase/functions"; // Rezervisano za hard delete
 import { softDeleteComment } from "./commentsService";
 import { getUserById } from "../../services/userService";
 import { submitReport } from "../../services/reportService";
@@ -25,38 +33,78 @@ import BadgeModal from "../modals/BadgeModal";
 import ShieldIcon from "../ui/ShieldIcon";
 import Avatar from "../common/Avatar";
 
-/**
- * @component CommentItem
- * Rekurzivna komponenta za prikaz jednog komentara sa korisnickim informacijama i podrskom za Reddit-style preview odgovora.
- *
- * - Prikazuje autora, sadrzaj, vreme objave, edit status i reakcije
- * - Omogucava izmenu i brisanje komentara (soft delete), uz ConfirmModal
- * - Omogucava odgovaranje na komentar do maksimalne definisane dubine
- * - Podrzava skraceni prikaz odgovora (preview) radi preglednosti
- * - Prikazuje Top Contributor badge uz avatar autora, sa opcijom modal prikaza
- * - Integrisana sa `softDeleteComment` servisom i `getUserById` za dohvat autora
- * - Koristi dayjs.relativeTime za formatiranje vremena
- *
- * @param {string} userId - ID korisnika koji je ostavio komentar
- * @param {string} content - Tekst komentara
- * @param {object} timestamp - Firestore timestamp objekat (kreiranje)
- * @param {object} editedAt - Firestore timestamp izmene (opciono)
- * @param {string} postID - ID posta kojem komentar pripada
- * @param {string} commentId - ID ovog komentara
- * @param {Array<Object>} comments - Lista svih komentara za post (fallback kada nema childrenMap)
- * @param {Object<string,Array<Object>>} [childrenMap] - Opciona mapa parentID -> niz direktne dece
- * @param {number} [depth=0] - Trenutna dubina komentara (root = 0)
- * @param {boolean} [showAll=false] - Da li prikazati sve funkcionalnosti (reply, edit, delete…)
- * @param {boolean} [deleted=false] - Da li je komentar obrisan (soft delete)
- * @param {boolean} [locked=false] - Da li je komentar zakljucan (onemogucava interakcije)
- * @param {boolean} [disableBadgeModal=false] - Da li onemoguciti otvaranje badge modala
- * @param {number} [repliesPreviewCount] - Koliko direktnih odgovora prikazati u preview-u
- * @param {number} [maxDepthForReply=4] - Maksimalna dubina na kojoj je dozvoljen Reply
- * @param {number} [maxDepthForRender=Infinity] - Maksimalna dubina renderovanja rekurzije
- */
-
 dayjs.extend(relativeTime);
 
+/**
+ * Resolve a safe portal root for menus/modals.
+ * - Prefer `#modal-root` to keep overlays above app layout.
+ * - Fallback to `document.body` to avoid breaking if the root is missing.
+ */
+const getPortalRoot = () =>
+  document.getElementById("modal-root") || document.body;
+
+const MENU_WIDTH = 176;
+const MENU_MARGIN = 12;
+
+// Toast IDs (anti-spam)
+const REPORT_COMMENT_AUTH_TOAST_ID = "report:comment:auth";
+const REPORT_COMMENT_SELF_TOAST_ID = "report:comment:self";
+const REPORT_COMMENT_SUCCESS_TOAST_ID = "report:comment:success";
+const REPORT_COMMENT_ERROR_TOAST_ID = "report:comment:error";
+
+const COMMENT_DELETE_SUCCESS_TOAST_ID = "comment:delete:success";
+const COMMENT_DELETE_ERROR_TOAST_ID = "comment:delete:error";
+
+const COMMENT_EDIT_EMPTY_TOAST_ID = "comment:edit:empty";
+const COMMENT_EDIT_ERROR_TOAST_ID = "comment:edit:error";
+
+/**
+ * Depth-based padding for nested replies.
+ * Keeps deep threads readable without pushing content too far right on mobile.
+ */
+const getRepliesIndent = (depth) => {
+  if (depth <= 0) return "pl-4 sm:pl-5";
+  if (depth === 1) return "pl-3 sm:pl-4";
+  return "pl-2 sm:pl-3";
+};
+
+const NAME_LINK_BASE =
+  "font-semibold text-sm text-zinc-100 " +
+  "hover:text-zinc-100 hover:underline underline-offset-4 decoration-zinc-500/70 " +
+  "transition " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-md";
+
+/**
+ * @component CommentItem
+ *
+ * Single comment row with:
+ * - author display (async fetch), timestamp (relative), and optional "replying to" context
+ * - edit window (10 min), soft delete, report flow
+ * - nested replies rendering using `childrenMap` adjacency list
+ * - menu rendered via portal (positioned near button; closes on scroll/Escape/outside click)
+ *
+ * Notes:
+ * - Soft delete keeps thread structure intact; deleted comments can remain visible if they have non-deleted children.
+ * - Reply/edit actions are disabled when `locked` or when depth exceeds configured limits.
+ *
+ * @param {string} userId - Author id of this comment.
+ * @param {string} content - Comment body.
+ * @param {Object} timestamp - Firestore Timestamp for creation time.
+ * @param {Object|null} editedAt - Firestore Timestamp for edit time (optional).
+ * @param {string} postID - Post id (used for reply submit).
+ * @param {string} commentId - Comment document id.
+ * @param {Object} childrenMap - Map: parentCommentId -> array of reply objects.
+ * @param {number} depth - Nesting level (0 for top-level).
+ * @param {boolean} showAll - If false, comment may be truncated in compact views.
+ * @param {boolean} deleted - Soft delete flag.
+ * @param {boolean} locked - If true, disables interactions (reply/edit/delete/reactions/report flows as needed).
+ * @param {boolean} disableBadgeModal - If true, badge modal is disabled (read-only contexts).
+ * @param {number} maxDepthForReply - Reply button disabled at/after this depth.
+ * @param {number} maxDepthForRender - Stop rendering children after this depth (performance/UX guard).
+ * @param {{id: string, name: string}|null} parentAuthor - Context for "Replying to" row.
+ * @returns {JSX.Element}
+ */
 const CommentItem = ({
   userId,
   content,
@@ -64,52 +112,74 @@ const CommentItem = ({
   editedAt,
   postID,
   commentId,
-  comments,
   childrenMap,
   depth = 0,
   showAll = false,
   deleted = false,
   locked = false,
   disableBadgeModal = false,
-  repliesPreviewCount,
   maxDepthForReply = 4,
   maxDepthForRender = Infinity,
-  activeThreadId,
-  setActiveThreadId,
+  parentAuthor = null, // { id, name } for "Replying to"
 }) => {
   const [user, setUser] = useState(null);
   const [isReplying, setIsReplying] = useState(false);
+  const [isRepliesOpen, setIsRepliesOpen] = useState(false);
+
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
   const [showEditHint, setShowEditHint] = useState(false);
+
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
-  const [expanded, setExpanded] = useState(false); // kontrola otvaranja dodatnih odgovora
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const { user: currentUserCtx } = useContext(AuthContext);
-  const currentUser = currentUserCtx || auth.currentUser;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const menuBtnRef = useRef(null);
+  const hintShownRef = useRef(false);
+
+  const portalRoot = useMemo(() => {
+    // SSR guard: portals require DOM.
+    if (typeof document === "undefined") return null;
+    return getPortalRoot();
+  }, []);
+
+  const { user: ctxUser } = useContext(AuthContext);
+
+  // Prefer context user; fallback keeps behavior stable if context is late.
+  const currentUser = ctxUser || auth.currentUser;
 
   const currentUserId = currentUser?.uid ?? null;
   const isAuthor = !!currentUserId && currentUserId === userId;
-  const isAdmin = currentUserCtx?.isAdmin === true;
+  const isAdmin = ctxUser?.isAdmin === true;
   const canManageComment = isAuthor || isAdmin;
 
-  const isRoot = depth === 0;
-  const hintShownRef = useRef(false);
-
-  const isDeleted = deleted;
   const tsDate = timestamp?.toDate?.();
   const editedDate = editedAt?.toDate?.();
   const editId = `comment-edit-${commentId}`;
 
-  // Edit dozvoljen samo 10 minuta od kreiranja
+  // Edit window: allow quick fixes, avoid "stealth edits" long after posting.
   const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
 
+  const isDeleted = deleted;
+  const disableReplyButton = locked || isDeleted || depth >= maxDepthForReply;
+  const blockRenderingChildren = depth >= maxDepthForRender;
+
+  useEffect(() => {
+    // Keep editor synced with upstream changes unless user is actively editing.
+    if (!isEditing) setEditedContent(content);
+  }, [content, isEditing]);
+
   const onReportClick = () => {
+    // Auth gate early to avoid opening modal that cannot be confirmed.
     if (!currentUser) {
-      showInfoToast("Please login to report 😊");
+      showInfoToast("Please login to report 😊", {
+        toastId: REPORT_COMMENT_AUTH_TOAST_ID,
+      });
       return;
     }
     setShowReportModal(true);
@@ -118,14 +188,22 @@ const CommentItem = ({
   const onCancelReport = () => setShowReportModal(false);
 
   const onConfirmReport = async () => {
+    // Double-check auth in case session changed while modal was open.
     if (!currentUser) {
-      showInfoToast("Please login to report 😊");
+      showInfoToast("Please login to report 😊", {
+        toastId: REPORT_COMMENT_AUTH_TOAST_ID,
+      });
       setShowReportModal(false);
       return;
     }
 
+    // Prevent self-report spam / accidental clicks.
     if (currentUser?.uid === userId) {
-      showInfoToast("You can't report your own comment.");
+      showInfoToast("You can't report your own comment.", {
+        toastId: REPORT_COMMENT_SELF_TOAST_ID,
+        autoClose: 1600,
+      });
+      setShowReportModal(false);
       return;
     }
 
@@ -135,35 +213,42 @@ const CommentItem = ({
         targetId: commentId,
         reportedBy: currentUser.uid,
       });
-      showSuccessToast("Comment reported. Thank you!");
-    } catch (error) {
-      showErrorToast("Report failed. Try again.");
-      console.log(error);
+
+      showSuccessToast("Comment reported. Thank you!", {
+        toastId: REPORT_COMMENT_SUCCESS_TOAST_ID,
+        autoClose: 1400,
+      });
+    } catch {
+      showErrorToast("Report failed. Try again.", {
+        toastId: REPORT_COMMENT_ERROR_TOAST_ID,
+      });
     } finally {
       setShowReportModal(false);
     }
   };
 
-  // Fetch korisnika sa isMounted zastitom
   useEffect(() => {
+    // Fetch author public profile for name/avatar/badges (best-effort).
     if (!userId) return;
     let isMounted = true;
-    const fetchUser = async () => {
+
+    (async () => {
       try {
         const data = await getUserById(userId);
         if (isMounted) setUser(data);
       } catch (e) {
         console.error("Failed to fetch user:", e);
       }
-    };
-    fetchUser();
+    })();
+
     return () => {
+      // Avoid setState on unmounted component when requests resolve late.
       isMounted = false;
     };
   }, [userId]);
 
-  // Prikaz hint poruke za edit (max 3 puta po korisniku, cuva se u localStorage)
   useEffect(() => {
+    // Show a short edit hint to the author, but cap to avoid annoyance.
     const currentUid = auth.currentUser?.uid;
     if (!currentUid || currentUid !== userId || !canEdit) return;
     if (hintShownRef.current) return;
@@ -179,12 +264,28 @@ const CommentItem = ({
     return () => clearTimeout(timerId);
   }, [userId, canEdit]);
 
-  // Dobavljanje direktne dece (odgovora) ovog komentara
-  const rawReplies = childrenMap
-    ? childrenMap[commentId] || []
-    : comments.filter((c) => c.parentID === commentId);
+  useEffect(() => {
+    if (!isMenuOpen) return;
 
-  // Sortiramo odgovore od starijih ka novijima
+    // Close menu on Escape and on any scroll (prevents stale positioning).
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setIsMenuOpen(false);
+    };
+
+    const onAnyScroll = () => setIsMenuOpen(false);
+
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onAnyScroll, true);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onAnyScroll, true);
+    };
+  }, [isMenuOpen]);
+
+  const rawReplies = childrenMap?.[commentId] || [];
+
+  // Keep reply order stable: chronological (oldest -> newest).
   const sortedReplies = [...rawReplies].sort((a, b) => {
     const aT =
       a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
@@ -193,48 +294,60 @@ const CommentItem = ({
     return aT - bT;
   });
 
-  // Logika za preview broja odgovora
-  // Ako repliesPreviewCount postoji → koristi njega
-  // Inace: ako je tacno 1 direktan odgovor → prikazi 1, u root-u takodje 1, dublje 0
-  const directReplies = sortedReplies.length;
-  const previewN =
-    typeof repliesPreviewCount === "number"
-      ? Math.max(0, repliesPreviewCount)
-      : directReplies === 1
-      ? 1
-      : isRoot
-      ? 1
-      : 0;
+  // Deleted replies remain visible only if they still have at least one non-deleted child.
+  // This keeps nested conversations readable without "orphaning" children.
+  const visibleReplies = sortedReplies.filter((r) => {
+    if (!r.deleted) return true;
+    const kids = childrenMap?.[r.id] || [];
+    return kids.some((k) => !k.deleted);
+  });
 
-  // Soft delete handler
+  const directReplies = visibleReplies.length;
+
   const handleDelete = async (id) => {
+    if (isDeleting) return;
     setIsDeleting(true);
+
     try {
       const result = await softDeleteComment({ commentId: id });
+
       if (result?.data?.success) {
-        showSuccessToast("Comment removed.");
+        showSuccessToast("Comment removed.", {
+          toastId: COMMENT_DELETE_SUCCESS_TOAST_ID,
+          autoClose: 1200,
+        });
       } else {
-        showErrorToast("Error while deleting the comment.");
+        showErrorToast("Error while deleting the comment.", {
+          toastId: COMMENT_DELETE_ERROR_TOAST_ID,
+        });
       }
     } catch (err) {
       console.error("Error while deleting:", err);
-      showErrorToast("Error while deleting the comment.");
+      showErrorToast("Error while deleting the comment.", {
+        toastId: COMMENT_DELETE_ERROR_TOAST_ID,
+      });
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Cuva izmenjeni komentar
   const handleSave = async () => {
     const trimmed = editedContent.trim();
+
+    // Mirror backend expectations: reject whitespace-only updates.
     if (!trimmed) {
-      showErrorToast("Comment cannot be empty!");
+      showErrorToast("Comment cannot be empty!", {
+        toastId: COMMENT_EDIT_EMPTY_TOAST_ID,
+      });
       return;
     }
+
+    // No-op save: keep UI snappy and avoid unnecessary writes.
     if (trimmed === content.trim()) {
       setIsEditing(false);
       return;
     }
+
     try {
       const commentRef = doc(db, "comments", commentId);
       await updateDoc(commentRef, {
@@ -244,288 +357,365 @@ const CommentItem = ({
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update comment:", error);
-      showErrorToast("Failed to update comment. Please try again.");
+      showErrorToast("Failed to update comment. Please try again.", {
+        toastId: COMMENT_EDIT_ERROR_TOAST_ID,
+      });
     }
   };
 
   const handleCancel = () => {
+    // Restore original content to avoid "half edits" lingering in state.
     setIsEditing(false);
     setEditedContent(content);
   };
 
-  // Guardovi za reply i render dubinu
-  const disableReplyButton = locked || depth >= maxDepthForReply;
-  const blockRenderingChildren = depth >= maxDepthForRender;
+  const openMenu = (e) => {
+    e.stopPropagation();
+    const btn = menuBtnRef.current;
+    if (!btn) return;
 
-  // Stil i highlight za aktivnu nit
-  const isActiveThreadRoot = activeThreadId === commentId;
-  const containerHighlight = isActiveThreadRoot
-    ? "ring-1 ring-blue-300 bg-blue-50/40 rounded-lg"
-    : "";
+    // Position menu near the trigger, clamped to viewport edges.
+    const r = btn.getBoundingClientRect();
+    const left = Math.min(
+      window.innerWidth - MENU_WIDTH - MENU_MARGIN,
+      Math.max(MENU_MARGIN, r.right - MENU_WIDTH),
+    );
+
+    // Simple heuristic for vertical placement (avoid going off-screen).
+    const menuHeightGuess = 140;
+    const spaceBelow = window.innerHeight - r.bottom;
+    const top =
+      spaceBelow > menuHeightGuess + 12
+        ? r.bottom + 8
+        : Math.max(MENU_MARGIN, r.top - 8 - menuHeightGuess);
+
+    setMenuPos({ top, left });
+    setIsMenuOpen(true);
+  };
+
+  const closeMenu = () => setIsMenuOpen(false);
+
+  const showParentContext = depth > 0 && parentAuthor?.id;
 
   return (
     <>
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        className={`group comment-item py-4 px-2 border-b last:border-none hover:bg-gray-50 ${containerHighlight}`}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="py-3"
       >
-        <div className="flex items-start gap-3">
-          {/* Avatar autora + opcioni Top Contributor badge */}
-          <div className="relative shrink-0">
-            <Avatar
-              src={user?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
-              size={32} // w-8 = 32px
-              zoomable
-              badge={user?.badges?.topContributor ?? false}
-              alt={`Profile picture of ${user?.name ?? "user"}`}
-            />
-            {user?.badges?.topContributor && (
-              <div
-                title="Top Contributor · Code-powered"
-                role="button"
-                tabIndex={0}
-                aria-label="Show Top Contributor badge info"
-                className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (disableBadgeModal) return;
-                  setShowTopContributorModal(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
+        <div className="rounded-xl px-2 sm:px-3 py-2.5 hover:bg-zinc-950/20 transition">
+          <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-3 items-start">
+            <div className="relative">
+              <Avatar
+                src={user?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+                size={32}
+                zoomable
+                badge={user?.badges?.topContributor ?? false}
+                alt={`Profile picture of ${user?.name ?? "user"}`}
+              />
+
+              {user?.badges?.topContributor && (
+                <button
+                  type="button"
+                  title="Top Contributor · Code-powered"
+                  className="absolute top-0 right-1.5 translate-x-1/3 -translate-y-1/3 cursor-pointer group"
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (disableBadgeModal) return;
                     setShowTopContributorModal(true);
-                  }
-                }}
-              >
-                <ShieldIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              </div>
-            )}
-          </div>
-
-          {/* Glavna kolona komentara */}
-          <div className="min-w-0 flex-1">
-            {/* Ime autora + meta podaci o vremenu */}
-            <div className="flex flex-wrap items-center gap-x-2">
-              <span className="font-semibold text-sm text-gray-800">
-                {user?.name || "Unknown Author"}
-              </span>
-              <span className="text-xs text-gray-500">
-                {editedDate
-                  ? `• edited ${dayjs(editedDate).fromNow()}`
-                  : tsDate
-                  ? `• ${dayjs(tsDate).fromNow()}`
-                  : "• just now"}
-              </span>
+                  }}
+                  onKeyDown={(e) => {
+                    // Keyboard parity for badge info (Enter/Space).
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (disableBadgeModal) return;
+                      setShowTopContributorModal(true);
+                    }
+                  }}
+                  aria-label="Show Top Contributor badge info"
+                >
+                  <ShieldIcon className="absolute -top-2 -right-1 w-5 h-5" />
+                </button>
+              )}
             </div>
 
-            {/* Hint za edit (ako je aktivan) */}
-            {showEditHint && (
-              <div className="mt-1 text-xs text-blue-600">
-                Tip: you can edit your comment within the first 10 minutes.
-              </div>
-            )}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                {/* Clickable author link when `userId` exists (prevents card-level click bubbling). */}
+                {userId ? (
+                  <Link
+                    to={`/profile/${userId}`}
+                    className={`${NAME_LINK_BASE} truncate max-w-[12rem] sm:max-w-[18rem]`}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Open profile: ${user?.name || "author"}`}
+                    title={user?.name || "Unknown author"}
+                  >
+                    {user?.name || "Unknown author"}
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-sm text-zinc-100">
+                    {user?.name || "Unknown author"}
+                  </span>
+                )}
 
-            {/* Sadrzaj, edit forma ili obrisan status */}
-            {isEditing ? (
-              <div>
-                <textarea
-                  id={editId}
-                  name="editedComment"
-                  value={editedContent}
-                  onChange={(e) => setEditedContent(e.target.value)}
-                  className="w-full p-2 border rounded mt-2"
-                  aria-label="Edit comment"
-                />
-                <div className="flex gap-3 mt-2 text-sm">
+                <span className="text-xs text-zinc-500 whitespace-nowrap">
+                  {editedDate
+                    ? `• edited ${dayjs(editedDate).fromNow()}`
+                    : tsDate
+                      ? `• ${dayjs(tsDate).fromNow()}`
+                      : "• just now"}
+                </span>
+              </div>
+
+              {showParentContext && (
+                <div className="mt-1 inline-flex items-center gap-1.5 text-xs text-zinc-500">
+                  <FiCornerDownRight className="shrink-0" />
+                  <span className="min-w-0 truncate">
+                    Replying to{" "}
+                    <Link
+                      to={`/profile/${parentAuthor.id}`}
+                      className="text-zinc-300 hover:text-zinc-100 hover:underline underline-offset-4 decoration-zinc-500/70"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Open profile: ${parentAuthor?.name || "user"}`}
+                    >
+                      @{parentAuthor?.name || "user"}
+                    </Link>
+                  </span>
+                </div>
+              )}
+
+              {showEditHint && (
+                <div className="mt-1 text-xs text-sky-300">
+                  Tip: you can edit your comment within the first 10 minutes.
+                </div>
+              )}
+
+              {isEditing ? (
+                <div className="mt-2">
+                  <textarea
+                    id={editId}
+                    name="editedComment"
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-2 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 resize-none max-h-40 overflow-y-auto"
+                    aria-label="Edit comment"
+                  />
+                  <div className="flex gap-3 mt-2 text-sm">
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      className="text-emerald-300 hover:text-emerald-200 hover:underline underline-offset-4"
+                      aria-label="Save edited comment"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="text-zinc-400 hover:text-zinc-200 hover:underline underline-offset-4"
+                      aria-label="Cancel editing"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : isDeleted ? (
+                <p className="italic text-zinc-400 mt-2 [overflow-wrap:anywhere]">
+                  This comment has been removed.
+                </p>
+              ) : (
+                <p className="mt-2 whitespace-pre-wrap text-[0.95rem] leading-relaxed text-zinc-100 [overflow-wrap:anywhere]">
+                  {!showAll && seeAllTruncation(content)
+                    ? content.slice(0, 150) + "…"
+                    : content}
+                </p>
+              )}
+
+              {showAll && !isDeleted && (
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400">
+                    <button
+                      type="button"
+                      onClick={() => setIsReplying((v) => !v)}
+                      className={
+                        disableReplyButton
+                          ? "cursor-not-allowed opacity-50 text-zinc-500"
+                          : "text-sky-300 hover:text-sky-200 hover:underline underline-offset-4"
+                      }
+                      disabled={disableReplyButton}
+                      aria-label={
+                        disableReplyButton
+                          ? "Reply disabled"
+                          : "Reply to comment"
+                      }
+                    >
+                      Reply
+                    </button>
+
+                    <CommentReaction
+                      commentId={commentId}
+                      currentUserId={currentUser?.uid}
+                      locked={locked}
+                    />
+                  </div>
+
                   <button
+                    ref={menuBtnRef}
                     type="button"
-                    onClick={handleSave}
-                    className="text-green-600 hover:underline"
-                    aria-label="Save edited comment"
+                    onClick={openMenu}
+                    className="inline-flex items-center justify-center rounded-lg p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    aria-label="More actions"
+                    aria-expanded={isMenuOpen}
                   >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="text-gray-500 hover:underline"
-                    aria-label="Cancel editing"
-                  >
-                    Cancel
+                    <FiMoreHorizontal />
                   </button>
                 </div>
-              </div>
-            ) : isDeleted ? (
-              <p className="italic text-gray-500 mt-1">
-                This comment has been removed.
-              </p>
-            ) : (
-              <p className="text-[0.95rem] leading-relaxed text-gray-800 mt-1 whitespace-pre-wrap">
-                {!showAll && content.length > 150
-                  ? content.slice(0, 150) + "…"
-                  : content}
-              </p>
-            )}
+              )}
 
-            {/* Akcije ispod komentara */}
-            {showAll && !isDeleted && (
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600">
-                {/* Reply dugme */}
+              {isReplying && !locked && !isDeleted && (
+                <CommentForm
+                  postId={postID}
+                  parentId={commentId}
+                  replyingTo={{
+                    id: userId,
+                    name: user?.name || "user",
+                  }}
+                  onSubmitSuccess={() => setIsReplying(false)}
+                  autoFocus
+                  wrapperClassName="mt-3"
+                />
+              )}
+
+              {showAll && !blockRenderingChildren && directReplies > 0 && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsRepliesOpen((v) => !v)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-950/40 px-2.5 py-1 text-xs text-sky-200 hover:bg-zinc-900/40 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    aria-label={isRepliesOpen ? "Hide replies" : "View replies"}
+                  >
+                    {isRepliesOpen ? <FiChevronUp /> : <FiChevronDown />}
+                    <span className="relative top-px">
+                      {isRepliesOpen
+                        ? "Hide replies"
+                        : `View replies (${directReplies})`}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {showAll &&
+          !blockRenderingChildren &&
+          isRepliesOpen &&
+          directReplies > 0 && (
+            <div
+              className={[
+                "mt-3 space-y-2 relative",
+                "border-l-2 border-zinc-800/40",
+                getRepliesIndent(depth),
+              ].join(" ")}
+            >
+              <span
+                className="absolute -left-[5px] top-2 h-2 w-2 rounded-full bg-zinc-800/60"
+                aria-hidden="true"
+              />
+
+              {visibleReplies.map((reply) => (
+                <CommentItem
+                  key={reply.id}
+                  commentId={reply.id}
+                  postID={reply.postID}
+                  userId={reply.userID}
+                  content={reply.content}
+                  timestamp={reply.timestamp}
+                  editedAt={reply.editedAt}
+                  childrenMap={childrenMap}
+                  depth={depth + 1}
+                  showAll={showAll}
+                  deleted={reply.deleted}
+                  locked={locked}
+                  disableBadgeModal={disableBadgeModal}
+                  maxDepthForReply={maxDepthForReply}
+                  maxDepthForRender={maxDepthForRender}
+                  parentAuthor={{ id: userId, name: user?.name || "user" }}
+                />
+              ))}
+            </div>
+          )}
+      </motion.div>
+
+      {isMenuOpen &&
+        portalRoot &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[80]"
+            onMouseDown={closeMenu}
+            aria-hidden="true"
+          >
+            <div
+              className="fixed"
+              style={{
+                top: menuPos.top,
+                left: menuPos.left,
+                width: MENU_WIDTH,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              role="menu"
+            >
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl ring-1 ring-zinc-100/10 p-1">
                 <button
                   type="button"
-                  onClick={() => setIsReplying((v) => !v)}
-                  className={`hover:underline ${
-                    disableReplyButton
-                      ? "cursor-not-allowed opacity-50"
-                      : "text-blue-600"
-                  }`}
-                  disabled={disableReplyButton}
-                  aria-label={
-                    disableReplyButton ? "Reply disabled" : "Reply to comment"
-                  }
-                >
-                  Reply
-                </button>
-
-                {/* Report dugme */}
-                <button
-                  type="button"
-                  onClick={onReportClick}
-                  className="hover:underline"
-                  aria-label="Report comment"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeMenu();
+                    onReportClick();
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/60 rounded-lg"
+                  role="menuitem"
                 >
                   Report
                 </button>
-                <div className="h-4 w-px bg-gray-300" />
 
-                {/* Reakcije na komentar */}
-                <CommentReaction
-                  commentId={commentId}
-                  currentUserId={auth.currentUser?.uid}
-                  locked={locked}
-                />
-
-                {/* Akcije autora / admina */}
-                {/* Edit: samo autor i samo dok post nije zakljucan */}
                 {isAuthor && !locked && !isEditing && canEdit && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!canEdit) {
-                        showInfoToast(
-                          "You can edit only within 10 minutes after posting"
-                        );
-                        return;
-                      }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeMenu();
                       setIsEditing(true);
                     }}
-                    className="hover:underline"
-                    aria-label="Edit comment"
+                    className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/60 rounded-lg"
+                    role="menuitem"
                   >
                     Edit
                   </button>
                 )}
 
-                {/* Delete: autor ili admin; admin moze cak i kada je post locked */}
                 {canManageComment && (
-                  <>
-                    {!isDeleting ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmModal(true)}
-                        className="hover:underline"
-                        aria-label="Delete comment"
-                      >
-                        Delete
-                      </button>
-                    ) : (
-                      <span aria-live="polite">Deleting…</span>
-                    )}
-                  </>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeMenu();
+                      setShowConfirmModal(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/10 rounded-lg"
+                    role="menuitem"
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </button>
                 )}
               </div>
-            )}
-
-            {/* Forma za reply */}
-            {isReplying && !locked && (
-              <div className="mt-2">
-                <CommentForm
-                  postId={postID}
-                  userId={auth.currentUser?.uid}
-                  parentId={commentId}
-                  onSubmitSuccess={() => setIsReplying(false)}
-                  autoFocus
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Rekurzivni prikaz odgovora sa preview logikom i toggle-om */}
-        {showAll && !blockRenderingChildren && sortedReplies.length > 0 && (
-          <div className="mt-2 ml-5">
-            <div
-              className={`relative pl-5 border-l ${
-                isActiveThreadRoot ? "border-blue-200" : "border-gray-200"
-              }`}
-            >
-              {sortedReplies
-                .slice(0, expanded ? Number.POSITIVE_INFINITY : previewN)
-                .map((reply) => (
-                  <div key={reply.id} className="relative">
-                    {/* Vizuelne tacke/grane niti */}
-                    <span className="absolute -left-[5px] top-5 w-2 h-2 bg-gray-300 rounded-full" />
-                    <span className="absolute -left-5 top-5 w-5 border-t border-gray-200" />
-                    <CommentItem
-                      commentId={reply.id}
-                      postID={reply.postID}
-                      userId={reply.userID}
-                      content={reply.content}
-                      timestamp={reply.timestamp}
-                      comments={comments}
-                      childrenMap={childrenMap}
-                      editedAt={reply.editedAt}
-                      deleted={reply.deleted}
-                      depth={depth + 1}
-                      showAll={showAll}
-                      locked={locked}
-                      disableBadgeModal={disableBadgeModal}
-                      repliesPreviewCount={repliesPreviewCount}
-                      maxDepthForReply={maxDepthForReply}
-                      maxDepthForRender={maxDepthForRender}
-                      activeThreadId={activeThreadId}
-                      setActiveThreadId={setActiveThreadId}
-                    />
-                  </div>
-                ))}
-              {sortedReplies.length > previewN && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setExpanded((v) => !v);
-                    setActiveThreadId &&
-                      setActiveThreadId(!expanded ? commentId : null);
-                  }}
-                  className="my-1 text-xs text-blue-600 hover:underline"
-                  aria-label={
-                    expanded ? "Show less replies" : "Show more replies"
-                  }
-                >
-                  {expanded
-                    ? "Show less"
-                    : `Show replies (${sortedReplies.length - previewN})`}
-                </button>
-              )}
             </div>
-          </div>
+          </div>,
+          portalRoot,
         )}
-      </motion.div>
 
-      {/* Modal za potvrdu brisanja */}
       <ConfirmModal
         isOpen={showConfirmModal}
         title="Delete Comment"
@@ -537,17 +727,15 @@ const CommentItem = ({
         }}
       />
 
-      {/* Modal za potvrdu prijave */}
       <ConfirmModal
         isOpen={showReportModal}
         title="Are you sure you want to report this comment?"
         message="This will notify moderators about this comment."
-        confirmText={"Yes"}
+        confirmText="Yes"
         onCancel={onCancelReport}
         onConfirm={onConfirmReport}
       />
 
-      {/* Modal za prikaz Top Contributor bedza */}
       {showTopContributorModal && (
         <BadgeModal
           isOpen={showTopContributorModal}
@@ -560,6 +748,11 @@ const CommentItem = ({
   );
 };
 
+function seeAllTruncation(text) {
+  // Centralized truncation rule to keep compact comment lists consistent.
+  return typeof text === "string" && text.length > 150;
+}
+
 CommentItem.propTypes = {
   userId: PropTypes.string.isRequired,
   content: PropTypes.string.isRequired,
@@ -567,29 +760,18 @@ CommentItem.propTypes = {
   editedAt: PropTypes.object,
   postID: PropTypes.string.isRequired,
   commentId: PropTypes.string.isRequired,
-  comments: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      userID: PropTypes.string.isRequired,
-      content: PropTypes.string.isRequired,
-      timestamp: PropTypes.object,
-      postID: PropTypes.string.isRequired,
-      parentID: PropTypes.string,
-      editedAt: PropTypes.object,
-      deleted: PropTypes.bool,
-    })
-  ).isRequired,
   childrenMap: PropTypes.object,
   depth: PropTypes.number,
   showAll: PropTypes.bool,
   deleted: PropTypes.bool,
   locked: PropTypes.bool,
   disableBadgeModal: PropTypes.bool,
-  repliesPreviewCount: PropTypes.number,
   maxDepthForReply: PropTypes.number,
   maxDepthForRender: PropTypes.number,
-  activeThreadId: PropTypes.string,
-  setActiveThreadId: PropTypes.func,
+  parentAuthor: PropTypes.shape({
+    id: PropTypes.string,
+    name: PropTypes.string,
+  }),
 };
 
 export default CommentItem;

@@ -3,23 +3,23 @@ import ModalPortal from "./ModalPortal";
 
 /**
  * @component ConfirmModal
- * Modal za potvrdu kriticnih akcija (brisanje, zakljucavanje itd.).
  *
- * - Prikazuje naslov, poruku, i dva dugmeta: Cancel i Confirm
- * - Poziva odgovarajuce callback funkcije (onConfirm, onCancel)
- * - Koristi ModalPortal za prikaz izvan DOM stabla
- * - ESC i klik van prozora zatvaraju modal automatski
+ * Reusable confirmation dialog (destructive by default).
  *
- * @param {boolean} isOpen - Da li je modal trenutno otvoren
- * @param {string} title - Naslov koji se prikazuje u modalu
- * @param {string} message - Poruka koja objasnjava akciju
- * @param {Function} onConfirm - Callback koji se poziva pri potvrdi
- * @param {Function} onCancel - Callback koji se poziva pri zatvaranju
- * @param {string} [confirmText="Delete"] - Tekst koji se prikazuje na dugmetu potvrde
+ * - Uses `ModalPortal` for ESC/backdrop close + consistent modal layering.
+ * - `handleConfirm` awaits `onConfirm` (supports async actions) and then closes via `onCancel`.
+ *   This avoids UI closing before the caller finishes its side effects.
  *
- * @returns {JSX.Element} Modal sa konfirmacionim akcijama
+ * @param {boolean} isOpen
+ * @param {string} title
+ * @param {string} message
+ * @param {Function} onConfirm - Action to run when user confirms (may be async).
+ * @param {Function} onCancel - Close handler (also used after confirm).
+ * @param {string=} confirmText
+ * @param {string=} confirmButtonClass
+ * @param {string=} cancelButtonClass
+ * @returns {JSX.Element}
  */
-
 const ConfirmModal = ({
   isOpen,
   title,
@@ -27,34 +27,44 @@ const ConfirmModal = ({
   onConfirm,
   onCancel,
   confirmText = "Delete",
-}) => (
-  <ModalPortal isOpen={isOpen} onClose={onCancel}>
-    {/* Naslov modala */}
-    <h2 className="text-lg text-gray-800 font-semibold mb-2">{title}</h2>
+  confirmButtonClass,
+  cancelButtonClass,
+}) => {
+  const handleConfirm = async () => {
+    // Await confirm to keep caller logic consistent (delete/ban/report can be async),
+    // then close the modal using the shared cancel handler.
+    await Promise.resolve(onConfirm());
+    onCancel();
+  };
 
-    {/* Poruka modala */}
-    <p className="text-sm text-gray-600 mb-4">{message}</p>
+  return (
+    <ModalPortal isOpen={isOpen} onClose={onCancel}>
+      <h2 className="text-lg font-semibold text-zinc-100 mb-2">{title}</h2>
+      <p className="text-sm text-zinc-300 mb-4">{message}</p>
 
-    {/* Dugmad za Cancel i Confirm */}
-    <div className="flex justify-end gap-3">
-      <button
-        onClick={onCancel}
-        className="px-4 py-1 bg-gray-300 rounded hover:bg-gray-400 transition"
-      >
-        Cancel
-      </button>
-      <button
-        onClick={() => {
-          onConfirm();
-          onCancel();
-        }}
-        className="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
-      >
-        {confirmText}
-      </button>
-    </div>
-  </ModalPortal>
-);
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className={cancelButtonClass || "ui-button-secondary"}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className={
+            confirmButtonClass ||
+            "ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+          }
+        >
+          {confirmText}
+        </button>
+      </div>
+    </ModalPortal>
+  );
+};
 
 ConfirmModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
@@ -63,6 +73,8 @@ ConfirmModal.propTypes = {
   onConfirm: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   confirmText: PropTypes.string,
+  confirmButtonClass: PropTypes.string,
+  cancelButtonClass: PropTypes.string,
 };
 
 export default ConfirmModal;

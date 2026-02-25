@@ -1,321 +1,434 @@
 import PropTypes from "prop-types";
-import { useContext } from "react";
-
+import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
-import { FiLock } from "react-icons/fi";
 
 import { AuthContext } from "../../../../context/AuthContext";
 import { useCheckSavedStatus } from "../../../../hooks/useCheckSavedStatus";
 
 import Badge from "../../../../components/ui/Bagde";
+import Avatar from "../../../../components/common/Avatar";
+import BadgeModal from "../../../../components/modals/BadgeModal";
 import ShieldIcon from "../../../../components/ui/ShieldIcon";
-import Comments from "../../../../components/comments/Comments";
 
 import { toggleSavePost } from "../../../../utils/savedPostUtils";
+import { DEFAULT_PROFILE_PICTURE } from "../../../../constants/defaults";
+import { formatPostDateLabel } from "../../../../utils/formatDate";
+
+import {
+  FOCUS_RING,
+  PILL_CATEGORY,
+  PILL_TAG,
+  PILL_META,
+} from "../../../../constants/uiClasses";
+
+const CONTENT_PREVIEW_MAX = 300;
+const MAX_TAGS_IN_APP = 5;
+
+/**
+ * Normalize tag input into a consistent display form.
+ * - Trims whitespace
+ * - Strips leading "#" to support legacy/user-entered formats
+ * - Returns empty string for invalid/blank values
+ *
+ * @param {unknown} t
+ * @returns {string}
+ */
+const normalizeTagText = (t) => {
+  const raw = String(t ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^#+/, "").trim();
+};
 
 /**
  * @component SavedPostCard
- * Prikazuje pregled sacuvanog posta u Dashboard-u korisnika.
  *
- * Namena:
- * - Read-only pregled sadrzaja i komentara (bez forme), sa isticanjem bedzeva i lock statusa.
- * - Bookmark dugme radi u 2 moda: parent Undo (onUnsave) ili lokalni toggle (fallback).
+ * Saved-post variant of the feed card, optimized for the Saved page.
  *
- * Kljucno ponasanje:
- * - Header sa autorom i bedzevima (informativno; klikovi na oznake ne pokrecu navigaciju).
- * - Ako je prosledjen `onUnsave`, koristi se parent Undo prozor (deterministican UX);
- *   u suprotnom koristi se lokalni `toggleSavePost` (bez Undo).
- * - Locked stanje: vizuelno naglasavanje (opacity/grayscale) + tooltip; Comments u read-only modu.
+ * Key behaviors:
+ * - Card click navigates to post details.
+ * - Save button supports unsave + Undo flows (parent can intercept via `onUnsave`).
+ * - Uses `useCheckSavedStatus` to keep bookmark UI in sync with Firestore state.
+ * - Shows limited badges and "updated since saved" hint using snapshot metadata.
+ * - Tag rail is horizontally scrollable and stops event bubbling to avoid accidental navigation.
  *
- * Limiti i ugovori:
- * - CONTENT_PREVIEW_MAX = 300 (karaktera) → dodaje "..." kada je content duzi.
- * - Pretpostavka: ako je `locked === true`, postoji `lockedAt`
- *   (u suprotnom formatiran datum moze biti nevalidan).
- * - Data contract (Comments): read-only preview (showAll=false), bez badge modala i bez forme.
- *
- * @param {Object} post - Podaci o sacuvanom postu.
- * @param {Function} [onUnsave] - Ako postoji, koristi se parent Undo flow umesto lokalnog toggla.
- * @param {boolean} [isPendingUndo=false] - Kada je true, bookmark je privremeno onemogucen zbog Undo prozora.
+ * @param {Object} props
+ * @param {Object} props.post - Saved post object (may contain snapshot metadata fields).
+ * @param {(post: Object) => void} [props.onUnsave] - Optional parent handler (Undo queue / optimistic remove).
+ * @param {boolean} [props.isPendingUndo=false] - Disables destructive actions while Undo timer is active.
  * @returns {JSX.Element}
  */
-
-const CONTENT_PREVIEW_MAX = 300; // limit pregleda (broj karaktera)
-
 const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // Hook: proverava da li je post sacuvan od strane trenutnog korisnika
+  // Allow local optimistic UI, but keep initial truth sourced from Firestore.
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
-  // 🔵 1) GHOST SCENARIO – post je obrisan iz /posts, ali ostao u savedPosts
-  if (post.isRemoved) {
-    const handleRemoveClick = (e) => {
-      e.stopPropagation();
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState(null);
+  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
+  // Tag rail: normalize + case-insensitive dedupe + cap for predictable card height.
+  const allTags = useMemo(() => {
+    const raw = Array.isArray(post?.tags) ? post.tags : [];
+
+    const normalized = raw
+      .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
+      .map((t) => normalizeTagText(t))
+      .filter(Boolean);
+
+    const seen = new Set();
+    const unique = [];
+
+    for (const t of normalized) {
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(t);
+      if (unique.length >= MAX_TAGS_IN_APP) break;
+    }
+
+    return unique;
+  }, [post?.tags]);
+
+  // Keep badge UI minimal to avoid visual noise in dense saved lists.
+  const badgesToShow = useMemo(() => {
+    const out = [];
+    if (post?.badges?.mostInspiring) {
+      out.push({ key: "mostInspiring", text: "Most Inspiring" });
+    }
+    if (post?.badges?.trending) {
+      out.push({ key: "trending", text: "Trending" });
+    }
+    return out.slice(0, 2);
+  }, [post?.badges?.mostInspiring, post?.badges?.trending]);
+
+  const handleCardClick = () => navigate(`/post/${post.id}`);
+
+  const handleBadgeClick = (e, badgeKey) => {
+    // Badges open an info modal; do not trigger navigation.
+    e.stopPropagation();
+    setSelectedBadge(badgeKey);
+    setShowBadgeModal(true);
+  };
+
+  const handleSaveToggle = async (e) => {
+    e.stopPropagation();
+    if (!user) return;
+
+    // Prevent conflicting actions while Undo is pending.
+    if (isPendingUndo) return;
+
+    // Parent can handle unsave (e.g., optimistic remove + Undo window).
+    if (onUnsave) {
+      onUnsave(post);
+      return;
+    }
+
+    // Snapshot some post metadata so Saved page can show "updated since saved".
+    const currentUpdated = post?.updatedAt || post?.createdAt;
+
+    const snapshot = {
+      postUpdatedAtAtSave: currentUpdated || null,
+      postTitleAtSave: post?.title || "",
+    };
+
+    const newState = await toggleSavePost(user, post.id, isSaved, snapshot);
+    setIsSaved(newState);
+  };
+
+  // Compare current timestamps against the stored snapshot to detect edits since save.
+  const cutoff = post?.postUpdatedAtAtSave;
+  let isUpdatedSinceSaved = false;
+
+  if (cutoff && (post?.updatedAt || post?.createdAt)) {
+    // Accept Timestamp-like objects or raw numbers, depending on stored shape.
+    const current = (post.updatedAt || post.createdAt)?.toMillis
+      ? (post.updatedAt || post.createdAt).toMillis()
+      : post.updatedAt || post.createdAt;
+
+    const cutoffMs = cutoff?.toMillis ? cutoff.toMillis() : cutoff;
+    isUpdatedSinceSaved = Number(current) > Number(cutoffMs);
+  }
+
+  const cardBase =
+    "relative w-full h-full overflow-hidden p-4 " +
+    "rounded-2xl border border-zinc-800/70 " +
+    "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
+    "ring-1 ring-sky-200/10 shadow-sm " +
+    "flex flex-col transition-colors transition-shadow duration-200";
+
+  // Locked posts remain navigable, but the visual style communicates restricted state.
+  const cardInteractive = post?.locked
+    ? "cursor-pointer"
+    : "cursor-pointer hover:shadow-md hover:ring-sky-200/20 hover:border-sky-300/20";
+
+  const cardLocked = post?.locked
+    ? "opacity-60 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"
+    : "";
+
+  // Ensure tag pills do NOT truncate even if `PILL_TAG` includes truncation utilities.
+  const TAG_PILL_NO_TRUNC =
+    `${PILL_TAG} ` +
+    "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
+
+  // Removed posts render a special "unavailable" card that still supports unsave/remove.
+  if (post.isRemoved) {
+    const handleRemoveClick = async (e) => {
+      e.stopPropagation();
       if (isPendingUndo) return;
 
       if (onUnsave) {
-        // koristimo isti Undo flow kao i za "normalni" unsave
         onUnsave(post);
-      } else {
-        // fallback: lokalni toggle bez Undo
-        toggleSavePost(user, post.id, true);
+        return;
       }
+
+      if (!user) return;
+      await toggleSavePost(user, post.id, true);
     };
 
     return (
-      <div className="rounded cursor-pointer ring ring-gray-200">
-        <div className="border rounded shadow bg-white text-black p-4">
-          <h2 className="text-lg font-bold mb-1">
-            {post.postTitleAtSave ||
-              post.title ||
-              "Post is no longer available"}
-          </h2>
-
-          <p className="text-xs text-gray-500 mt-1">
-            Saved on:{" "}
-            {post.savedAt?.toDate().toLocaleDateString?.() || "unknown"}
-          </p>
-
-          <p className="text-sm text-gray-600">
-            This post was removed by its author and is no longer available.
-          </p>
+      <article
+        className={`${cardBase} ${cardInteractive}`}
+        onClick={handleCardClick}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-snug text-zinc-100 line-clamp-1 break-words">
+              {post.postTitleAtSave ||
+                post.title ||
+                "Post is no longer available"}
+            </h2>
+            <div className="mt-2 flex flex-col items-start gap-1 text-xs text-zinc-400 sm:flex-row sm:items-center sm:gap-2">
+              <span className={PILL_META}>Unavailable</span>
+              <span className="line-clamp-1">
+                Saved on:{" "}
+                {post.savedAt?.toDate?.().toLocaleDateString?.() || "unknown"}
+              </span>
+            </div>
+          </div>
 
           <button
             type="button"
             onClick={handleRemoveClick}
             disabled={isPendingUndo}
-            className="mt-3 text-sm underline text-red-600 disabled:opacity-60"
+            aria-disabled={isPendingUndo}
+            className={
+              `shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ` +
+              `border border-rose-500/25 bg-rose-500/10 text-rose-200 ` +
+              `hover:bg-rose-500/15 hover:border-rose-400/30 ` +
+              `${isPendingUndo ? "opacity-60 cursor-not-allowed" : ""} ${FOCUS_RING}`
+            }
+            title={isPendingUndo ? "Undo pending..." : "Remove from saved"}
           >
-            Remove from saved
+            Remove
           </button>
         </div>
-      </div>
+
+        <p className="mt-3 text-sm text-zinc-300 break-words">
+          This post was removed by its author and is no longer available.
+        </p>
+
+        <div className="mt-auto pt-3 border-t border-zinc-800/60" />
+      </article>
     );
   }
 
-  // 🟢 2) NORMAL SCENARIO – post i dalje postoji u /posts
-  const {
-    author,
-    title,
-    category,
-    description,
-    content,
-    createdAt,
-    updatedAt,
-    locked,
-    lockedAt,
-    tags,
-    id,
-  } = post;
-
-  const { name, profilePicture } = author || {};
-  const formattedDate = lockedAt?.toDate().toLocaleDateString(); // moze biti undefined ako lockedAt ne postoji
-
-  const handleClick = () => {
-    // Klik na karticu vodi na detalje posta
-    return navigate(`/post/${post.id}`);
-  };
-
-  const handleSaveToggle = async (e) => {
-    e.stopPropagation();
-
-    const snapshot = {
-      postUpdatedAtAtSave: post.updatedAt || post.createdAt,
-      postTitleAtSave: post.title,
-    };
-    // Lokalni fallback (bez Undo): preklopi saved stanje preko util funkcije
-    const newState = await toggleSavePost(user, post.id, isSaved, snapshot);
-    setIsSaved(newState);
-  };
-
-  const cutoff = post.postUpdatedAtAtSave;
-
-  let isUpdatedSinceSaved = false;
-
-  if (cutoff && (updatedAt || createdAt)) {
-    const current = (updatedAt || createdAt).toMillis
-      ? (updatedAt || createdAt).toMillis()
-      : updatedAt || createdAt;
-
-    const cutoffMs = cutoff.toMillis ? cutoff.toMillis() : cutoff;
-    isUpdatedSinceSaved = current > cutoffMs;
-  }
+  // Prefer description; fallback to content preview for older posts.
+  const previewText = post?.description
+    ? post.description
+    : post?.content
+      ? post.content.slice(0, CONTENT_PREVIEW_MAX)
+      : "";
 
   return (
-    <div
-      onClick={handleClick}
-      className={`rounded cursor-pointer
-    ${
-      post.badges?.trending
-        ? "ring-2 ring-red-500 ring-offset-2 ring-offset-white"
-        : "ring ring-gray-200"
-    }
-  `}
-    >
-      <div
-        className={`border rounded shadow bg-white text-black
-    ${locked ? "opacity-80 grayscale hover:opacity-100 transition" : ""}
-  `}
+    <>
+      <article
+        className={`${cardBase} ${cardInteractive} ${cardLocked}`}
+        onClick={handleCardClick}
       >
-        {/* Header
-           Autor sekcija: ring istice topContributor bedz;
-           stopPropagation sprecava navigaciju pri kliku na bedzeve/ikonice */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="relative inline-block">
-              <img
-                src={profilePicture}
-                alt={`Avatar of ${name}`}
-                className={`w-10 h-10 rounded-full ${
-                  author.badges?.topContributor ? "ring-2 ring-purple-800" : ""
-                }`}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="relative shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Avatar
+                src={post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE}
+                size={40}
+                zoomable
+                badge={post?.author?.badges?.topContributor}
               />
 
-              {author.badges?.topContributor && (
-                <div
-                  title="Top Contributor · Code-powered"
-                  className="group relative"
+              {post?.author?.badges?.topContributor && (
+                <button
+                  type="button"
+                  className="group absolute -top-2 -right-1 z-10"
                   onClick={(e) => {
-                    // Interakcija sa bedzom ne treba da pokrene navigaciju
                     e.stopPropagation();
+                    setShowTopContributorModal(true);
                   }}
+                  aria-label="Top contributor info"
+                  title="Top Contributor"
                 >
-                  <ShieldIcon className="w-5 h-5 absolute -top-12 -right-2 group-hover:scale-110 transition-transform" />
-                </div>
+                  <ShieldIcon className="w-5 h-5 text-amber-300 group-hover:scale-110 transition-transform" />
+                </button>
               )}
             </div>
 
-            {/* Bedzevi (read-only): informativne oznake u Saved kontekstu */}
-            <div
-              className="flex gap-1 items-center hover:scale-105"
-              onClick={(e) => {
-                // Spreci navigaciju pri kliku na bedzeve
-                e.stopPropagation();
-              }}
-            >
-              {post.badges?.mostInspiring && (
-                <div title="This post inspired the community">
-                  <Badge text="Most Inspiring" />
-                </div>
-              )}
-
-              {post.badges?.trending && (
-                <div title="This post is on 🔥">
-                  <Badge text="Trending" />
-                </div>
-              )}
-            </div>
-
-            {/* Bookmark:
-               - Ako parent da onUnsave → koristimo njegov Undo (deterministican prozor).
-               - U suprotnom lokalni toggle (bez Undo).
-               - Tokom pending Undo, dugme je onemoguceno da izbegnemo dvoklik trku. */}
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isPendingUndo) return;
-                if (onUnsave) {
-                  onUnsave(post);
-                } else {
-                  handleSaveToggle(e);
-                }
-              }}
-              className={`hover:scale-110 transition ${
-                isPendingUndo ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-              title={
-                isPendingUndo
-                  ? "Undo pending..."
-                  : isSaved
-                  ? "Remove from saved"
-                  : "Save this post"
-              }
-            >
-              {isSaved ? (
-                <BsBookmarkFill className="text-slate-950" />
-              ) : (
-                <BsBookmark className="text-gray-400" />
-              )}
-            </div>
-
-            {/* Autor + datum (edited vs posted) */}
-            <div>
-              <p className="text-sm font-semibold text-gray-800">{name}</p>
-              <p className="text-xs text-gray-500">
-                {updatedAt
-                  ? `Edited: ${updatedAt.toDate().toLocaleDateString()}`
-                  : `Posted: ${createdAt.toDate().toLocaleDateString()}`}
-              </p>
-            </div>
+            <span className="min-w-0">
+              <span className="font-semibold text-sm text-zinc-100 line-clamp-1">
+                {post?.author?.name || "Unknown"}
+              </span>
+            </span>
           </div>
 
+          <button
+            type="button"
+            onClick={handleSaveToggle}
+            disabled={isPendingUndo}
+            aria-disabled={isPendingUndo}
+            className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition ${
+              isPendingUndo ? "opacity-50 cursor-not-allowed" : ""
+            } ${FOCUS_RING}`}
+            title={
+              isPendingUndo
+                ? "Undo pending..."
+                : isSaved
+                  ? "Remove from saved"
+                  : "Save this post"
+            }
+          >
+            {isSaved ? (
+              <BsBookmarkFill className="h-4 w-4 text-sky-200" />
+            ) : (
+              <BsBookmark className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
+        <div className="mt-3 flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
+            {post?.title || ""}
+          </h2>
+
+          {badgesToShow.length > 0 ? (
+            <div className="shrink-0 flex items-center gap-1">
+              {badgesToShow.map((b) => (
+                <Badge
+                  key={b.key}
+                  text={b.text}
+                  onClick={(e) => handleBadgeClick(e, b.key)}
+                  locked={post?.locked}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
+          <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
+            <span className="sm:hidden">
+              {formatPostDateLabel(post, { compact: true })}
+            </span>
+            <span className="hidden sm:inline">
+              {formatPostDateLabel(post, { compact: false })}
+            </span>
+          </span>
+
+          {post?.category ? (
+            <span className="min-w-0 flex-1 flex justify-end">
+              <span
+                className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+                title={post.category}
+              >
+                <span className="min-w-0 truncate">{post.category}</span>
+              </span>
+            </span>
+          ) : (
+            <span className="flex-1" aria-hidden="true" />
+          )}
+        </div>
+
+        {/* Status slot keeps layout stable even when no pill is visible. */}
+        <div className="mt-2 min-h-[22px] flex flex-wrap items-center gap-2">
           {isUpdatedSinceSaved && (
-            <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-800">
+            <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
               Updated since saved
             </span>
           )}
 
-          {/* Locked: vizuelna oznaka + tooltip; ispod komentari su read-only */}
-          {locked && (
-            <span
-              className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full flex items-center gap-1"
-              title="This post is locked and cannot be edited or commented"
-            >
-              <FiLock className="text-sm" />
-              Locked on: {formattedDate}
-            </span>
-          )}
+          {/* Archived pill removed on Saved cards (grayscale is enough). */}
+          {!isUpdatedSinceSaved && <span className="sr-only"> </span>}
         </div>
 
-        {/* Naslov */}
-        <h2 className="text-xl font-bold mb-2">{title}</h2>
-
-        {/* Opis */}
-        {description && (
-          <p className="text-sm text-gray-700 mb-2">{description}</p>
-        )}
-
-        {/* Sadrzaj (preview)
-           Prikaz prvih CONTENT_PREVIEW_MAX karaktera; cuva razmake/linije preko 'whitespace-pre-line' */}
-        {content && (
-          <p className="text-sm text-gray-800 mb-3 whitespace-pre-line">
-            {content.slice(0, CONTENT_PREVIEW_MAX)}
-            {content.length > CONTENT_PREVIEW_MAX && "..."}
+        {previewText ? (
+          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
+            {previewText}
+            {post?.content &&
+            !post?.description &&
+            post.content.length > CONTENT_PREVIEW_MAX
+              ? "..."
+              : ""}
           </p>
+        ) : (
+          <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
         )}
 
-        {/* Kategorija + tagovi */}
-        <div className="flex flex-wrap items-center gap-2 mt-3 mb-2">
-          <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
-            {category}
-          </span>
+        <div className="mt-auto pt-3 border-t border-zinc-800/60">
+          <div className="min-h-[2.25rem]">
+            {/* Tag rail mirrors Feed/Dashboard UX (horizontal scroll). */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <div
+                className={
+                  "tag-rail flex items-center gap-2 flex-nowrap " +
+                  "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
+                  "pb-3"
+                }
+              >
+                {allTags.length > 0 ? (
+                  allTags.map((t, idx) => (
+                    <span
+                      key={`${t}_${idx}`}
+                      className={TAG_PILL_NO_TRUNC}
+                      title={`#${t}`}
+                    >
+                      #{t}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-zinc-600 shrink-0 whitespace-nowrap">
+                    No tags
+                  </span>
+                )}
+              </div>
 
-          {(tags || []).map((tag, i) => (
-            <span
-              key={i}
-              className="bg-gray-200 text-gray-800 text-xs px-2 py-0.5 rounded"
-            >
-              #{tag.text}
-            </span>
-          ))}
+              {/* Fade edge indicates there may be more tags to scroll. */}
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
+            </div>
+          </div>
         </div>
+      </article>
 
-        {/* Komentari – read-only preview (prva N preko showAll=false)
-           Sakrij formu (locked=true) i iskljuci badge modal radi kompaktnosti */}
-        <div className="mt-4">
-          <Comments
-            postID={id}
-            userId={user?.uid}
-            showAll={false}
-            locked={true} // sakriva formu
-            disableBadgeModal={true}
-          />
-        </div>
-      </div>
-    </div>
+      {showBadgeModal && (
+        <BadgeModal
+          isOpen={showBadgeModal}
+          badgeKey={selectedBadge}
+          locked={post?.locked}
+          onClose={() => setShowBadgeModal(false)}
+        />
+      )}
+
+      {showTopContributorModal && (
+        <BadgeModal
+          isOpen={showTopContributorModal}
+          locked={post?.locked}
+          authorBadge="topContributor"
+          onClose={() => setShowTopContributorModal(false)}
+        />
+      )}
+    </>
   );
 };
 
@@ -326,19 +439,15 @@ SavedPostCard.propTypes = {
     category: PropTypes.string,
     description: PropTypes.string,
     content: PropTypes.string,
-    createdAt: PropTypes.object, // Firestore Timestamp
+    createdAt: PropTypes.object,
     updatedAt: PropTypes.object,
     locked: PropTypes.bool,
     lockedAt: PropTypes.object,
     postUpdatedAtAtSave: PropTypes.any,
     postTitleAtSave: PropTypes.string,
     isRemoved: PropTypes.bool,
-    savedAt: PropTypes.object, // Firestore Timestamp
-    tags: PropTypes.arrayOf(
-      PropTypes.shape({
-        text: PropTypes.string,
-      })
-    ),
+    savedAt: PropTypes.object,
+    tags: PropTypes.array,
     author: PropTypes.shape({
       name: PropTypes.string,
       profilePicture: PropTypes.string,
@@ -351,8 +460,8 @@ SavedPostCard.propTypes = {
       trending: PropTypes.bool,
     }),
   }).isRequired,
-  onUnsave: PropTypes.func, // parent Undo flow (opciono)
-  isPendingUndo: PropTypes.bool, // onemoguci bookmark tokom pending Undo
+  onUnsave: PropTypes.func,
+  isPendingUndo: PropTypes.bool,
 };
 
 export default SavedPostCard;

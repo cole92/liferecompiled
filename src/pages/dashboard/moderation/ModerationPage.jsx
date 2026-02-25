@@ -8,6 +8,22 @@ import { showErrorToast } from "../../../utils/toastUtils";
 import SkeletonCard from "../../../components/ui/skeletonLoader/SkeletonCard";
 import { openReportTarget } from "../../../utils/moderationUtils";
 
+/**
+ * @component ModerationPage
+ *
+ * Admin-only moderation dashboard for viewing recent user reports.
+ *
+ * Data behavior:
+ * - Loads up to 100 most recent docs from `reports`, ordered by `createdAt desc`.
+ * - Access is gated by `user.isAdmin` (UI guard); Firestore rules should enforce this too.
+ *
+ * UX behavior:
+ * - Shows lightweight permission state while auth is being checked.
+ * - Uses skeleton cards during initial reports fetch.
+ * - On fetch failure, shows a single toast + inline error (no repeated stacking).
+ *
+ * @returns {JSX.Element}
+ */
 const ModerationPage = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
   const [reports, setReports] = useState([]);
@@ -16,6 +32,7 @@ const ModerationPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Guard: only fetch after auth check completes and user is admin.
     if (isCheckingAuth || !user?.isAdmin) {
       return;
     }
@@ -25,10 +42,11 @@ const ModerationPage = () => {
         setIsLoadingReports(true);
         setError(null);
 
+        // Simple capped list to keep moderation UI fast and predictable.
         const q = query(
           collection(db, "reports"),
           orderBy("createdAt", "desc"),
-          limit(100)
+          limit(100),
         );
 
         const snap = await getDocs(q);
@@ -37,9 +55,12 @@ const ModerationPage = () => {
           id: docSnap.id,
           ...docSnap.data(),
         }));
+
         setReports(data);
       } catch (err) {
         console.error("Failed to load reports:", err);
+
+        // Keep user feedback actionable; toastId de-dupes if the effect retriggers.
         setError("Failed to load reports. Please try again.");
         showErrorToast("Failed to load reports. Please try again.");
       } finally {
@@ -51,6 +72,7 @@ const ModerationPage = () => {
   }, [user, isCheckingAuth]);
 
   const handleOpenTarget = (report) => {
+    // Centralized navigation logic keeps target routing consistent for different report types.
     openReportTarget({ report, navigate });
   };
 

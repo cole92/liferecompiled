@@ -1,106 +1,351 @@
 import PropTypes from "prop-types";
 import { motion } from "framer-motion";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+
+import { AuthContext } from "../../../context/AuthContext";
+
+/**
+ * @component IconSearch
+ *
+ * Small inline SVG used for search toggle on mobile.
+ * Kept local to avoid extra icon deps for a tiny static asset.
+ *
+ * @param {string} [className] - Optional CSS classes for sizing/color.
+ * @returns {JSX.Element}
+ */
+const IconSearch = ({ className = "" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M21 21l-4.2-4.2"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+IconSearch.propTypes = {
+  className: PropTypes.string,
+};
+
+/**
+ * @component IconFilter
+ *
+ * Small inline SVG used for filter toggle on mobile.
+ * Local component keeps bundle lean and avoids runtime icon styling differences.
+ *
+ * @param {string} [className] - Optional CSS classes for sizing/color.
+ * @returns {JSX.Element}
+ */
+const IconFilter = ({ className = "" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M4 6h16l-6 7v5l-4 2v-7L4 6Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+IconFilter.propTypes = {
+  className: PropTypes.string,
+};
 
 /**
  * @component PostFilterBar
  *
- * UI traka za filtriranje i pretragu u MyPosts stranici.
+ * Filter + search controls for the My Posts dashboard list.
  *
- * Namena:
- * - Prikazuje filter dugmice (Active / Locked / All) za normalni mod
- * - Prikazuje search input za server-side prefix pretragu (title_lc)
- * - Implementira “search mode” gde filter dugmici vizuelno blede i postaju neaktivni
- * - Obezbedjuje da se layout ne pomera: search polje je uvek prisutno desno
+ * Core idea:
+ * - Filters (Active/Archived/All) are mutually exclusive.
+ * - Search mode takes priority: when searching, filter controls are disabled to avoid mixed mental models.
  *
- * UX ponasanje:
- * - Kada `searchTerm.trim().length > 0`:
- *   - filter dugmici imaju fade-out (`opacity:0`, `y:-4`)
- *   - `pointer-events-none` i `aria-hidden=true`
- *   - prikazani su samo rezultati search moda (filteri se ignorisu)
+ * Responsive behavior:
+ * - < sm: compact icon row that toggles either Search panel or Filters panel.
+ * - sm+: inline filter pills + optional search input on the right.
  *
- * - Kada je `searchTerm` prazan:
- *   - filter dugmici su ponovo aktivni
- *   - prikaz vraca u normalni mod (Active / Locked / All)
- *
- * Props:
- * @param {string} activeFilter - Trenutno aktivni filter u normal mod-u
- * @param {Function} onFilterChange - Callback za promenu filtera
- * @param {string} searchTerm - Tekst pretrage (kontrolisano stanje)
- * @param {Function} onSearchChange - Callback prilikom promene search input-a
- *
+ * @param {Object} props
+ * @param {string} props.activeFilter - Current filter key ("active" | "locked" | "all").
+ * @param {(next: string) => void} props.onFilterChange - Updates the active filter.
+ * @param {string} props.searchTerm - Current search term (title search).
+ * @param {(next: string) => void} props.onSearchChange - Updates the search term.
+ * @param {boolean} [props.showDesktopSearch=true] - Allows pages to hide the desktop search field.
  * @returns {JSX.Element}
  */
-
 const PostFilterBar = ({
   activeFilter,
   onFilterChange,
   searchTerm,
   onSearchChange,
+  showDesktopSearch = true,
 }) => {
-  const filters = [
-    {
-      label: "Active",
-      value: "active",
-      className: "bg-blue-100 text-blue-800",
-    },
-    { label: "Locked", value: "locked", className: "bg-red-100 text-red-800" },
-    { label: "All", value: "all", className: "bg-gray-200 text-gray-800" },
-  ];
+  const { user } = useContext(AuthContext);
+  const { pathname } = useLocation();
+
+  const isMyPostsPage = pathname === "/dashboard";
+  const canCreate = Boolean(user?.email) && isMyPostsPage;
+
+  const filters = useMemo(
+    () => [
+      {
+        label: "Active",
+        value: "active",
+        activeClass:
+          "bg-emerald-500/12 text-emerald-200 ring-1 ring-inset ring-emerald-400/25",
+      },
+      {
+        label: "Archived",
+        value: "locked",
+        activeClass:
+          "bg-rose-500/12 text-rose-200 ring-1 ring-inset ring-rose-400/25",
+      },
+      {
+        label: "All",
+        value: "all",
+        activeClass:
+          "bg-zinc-100/10 text-zinc-100 ring-1 ring-inset ring-zinc-200/15",
+      },
+    ],
+    [],
+  );
 
   const hasSearch = searchTerm.trim().length > 0;
 
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-      {/* Filter dugmici: fade-out i disable u search modu da bi se vizuelno prikazao prelaz u search mod */}
-      <motion.div
-        initial={false}
-        animate={{ opacity: hasSearch ? 0 : 1, y: hasSearch ? -4 : 0 }}
-        transition={{ duration: 0.2 }}
-        className={`flex gap-2 flex-wrap ${
-          hasSearch ? "pointer-events-none" : ""
-        }`}
-        aria-hidden={hasSearch}
-      >
-        {filters.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => onFilterChange(f.value)}
-            className={`px-3 py-1 rounded-full text-sm transition hover:scale-105 ${
-              f.className
-            } ${
-              activeFilter === f.value
-                ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 ring-black"
-                : ""
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </motion.div>
+  // Mobile: default to showing Search panel when a search term exists.
+  const [openPanel, setOpenPanel] = useState(hasSearch ? "search" : "none");
 
-      {/* Search polje: uvek prisutno desno da bi se izbegao layout jump pri ulasku/izlasku iz search moda */}
-      <div className="flex items-center gap-2 max-w-md flex-1 md:flex-none md:ml-auto">
-        <input
-          id="my-posts-search"
-          name="myPostsSearch"
-          type="text"
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search your posts by title..."
-          aria-label="Search your posts by title"
-          autoComplete="off"
-          className="border border-gray-600 bg-gray-800 text-white px-3 py-2 rounded w-full"
-        />
-        {hasSearch && (
-          <button
-            type="button"
-            onClick={() => onSearchChange("")}
-            aria-label="Clear search"
-            className="text-sm underline"
-          >
-            Clear
-          </button>
+  useEffect(() => {
+    if (hasSearch) setOpenPanel("search");
+  }, [hasSearch]);
+
+  const activeFilterLabel =
+    filters.find((f) => f.value === activeFilter)?.label || "All";
+
+  const togglePanel = (next) => {
+    setOpenPanel((prev) => (prev === next ? "none" : next));
+  };
+
+  const iconBtn =
+    "ui-button-secondary inline-flex h-11 w-11 items-center justify-center p-0";
+
+  const statusPill =
+    "inline-flex h-11 w-full items-center justify-center rounded-xl " +
+    "border border-zinc-800 bg-zinc-950/40 px-3 text-sm text-zinc-200 " +
+    "truncate";
+
+  return (
+    <div className="w-full">
+      {/* Mobile (<sm) compact actions */}
+      <div className="sm:hidden">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => togglePanel("search")}
+              aria-label="Toggle search"
+              aria-pressed={openPanel === "search"}
+              className={iconBtn}
+            >
+              <IconSearch className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => togglePanel("filters")}
+              aria-label="Toggle filters"
+              aria-pressed={openPanel === "filters"}
+              disabled={hasSearch}
+              aria-disabled={hasSearch}
+              className={`${iconBtn} ${hasSearch ? "opacity-40 cursor-not-allowed" : ""}`}
+              title={hasSearch ? "Filters disabled in search mode" : "Filters"}
+            >
+              <IconFilter className="h-5 w-5" />
+            </button>
+
+            {canCreate && (
+              <NavLink
+                to="/dashboard/create"
+                aria-label="Create new post"
+                title="Create new post"
+                className="ui-button-primary inline-flex h-11 w-11 items-center justify-center p-0"
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="h-5 w-5"
+                >
+                  <path
+                    d="M12 5v14M5 12h14"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </NavLink>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {hasSearch ? (
+              <span className={statusPill}>Search mode</span>
+            ) : (
+              <span className={statusPill}>{activeFilterLabel}</span>
+            )}
+          </div>
+        </div>
+
+        {openPanel !== "none" && (
+          <div className="mt-2">
+            {openPanel === "search" && (
+              <div className="flex w-full items-center gap-2">
+                <input
+                  id="my-posts-search"
+                  name="myPostsSearch"
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder="Search by title..."
+                  aria-label="Search your posts by title"
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                    focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                />
+
+                {(hasSearch || searchTerm.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => onSearchChange("")}
+                    aria-label="Clear search"
+                    className="shrink-0 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/40 hover:text-zinc-100 transition
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                      focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+
+            {openPanel === "filters" && !hasSearch && (
+              <div className="inline-flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-950/40 p-1">
+                {filters.map((f) => {
+                  const isActive = activeFilter === f.value;
+
+                  return (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => onFilterChange(f.value)}
+                      className={[
+                        "flex-1",
+                        "rounded-lg px-3 py-2 text-sm transition",
+                        "text-zinc-300 hover:text-zinc-100",
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
+                        "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+                        isActive ? f.activeClass : "bg-transparent",
+                      ].join(" ")}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
+      </div>
+
+      {/* sm+ layout */}
+      <div className="hidden sm:block">
+        <div
+          className={[
+            "flex flex-col gap-3 sm:flex-row sm:items-center",
+            showDesktopSearch ? "sm:justify-between" : "sm:justify-start",
+          ].join(" ")}
+        >
+          <motion.div
+            initial={false}
+            animate={{
+              opacity: showDesktopSearch
+                ? hasSearch
+                  ? 0
+                  : 1
+                : hasSearch
+                  ? 0.55
+                  : 1,
+              y: showDesktopSearch ? (hasSearch ? -4 : 0) : 0,
+            }}
+            transition={{ duration: 0.2 }}
+            className={`w-full sm:w-auto ${hasSearch ? "pointer-events-none" : ""}`}
+            aria-hidden={false}
+          >
+            <div className="inline-flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-950/40 p-1 sm:w-auto">
+              {filters.map((f) => {
+                const isActive = activeFilter === f.value;
+
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => onFilterChange(f.value)}
+                    className={[
+                      "flex-1 sm:flex-none",
+                      "rounded-lg px-3 py-1.5 text-sm transition",
+                      "text-zinc-300 hover:text-zinc-100",
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
+                      "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+                      isActive ? f.activeClass : "bg-transparent",
+                    ].join(" ")}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {showDesktopSearch && (
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:max-w-md sm:ml-auto">
+              <input
+                id="my-posts-search-sm"
+                name="myPostsSearch"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Search your posts by title..."
+                aria-label="Search your posts by title"
+                autoComplete="off"
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 placeholder:text-zinc-500
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+                  focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              />
+
+              {hasSearch && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  aria-label="Clear search"
+                  className="shrink-0 text-sm text-zinc-300 underline hover:text-zinc-100"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -111,5 +356,7 @@ PostFilterBar.propTypes = {
   onFilterChange: PropTypes.func.isRequired,
   searchTerm: PropTypes.string.isRequired,
   onSearchChange: PropTypes.func.isRequired,
+  showDesktopSearch: PropTypes.bool,
 };
+
 export default PostFilterBar;

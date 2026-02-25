@@ -1,21 +1,52 @@
 import PropTypes from "prop-types";
 
+/**
+ * @component Spinner
+ *
+ * Small loading indicator with an optional label.
+ *
+ * - Uses a CSS border spinner (Tailwind) for a lightweight, dependency-free loader.
+ * - `message` can be hidden by passing an empty string or null.
+ * - `className` and `style` are applied to the spinner circle (not the wrapper),
+ *   so you can change size, border thickness, etc.
+ *
+ * Accessibility:
+ * - Uses `role="status"` + `aria-live="polite"` to announce loading changes.
+ * - Includes a screen-reader-only "Loading..." label.
+ *
+ * @param {object} props
+ * @param {string} [props.message="Loading..."] - Optional text displayed under the spinner.
+ * @param {string} [props.className=""] - Extra classes for the spinner circle.
+ * @param {object} [props.style={}] - Inline styles for the spinner circle.
+ * @returns {JSX.Element}
+ */
 const Spinner = ({ message = "Loading...", className = "", style = {} }) => {
+  const srLabel =
+    typeof message === "string" && message.trim() ? message : "Loading...";
+
   return (
-    <div className="center-spinner">
-      <div className={`spinner-border ${className}`} role="status" style={style}>
-        <span className="visually-hidden">Loading...</span>
+    <div className="flex flex-col items-center justify-center">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label={srLabel}
+        className={`h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-sky-400 ${className}`}
+        style={style}
+      >
+        <span className="sr-only">{srLabel}</span>
       </div>
-      {message && <p className="text-center mt-3">{message}</p>}
+
+      {message ? (
+        <p className="mt-3 text-center text-sm text-zinc-300">{message}</p>
+      ) : null}
     </div>
   );
 };
 
-// PropTypes validacija
 Spinner.propTypes = {
-  message: PropTypes.string,
-  className: PropTypes.string, // Dodali smo podrsku za dodatne klase
-  style: PropTypes.object, // Dodali smo podrsku za inline stilove
+  message: PropTypes.oneOfType([PropTypes.string, PropTypes.oneOf([null])]),
+  className: PropTypes.string,
+  style: PropTypes.object,
 };
 
 export default Spinner;

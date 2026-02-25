@@ -1,6 +1,7 @@
-// Paketi
+// Packages
 import { useContext, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import dayjs from "dayjs";
 import {
   collection,
   doc,
@@ -11,25 +12,67 @@ import {
   getDocs,
   limit,
   startAfter,
+  Timestamp,
 } from "firebase/firestore";
 
-// Konfiguracija i kontekst
+// Config + context
 import { httpsCallable } from "firebase/functions";
 import { functions, db } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
 
-// Util funkcije i konstante
+// Utils + constants
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { getDaysLeft } from "../../utils/dateUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Komponente
-import PostCard from "../../components/PostCard";
+// Components
+import PostCardTrash from "../../components/PostCardTrash";
 import EmptyState from "./components/EmptyState";
 import SkeletonCard from "../../components/ui/skeletonLoader/SkeletonCard";
 
+const POST_PER_PAGE = 10;
+
+/**
+ * Build Firestore `where()` constraints over `deletedAt` based on the active filter range.
+ * This keeps filtering server-side so it works across ALL pages (not only loaded items).
+ *
+ * Ranges are aligned with `getDaysLeft()` semantics (30-day retention window).
+ *
+ * @param {string|null} filterRange
+ * @returns {Array} Firestore query constraints
+ */
+const getDeletedAtConstraints = (filterRange) => {
+  if (!filterRange) return [];
+
+  const now = dayjs();
+  const t10 = Timestamp.fromDate(now.subtract(10, "day").toDate());
+  const t20 = Timestamp.fromDate(now.subtract(20, "day").toDate());
+
+  // Mapping matches getDaysLeft() behavior (diff in days, then 30 - daysPassed).
+  if (filterRange === "21-30") return [where("deletedAt", ">", t10)];
+  if (filterRange === "11-20")
+    return [where("deletedAt", "<=", t10), where("deletedAt", ">", t20)];
+  if (filterRange === "0-10") return [where("deletedAt", "<=", t20)];
+
+  return [];
+};
+
+/**
+ * @component Trash
+ *
+ * User Trash page (soft-deleted posts) with:
+ * - Server-side filtering by retention range (`deletedAt` constraints)
+ * - Cursor pagination (+1 prefetch to avoid "fake" Load more)
+ * - Optimistic restore / permanent delete with rollback on failure
+ *
+ * Data contract:
+ * - Trash items are posts where `deleted === true`
+ * - Ordering is by `deletedAt desc` to reflect retention countdown UX
+ *
+ * @returns {JSX.Element}
+ */
 const Trash = () => {
   const { user } = useContext(AuthContext);
   const { filterRange } = useOutletContext();
@@ -43,13 +86,12 @@ const Trash = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [postIdToDelete, setPostIdToDelete] = useState(null);
 
-  // Paginacija
+  // Pagination state
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
-  const POST_PER_PAGE = 10;
-
+  // Post cards expect an `author` shape; in Trash we derive it from auth context.
   const author = user
     ? {
         id: user.uid,
@@ -59,13 +101,22 @@ const Trash = () => {
       }
     : null;
 
+  const gridBase = "grid gap-4 grid-cols-1 lg:grid-cols-2";
+
+  // IMPORTANT:
+  // Dashboard layout likely already wraps the Outlet with `ui-shell`,
+  // so we avoid adding another shell here to prevent a double/narrow wrapper.
+  const shell = "w-full pb-2";
+  const wrap = "space-y-6 py-2";
+
   useEffect(() => {
     let canceled = false;
-
     if (!user) return;
 
     const fetchFirstPage = async () => {
       setIsLoading(true);
+
+      // Reset list + cursor whenever uid or filter changes.
       setDeletedPosts([]);
       setLastDoc(null);
       setHasMore(true);
@@ -73,14 +124,16 @@ const Trash = () => {
 
       try {
         const postRef = collection(db, "posts");
+        const constraints = getDeletedAtConstraints(filterRange);
 
-        // Prefetch +1 (eliminiše fake Load more kad ima tacno 10)
+        // Prefetch +1 eliminates a "fake" Load more when there are exactly 10 items.
         const q = query(
           postRef,
           where("userId", "==", user.uid),
           where("deleted", "==", true),
+          ...constraints,
           orderBy("deletedAt", "desc"),
-          limit(POST_PER_PAGE + 1)
+          limit(POST_PER_PAGE + 1),
         );
 
         const snap = await getDocs(q);
@@ -101,6 +154,7 @@ const Trash = () => {
           return;
         }
 
+        // Cursor is the last doc in the rendered page.
         setLastDoc(pageDocs[pageDocs.length - 1]);
         setHasMore(docs.length > POST_PER_PAGE);
 
@@ -110,6 +164,7 @@ const Trash = () => {
             id: d.id,
             ...data,
             author,
+            // Keep shape stable for cards even if comments is missing.
             comments: data.comments || [],
           };
         });
@@ -117,6 +172,8 @@ const Trash = () => {
         setDeletedPosts(posts);
       } catch (error) {
         console.error("Error fetching posts:", error);
+
+        // User-facing message stays generic; details remain in console.
         if (!canceled) {
           showErrorToast("Failed to load your posts. Please try again.");
         }
@@ -127,27 +184,31 @@ const Trash = () => {
 
     fetchFirstPage();
 
+    // Cleanup prevents setState after unmount or when uid/filter changes mid-request.
     return () => {
       canceled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid]);
+  }, [user?.uid, filterRange]);
 
   const handleLoadMore = async () => {
+    // Guard against duplicate fetches and invalid cursor state.
     if (!user || !hasMore || isLoadingMore || !lastDoc) return;
     setIsLoadingMore(true);
 
     try {
       const postRef = collection(db, "posts");
+      const constraints = getDeletedAtConstraints(filterRange);
 
-      // Prefetch +1
+      // Prefetch +1 keeps hasMore accurate.
       const q = query(
         postRef,
         where("userId", "==", user.uid),
         where("deleted", "==", true),
+        ...constraints,
         orderBy("deletedAt", "desc"),
         startAfter(lastDoc),
-        limit(POST_PER_PAGE + 1)
+        limit(POST_PER_PAGE + 1),
       );
 
       const snap = await getDocs(q);
@@ -178,6 +239,7 @@ const Trash = () => {
         };
       });
 
+      // Merge by id to avoid duplicates if queries overlap (or after optimistic changes).
       setDeletedPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         newPosts.forEach((p) => map.set(p.id, p));
@@ -191,16 +253,20 @@ const Trash = () => {
     }
   };
 
-  // Optimistic helper: remove from UI immediately
+  // Optimistic helper: remove from UI immediately to keep the page responsive.
   const removeFromUI = (postId) => {
     setDeletedPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
-  // Restore: optimistic remove + rollback on failure
+  /**
+   * Restore flow:
+   * - Optimistically remove the card
+   * - Flip `deleted=false` and clear `deletedAt` in Firestore
+   * - Roll back on failure to avoid silent data loss in UI
+   */
   const handleRestore = async (postId) => {
     if (!postId) return;
 
-    // optimistic
     const snapshot = deletedPosts.find((p) => p.id === postId) || null;
     removeFromUI(postId);
 
@@ -214,7 +280,7 @@ const Trash = () => {
     } catch (err) {
       console.error("Error restoring post:", err);
 
-      // rollback
+      // Roll back only if we have a snapshot (keeps UI stable even on edge cases).
       if (snapshot) {
         setDeletedPosts((prev) => {
           const map = new Map(prev.map((p) => [p.id, p]));
@@ -227,13 +293,16 @@ const Trash = () => {
     }
   };
 
-  // Permanent delete: optimistic remove + rollback on failure
+  /**
+   * Permanent delete flow:
+   * - Optimistically remove the card
+   * - Delegate to Cloud Function (`deletePostCascade`) for hard delete + cleanup
+   * - Roll back on failure
+   */
   const handleDeletePermanent = async () => {
     if (!postIdToDelete) return;
 
     const snapshot = deletedPosts.find((p) => p.id === postIdToDelete) || null;
-
-    // optimistic
     removeFromUI(postIdToDelete);
 
     try {
@@ -243,7 +312,6 @@ const Trash = () => {
     } catch (error) {
       console.error("Delete error:", error);
 
-      // rollback
       if (snapshot) {
         setDeletedPosts((prev) => {
           const map = new Map(prev.map((p) => [p.id, p]));
@@ -254,141 +322,126 @@ const Trash = () => {
 
       showErrorToast("Failed to delete post.");
     } finally {
+      // Always close modal and clear selection (even after failures).
       setDeleteModalOpen(false);
       setPostIdToDelete(null);
     }
   };
 
-  // Filter by days left
-  const filteredPosts = filterRange
-    ? deletedPosts.filter((post) => {
-        const days = getDaysLeft(post.deletedAt);
-        if (filterRange === "0-10") return days >= 0 && days <= 10;
-        if (filterRange === "11-20") return days >= 11 && days <= 20;
-        if (filterRange === "21-30") return days >= 21 && days <= 30;
-        return true;
-      })
-    : deletedPosts;
+  // Server-side filter is already applied, so UI list is the filtered list.
+  const filteredPosts = deletedPosts;
 
-  // Auto-fill: ako si ispraznio stranu (restore/delete), a ima jos, povuci sledece
   useEffect(() => {
+    // Auto-fill: if list becomes empty after restore/delete and there is more, pull next page.
     if (isLoading) return;
     if (isLoadingMore) return;
     if (!hasMore) return;
     if (!lastDoc) return;
-
-    // Ako filterRange postoji, moguce je da je filteredPosts=0 ali deletedPosts>0 (nije "prazna strana")
-    if (filterRange) {
-      if (deletedPosts.length > 0) return;
-    } else {
-      if (filteredPosts.length > 0) return;
-    }
+    if (deletedPosts.length > 0) return;
 
     handleLoadMore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isLoading,
-    isLoadingMore,
-    hasMore,
-    lastDoc,
-    deletedPosts.length,
-    filteredPosts.length,
-    filterRange,
-  ]);
+  }, [isLoading, isLoadingMore, hasMore, lastDoc, deletedPosts.length]);
 
-  // EmptyState poruka (ne lazemo kad filter napravi 0)
-  const shouldShowEmpty =
-    !isLoading &&
-    ((filterRange && deletedPosts.length === 0 && !hasMore) ||
-      (!filterRange && filteredPosts.length === 0 && !hasMore));
+  // EmptyState: show only when we are done loading and there is no next page.
+  const shouldShowEmpty = !isLoading && deletedPosts.length === 0 && !hasMore;
 
-  const emptyMessage =
-    filterRange && deletedPosts.length > 0
-      ? "No posts match this filter."
-      : "You haven't deleted any posts yet.";
+  const emptyMessage = filterRange
+    ? "No posts match this filter."
+    : "You haven't deleted any posts yet.";
 
   return (
-    <div>
-      {shouldShowEmpty && <EmptyState message={emptyMessage} />}
+    <div className={shell}>
+      <div className={wrap}>
+        {shouldShowEmpty && <EmptyState message={emptyMessage} />}
 
-      {isLoading && (
-        <div className="grid gap-4">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      )}
+        {isLoading && (
+          <div className={gridBase} role="status" aria-live="polite">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
 
-      {isLoadingMore && (
-        <div className="mt-2 space-y-2">
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-      )}
+        {!isLoading && filteredPosts.length > 0 && (
+          <>
+            <div className={gridBase}>
+              <AnimatePresence>
+                {filteredPosts.map((post) => {
+                  // Derived display value for the retention countdown UI.
+                  const daysLeft = post.deletedAt
+                    ? getDaysLeft(post.deletedAt)
+                    : null;
 
-      {!isLoading && filteredPosts.length > 0 && (
-        <div className="grid gap-4">
-          <AnimatePresence>
-            {filteredPosts.map((post) => {
-              const daysLeft = post.deletedAt
-                ? getDaysLeft(post.deletedAt)
-                : null;
+                  return (
+                    <motion.div
+                      key={post.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    >
+                      <PostCardTrash
+                        post={post}
+                        daysLeft={daysLeft}
+                        onRestore={() => {
+                          setSelectedPostId(post.id);
+                          setRestoreModalOpen(true);
+                        }}
+                        onDeletePermanently={() => {
+                          setPostIdToDelete(post.id);
+                          setDeleteModalOpen(true);
+                        }}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
 
-              return (
-                <motion.div
-                  key={post.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
+            {isLoadingMore && (
+              <div className={gridBase} role="status" aria-live="polite">
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            )}
+
+            {hasMore && (
+              <div className="flex justify-center pt-3">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore || !hasMore}
+                  aria-busy={isLoadingMore}
+                  aria-disabled={isLoadingMore || !hasMore}
+                  className={`ui-button-primary ${
+                    isLoadingMore ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
                 >
-                  <PostCard
-                    post={post}
-                    isTrashMode={true}
-                    daysLeft={daysLeft}
-                    onRestore={() => {
-                      setSelectedPostId(post.id);
-                      setRestoreModalOpen(true);
-                    }}
-                    onDeletePermanently={() => {
-                      setPostIdToDelete(post.id);
-                      setDeleteModalOpen(true);
-                    }}
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                  {isLoadingMore ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
 
-          {hasMore && (
-            <button
-              onClick={handleLoadMore}
-              disabled={isLoadingMore || !hasMore}
-              aria-busy={isLoadingMore}
-              aria-disabled={isLoadingMore || !hasMore}
-            >
-              {isLoadingMore ? "Loading..." : "Load more"}
-            </button>
-          )}
-
-          {!hasMore && filteredPosts.length > 0 && (
-            <p
-              className="mt-4 text-sm text-gray-500 text-center"
-              aria-live="polite"
-            >
-              You reached the end.
-            </p>
-          )}
-        </div>
-      )}
+            {!hasMore && filteredPosts.length > 0 && (
+              <p
+                className="mt-2 text-sm text-zinc-400 text-center"
+                aria-live="polite"
+              >
+                You reached the end.
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
       <ConfirmModal
         isOpen={restoreModalOpen}
         title="Restore Post"
         message="Are you sure you want to restore this post?"
         confirmText="Restore"
-        confirmButtonClass="bg-green-500 hover:bg-green-600 hover:scale-105 transition duration-200"
-        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
+        confirmButtonClass="rounded-lg bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/25 hover:bg-emerald-500/25 hover:scale-105 transition"
+        cancelButtonClass="rounded-lg bg-zinc-800/70 text-zinc-100 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:scale-105 transition"
         onCancel={() => {
           setRestoreModalOpen(false);
           setSelectedPostId(null);
@@ -405,8 +458,8 @@ const Trash = () => {
         title="Delete Post Permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
         confirmText="Delete"
-        confirmButtonClass="bg-red-600 hover:bg-red-700 hover:scale-105 transition duration-200"
-        cancelButtonClass="bg-gray-300 text-gray-800 hover:bg-gray-400 hover:scale-105 transition duration-200"
+        confirmButtonClass="rounded-lg bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 hover:scale-105 transition"
+        cancelButtonClass="rounded-lg bg-zinc-800/70 text-zinc-100 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:scale-105 transition"
         onCancel={() => {
           setDeleteModalOpen(false);
           setPostIdToDelete(null);
