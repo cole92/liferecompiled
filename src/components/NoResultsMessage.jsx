@@ -1,8 +1,27 @@
 import PropTypes from "prop-types";
 
+/**
+ * @component NoResultsMessage
+ *
+ * Context-aware empty state message for post listings.
+ *
+ * - Distinguishes between "no data in database" and "no results for filters/search"
+ * - Prioritizes combined search + filter state over individual conditions
+ * - Returns null when posts exist (no empty state needed)
+ *
+ * Behavior order (top → bottom):
+ * 1. No posts in database (initial/empty app state)
+ * 2. Search + filters active but no match
+ * 3. Search only, no match
+ * 4. Filters only, no match
+ *
+ * @param {Array} posts - Filtered posts array (already processed by parent)
+ * @param {string} [searchTerm] - Active search query
+ * @param {string[]} [selectedCategories] - Active category filters
+ * @returns {JSX.Element|null}
+ */
 const NoResultsMessage = ({ posts, searchTerm, selectedCategories }) => {
-  // Ako uopste nema postova u bazi
-  // Ovo se desava samo ako baza nema nijedan post (nova aplikacija ili su svi obrisani)
+  // Case 1: No posts exist in the database (fresh app or all deleted)
   if (
     !posts ||
     (Array.isArray(posts) &&
@@ -17,9 +36,7 @@ const NoResultsMessage = ({ posts, searchTerm, selectedCategories }) => {
     );
   }
 
-  // Ako korisnik koristi i pretragu i filtere, ali nista ne pronalazi
-  // Ova situacija se desava kada unese kljucnu rec u pretragu i selektuje filtere,
-  // ali nijedan post ne odgovara tim kriterijumima
+  // Case 2: Search + filters active but no results
   if (
     searchTerm.trim() !== "" &&
     selectedCategories.length > 0 &&
@@ -32,8 +49,7 @@ const NoResultsMessage = ({ posts, searchTerm, selectedCategories }) => {
     );
   }
 
-  // Ako postoji pretraga, ali nema rezultata
-  // Ovo se desava kada korisnik unese kljucnu rec u pretragu, ali nijedan post ne sadrzi tu rec
+  // Case 3: Search only, no results
   if (searchTerm.trim() !== "" && posts.length === 0) {
     return (
       <p className="no-posts-message">
@@ -42,8 +58,7 @@ const NoResultsMessage = ({ posts, searchTerm, selectedCategories }) => {
     );
   }
 
-  // Ako su filteri aktivni, ali nema rezultata
-  // Desava se kada korisnik izabere filtere, ali nijedan post ne pripada tim kategorijama
+  // Case 4: Filters only, no results
   if (selectedCategories.length > 0 && posts.length === 0) {
     return (
       <p className="no-posts-message">
@@ -53,13 +68,14 @@ const NoResultsMessage = ({ posts, searchTerm, selectedCategories }) => {
     );
   }
 
-  return null; // Ako nijedan od uslova nije ispunjen, ne prikazujemo nista (fallback)
+  // Default: posts exist → no empty state rendered
+  return null;
 };
-// PropTypes validacija - Osiguravamo da props-i imaju tacne tipove
+
 NoResultsMessage.propTypes = {
-  posts: PropTypes.array.isRequired, // `posts` mora biti niz i obavezan je
-  searchTerm: PropTypes.string, // `searchTerm` je string (moze biti prazan)
-  selectedCategories: PropTypes.arrayOf(PropTypes.string), // `selectedCategories` je niz stringova
+  posts: PropTypes.array.isRequired,
+  searchTerm: PropTypes.string,
+  selectedCategories: PropTypes.arrayOf(PropTypes.string),
 };
 
 export default NoResultsMessage;

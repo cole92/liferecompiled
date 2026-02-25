@@ -14,6 +14,20 @@ import { AuthContext } from "../context/AuthContext";
 
 const PAGE_SIZE_UI = 12;
 
+/**
+ * @component Home
+ *
+ * Home feed page with paginated Firestore-backed listing.
+ * - Fetches post pages via `getPostsPage` with cursor-based pagination
+ * - Supports server-side sort modes (newest/oldest/trending) and optional category scoping
+ * - Tracks saved state for the currently visible posts via `useSavedIdsForPostIds`
+ *
+ * UX notes:
+ * - Uses skeletons for initial load and incremental "Load more"
+ * - Provides a docked filters sidebar on md+ as an optional layout mode
+ *
+ * @returns {JSX.Element}
+ */
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
@@ -33,11 +47,12 @@ const Home = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Docked sidebar (md+ only)
+  // Docked filters sidebar (md+ only): kept explicit to avoid layout "memory" across breakpoints.
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
   const [isMdUp, setIsMdUp] = useState(false);
 
   useEffect(() => {
+    // Track viewport breakpoint for docked sidebar behavior without relying on CSS-only state.
     const mq = window.matchMedia("(min-width: 768px)");
     const sync = () => setIsMdUp(mq.matches);
     sync();
@@ -47,8 +62,8 @@ const Home = () => {
       mq.removeEventListener?.("change", sync) ?? mq.removeListener(sync);
   }, []);
 
-  // If we leave md viewport, close docked sidebar to avoid weird states
   useEffect(() => {
+    // If we leave md viewport, close docked sidebar to avoid weird states on mobile.
     if (!isMdUp) setIsDesktopSidebarOpen(false);
   }, [isMdUp]);
 
@@ -56,6 +71,7 @@ const Home = () => {
 
   const isTrendingSort = sortBy === "trending";
 
+  // Category mode only applies when exactly one category is selected (simple server-side constraint).
   const activeCategory =
     !isTrendingSort &&
     Array.isArray(selectedCategories) &&
@@ -63,6 +79,12 @@ const Home = () => {
       ? selectedCategories[0]
       : null;
 
+  /**
+   * Server sort mode mapping:
+   * - "trending" is a dedicated backend path
+   * - category + newest is enforced to keep category feed predictable
+   * - otherwise respects user selection (newest/oldest)
+   */
   const serverSort = isTrendingSort
     ? "trending"
     : activeCategory
@@ -75,6 +97,7 @@ const Home = () => {
     let isCanceled = false;
 
     const fetchFirstPage = async () => {
+      // Reset pagination state whenever server query inputs change.
       setIsLoading(true);
       setIsLoadingMore(false);
       setPosts([]);
@@ -95,6 +118,7 @@ const Home = () => {
         setLastDoc(page.lastDoc);
         setHasMore(page.hasMore);
 
+        // Non-fatal warnings help detect edge cases (e.g., skipped docs) without breaking UI.
         if (page.warnings && page.warnings.length > 0) {
           console.warn("[Home feed warnings]", page.warnings);
         }
@@ -113,6 +137,7 @@ const Home = () => {
   }, [activeCategory, serverSort]);
 
   const handleLoadMore = async () => {
+    // Guard: avoid overlapping requests and cursor misuse.
     if (isLoading || isLoadingMore || !hasMore || !lastDoc) return;
 
     setIsLoadingMore(true);
@@ -125,6 +150,7 @@ const Home = () => {
         sortBy: serverSort,
       });
 
+      // Merge by id to keep feed stable if backend returns overlaps or updated items.
       setPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         for (const item of page.items) map.set(item.id, item);
@@ -144,14 +170,17 @@ const Home = () => {
     }
   };
 
+  // Single place to apply any future client-side transforms.
   const finalPosts = posts;
 
+  // Saved-state hook expects post ids; memo avoids useless recalcs on renders.
   const postIds = useMemo(() => finalPosts.map((p) => p.id), [finalPosts]);
 
   const { savedIds, setSavedIds } = useSavedIdsForPostIds(user?.uid, postIds);
 
   const handleSavedChange = useCallback(
     (postId, nextState) => {
+      // Local optimistic update so the UI responds immediately to save/unsave toggles.
       setSavedIds((prev) => {
         const next = new Set(prev);
         if (nextState) next.add(postId);
@@ -171,7 +200,7 @@ const Home = () => {
 
   const createBtn = canShowCreateButton ? (
     <>
-      {/* Mobile: icon-only */}
+      {/* Mobile: icon-only to keep header compact. */}
       <button
         type="button"
         className="ui-button-primary inline-flex h-11 w-11 items-center justify-center p-0 sm:hidden"
@@ -193,7 +222,7 @@ const Home = () => {
         </svg>
       </button>
 
-      {/* Desktop: text button */}
+      {/* Desktop: explicit CTA label. */}
       <button
         type="button"
         className="hidden sm:inline-flex ui-button-primary"
@@ -204,7 +233,11 @@ const Home = () => {
     </>
   ) : null;
 
-  // Layout: docked sidebar starts at md (768)
+  /**
+   * Layout switches:
+   * - Default: single column feed
+   * - md+ + docked sidebar: 2-col grid with fixed sidebar width
+   */
   const layoutClass = useMemo(() => {
     if (isMdUp && isDesktopSidebarOpen) {
       return "mt-4 grid gap-4 lg:gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_380px]";
@@ -212,7 +245,7 @@ const Home = () => {
     return "mt-4";
   }, [isMdUp, isDesktopSidebarOpen]);
 
-  // Posts grid: 1 col until lg (1024) by default
+  // Posts grid adjusts column count based on whether sidebar is docked.
   const feedGridClassName = isDesktopSidebarOpen
     ? "grid grid-cols-1 gap-5 sm:gap-6 items-stretch xl:grid-cols-2"
     : "grid grid-cols-1 gap-5 sm:gap-6 items-stretch lg:grid-cols-2";

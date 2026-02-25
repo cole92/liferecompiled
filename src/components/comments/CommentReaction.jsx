@@ -15,9 +15,19 @@ import LikesModal from "../modals/LikesModal";
 import { showInfoToast } from "../../utils/toastUtils";
 
 /**
- * CommentReaction
- * UI for likes on a comment.
- * Note: keep it compact (Instagram-like) so it does not add visual noise.
+ * @component CommentReaction
+ *
+ * Compact like/reaction control for a single comment (IG-like, low visual noise).
+ *
+ * - Subscribes to comment doc (`likes` array) for real-time count + current user state.
+ * - Uses optimistic UI updates to keep the button responsive.
+ * - Loads a small "top likers" preview (up to 3 most recent) as a lightweight hint.
+ * - Opens a modal to view the full liker list (best-effort user fetch).
+ *
+ * @param {string} commentId - Target comment document id.
+ * @param {string|null} currentUserId - Logged-in user id (null for guests).
+ * @param {boolean} locked - If true, disables all reactions (read-only mode).
+ * @returns {JSX.Element}
  */
 const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   const [liked, setLiked] = useState(false);
@@ -28,11 +38,12 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
 
-  // Real-time listener for Firestore field "likes"
+  // Real-time listener for `likes` array to keep UI in sync across clients.
   useEffect(() => {
     const ref = doc(db, "comments", commentId);
 
     const unsubscribe = onSnapshot(ref, async (snap) => {
+      // Deleted/missing doc: reset derived UI state to avoid stale info.
       if (!snap.exists()) {
         setLiked(false);
         setLikeCount(0);
@@ -47,7 +58,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
       setLikeCount(likesArray.length);
       setLikeList(likesArray);
 
-      // Load up to 3 newest users (optional preview)
+      // Lightweight preview: show up to 3 newest likers (best-effort).
       const idsToShow =
         likesArray.length <= 3 ? likesArray : likesArray.slice(-3);
 
@@ -63,6 +74,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
   }, [commentId, currentUserId]);
 
   const handleLike = async () => {
+    // Guest gate: keep UX friendly and dedupe via toastId.
     if (!currentUserId) {
       showInfoToast("Please login to react 😊", { toastId: "react:auth" });
       return;
@@ -72,6 +84,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
 
     const ref = doc(db, "comments", commentId);
 
+    // Optimistic UI: adjust local state immediately, then persist to Firestore.
     if (liked) {
       setLiked(false);
       setLikeCount((c) => Math.max(0, c - 1));
@@ -85,9 +98,12 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
 
   const handleOpenLikesModal = async () => {
     try {
+      // Reset paging each time the modal is opened for a consistent UX.
       setVisibleCount(10);
       setShowLikesModal(true);
       setLoadingUsers(true);
+
+      // Best-effort: resolve user docs for ids in the likes array.
       const users = await Promise.all(likeList.map(getUserById));
       setTopLikers(users);
     } catch (err) {
@@ -97,6 +113,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
     }
   };
 
+  // "You and X others" uses a separate count so copy stays correct when current user liked.
   const otherCount = liked ? likeCount - 1 : likeCount;
 
   let likeText = "";
@@ -143,6 +160,7 @@ const CommentReaction = ({ commentId, currentUserId, locked = false }) => {
       <LikesModal
         isOpen={showLikesModal}
         onClose={() => {
+          // Clear modal-related state on close to avoid stale data next open.
           setShowLikesModal(false);
           setTopLikers([]);
           setVisibleCount(10);

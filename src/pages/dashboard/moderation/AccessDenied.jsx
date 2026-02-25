@@ -1,5 +1,16 @@
 import { useNavigate } from "react-router-dom";
 
+/**
+ * @component AccessDenied
+ *
+ * Simple guard-screen for admin-only routes.
+ *
+ * Behavior:
+ * - Renders a short explanation and a single escape hatch back to `/dashboard`.
+ * - Keeps logic minimal so route guards can stay consistent elsewhere (no auth checks here).
+ *
+ * @returns {JSX.Element}
+ */
 const AccessDenied = () => {
   const navigate = useNavigate();
 

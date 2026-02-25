@@ -5,6 +5,15 @@ import { validCategories } from "../constants/postCategories";
 import FilterPortal from "./modals/FilterPortal";
 import { cx, SURFACE_PANEL } from "../constants/uiClasses";
 
+/**
+ * @component IconSort
+ *
+ * Small inline SVG used as a visual hint for the "Sort" control.
+ * Kept local to avoid extra icon deps for a tiny, static asset.
+ *
+ * @param {string} [className] - Optional CSS classes for sizing/color (Tailwind or custom).
+ * @returns {JSX.Element}
+ */
 const IconSort = ({ className = "" }) => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
     <path
@@ -33,6 +42,15 @@ IconSort.propTypes = {
   className: PropTypes.string,
 };
 
+/**
+ * @component IconFilter
+ *
+ * Small inline SVG used for the "Filters" button (mobile icon button).
+ * Local component keeps bundle lean and avoids runtime icon styling differences.
+ *
+ * @param {string} [className] - Optional CSS classes for sizing/color (Tailwind or custom).
+ * @returns {JSX.Element}
+ */
 const IconFilter = ({ className = "" }) => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
     <path
@@ -49,6 +67,25 @@ IconFilter.propTypes = {
   className: PropTypes.string,
 };
 
+/**
+ * @component FiltersPanelContent
+ *
+ * Filter UI used inside the overlay drawer (mobile) and inside the docked sidebar (desktop).
+ *
+ * Behavior:
+ * - "Single category mode": selecting a category replaces the current selection (0 or 1 item).
+ * - Trending sort disables category filtering to prevent "no results" confusion.
+ *
+ * Layout notes:
+ * - Uses `min-h-0` so the category list can scroll inside a flex column.
+ *
+ * @param {string[]} selectedCategories - Current category selection (0..1 in v1 mode).
+ * @param {(next: string[]) => void} onFilterChange - Updates selected categories.
+ * @param {() => void} onReset - Clears filters (and may also reset search/sort at the parent level).
+ * @param {() => void} onClose - Closes the panel (overlay or sidebar close action).
+ * @param {boolean} [isTrending=false] - When true, disables category selection.
+ * @returns {JSX.Element}
+ */
 export const FiltersPanelContent = ({
   selectedCategories,
   onFilterChange,
@@ -64,6 +101,7 @@ export const FiltersPanelContent = ({
     const { value } = event.target;
     const isActive = selectedCategories.includes(value);
 
+    // v1: only one category can be active at a time (toggle off = clear)
     if (isActive) {
       onFilterChange([]);
       return;
@@ -83,7 +121,7 @@ export const FiltersPanelContent = ({
         </button>
       </div>
 
-      {/* Bitno: min-h-0 da bi unutrasnji overflow radio u flex kontejneru */}
+      {/* IMPORTANT: `min-h-0` lets the list scroll within this flex column */}
       <div className="mt-4 flex min-h-0 flex-1 flex-col">
         <h3 className="text-sm font-semibold text-zinc-200">
           Categories{activeCount > 0 ? ` (${activeCount})` : ""}
@@ -95,12 +133,13 @@ export const FiltersPanelContent = ({
           </p>
         )}
 
-        {/* Lista je jedino sto skroluje */}
+        {/* Only the list scrolls to keep header/actions pinned */}
         <div className="mt-3 min-h-0 flex-1 overflow-auto pr-1 ui-scrollbar">
           <div className="space-y-2">
             {validCategories.map((categoryItem) => {
               const isActive = selectedCategories.includes(categoryItem);
 
+              // Stable id ties label->input and improves a11y for long lists.
               const checkboxId = `filter-category-${categoryItem
                 .toLowerCase()
                 .replace(/\s+/g, "-")}`;
@@ -164,9 +203,33 @@ FiltersPanelContent.propTypes = {
 };
 
 /**
- * SearchAndFilterBar
- * - < md (0-767): overlay drawer (bottom sheet on <sm, right drawer on sm+)
- * - >= md (768+): parent (Home) renders docked sidebar
+ * @component SearchAndFilterBar
+ *
+ * Unified Search + Sort + Filters control bar for Home feed.
+ *
+ * Responsive behavior:
+ * - < md (0-767): Filters open in an overlay drawer (bottom sheet on <sm, right drawer on sm+)
+ * - >= md (768+): Filters are rendered as a docked sidebar controlled by the parent (Home)
+ *
+ * Behavior notes:
+ * - "Single category mode (v1)": only one category can be active; selecting another replaces it.
+ * - Oldest sort is disabled while a category is active (keeps query logic consistent).
+ * - Trending sort clears categories because category filters are ignored in Trending view.
+ * - Handles ESC and click-outside for UI overlays (sort dropdown + filter overlay).
+ *
+ * @param {Function} onSearchChange - Called with raw search string on each keystroke.
+ * @param {Function} onSortChange - Called with sort key ("newest" | "oldest" | "trending").
+ * @param {Function} onFilterChange - Called with selected categories array (0..1 in v1).
+ * @param {Function} onResetFilters - Clears filter/search state at the parent level.
+ * @param {string[]} selectedCategories - Current category selection.
+ * @param {string} [sortBy] - Current global sort key from parent.
+ * @param {boolean} [showSearch=true] - Toggle search input visibility (some pages may hide it).
+ * @param {"card"|"bare"} [variant="card"] - Visual wrapper style for the bar container.
+ * @param {React.ReactNode} [afterSortSlot=null] - Optional slot (e.g. Create button) placed next to Sort.
+ * @param {boolean} [desktopSidebarOpen=false] - Controlled open state for docked sidebar (md+).
+ * @param {Function|null} [onDesktopToggleFilters=null] - Parent handler for toggling docked sidebar (md+).
+ * @param {Function|null} [onDesktopCloseFilters=null] - Parent handler for closing docked sidebar (md+).
+ * @returns {JSX.Element}
  */
 const SearchAndFilterBar = ({
   onSearchChange,
@@ -186,12 +249,11 @@ const SearchAndFilterBar = ({
   const [localSortBy, setLocalSortBy] = useState("newest");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // sm+ controls overlay type (bottom sheet vs right drawer)
+  // Breakpoint-driven UI: sm+ changes overlay style, md+ switches to docked sidebar.
   const [isSmUp, setIsSmUp] = useState(false);
-  // md+ uses docked sidebar instead of overlay
   const [isLgUp, setIsLgUp] = useState(false);
 
-  // Custom sort dropdown UI-only state
+  // Sort dropdown UI-only state (kept local to avoid global state churn).
   const [isSortOpen, setIsSortOpen] = useState(false);
   const sortWrapRef = useRef(null);
 
@@ -206,6 +268,7 @@ const SearchAndFilterBar = ({
 
     sync();
 
+    // Support older Safari via addListener/removeListener fallback.
     mqSm.addEventListener?.("change", sync) ?? mqSm.addListener(sync);
     mqMd.addEventListener?.("change", sync) ?? mqMd.addListener(sync);
 
@@ -215,12 +278,12 @@ const SearchAndFilterBar = ({
     };
   }, []);
 
-  // If we enter md+, ensure overlay closes
+  // When switching to md+, close the overlay drawer to avoid double-UI states.
   useEffect(() => {
     if (isLgUp) setIsFilterOpen(false);
   }, [isLgUp]);
 
-  // Sync local sort with global
+  // Keep local sort in sync with the parent-provided sort key.
   useEffect(() => {
     if (sortBy === "oldest" || sortBy === "newest" || sortBy === "trending") {
       setLocalSortBy(sortBy);
@@ -236,7 +299,7 @@ const SearchAndFilterBar = ({
     Array.isArray(selectedCategories) &&
     selectedCategories.length === 1;
 
-  // Lock oldest sort in single-category mode
+  // Guard: Oldest is not compatible with v1 single-category query logic, so force Newest.
   useEffect(() => {
     if (hasActiveCategory && localSortBy === "oldest") {
       setLocalSortBy("newest");
@@ -247,7 +310,7 @@ const SearchAndFilterBar = ({
   const closeFilters = useCallback(() => setIsFilterOpen(false), []);
 
   const toggleFilterPanel = () => {
-    // md+: sidebar is controlled by parent (Home)
+    // md+: docked sidebar is controlled by the parent.
     if (isLgUp && typeof onDesktopToggleFilters === "function") {
       onDesktopToggleFilters();
       return;
@@ -259,7 +322,7 @@ const SearchAndFilterBar = ({
   const closeSort = useCallback(() => setIsSortOpen(false), []);
   const toggleSort = () => setIsSortOpen((prev) => !prev);
 
-  // Close sort on ESC / click outside (UI-only)
+  // Close sort on ESC / click outside (UI-only, no app side effects).
   useEffect(() => {
     if (!isSortOpen) return;
 
@@ -282,7 +345,7 @@ const SearchAndFilterBar = ({
     };
   }, [isSortOpen, closeSort]);
 
-  // ESC to close overlay + body scroll lock (only for overlay drawer)
+  // Overlay filters: ESC closes + lock body scroll to prevent background scrolling.
   useEffect(() => {
     if (!isFilterOpen) return;
 
@@ -300,7 +363,7 @@ const SearchAndFilterBar = ({
     };
   }, [isFilterOpen, closeFilters]);
 
-  // Docked sidebar: ESC closes sidebar if provided
+  // Docked sidebar: ESC can close the sidebar if parent provides a handler.
   useEffect(() => {
     if (!isLgUp || !desktopSidebarOpen) return;
     if (typeof onDesktopCloseFilters !== "function") return;
@@ -322,7 +385,7 @@ const SearchAndFilterBar = ({
   const applySort = (value) => {
     if (hasActiveCategory && value === "oldest") return;
 
-    // Trending view ignores categories, so clear them to avoid confusing UI.
+    // Trending ignores category filters, so clear them to keep UI state honest.
     if (value === "trending") {
       onFilterChange([]);
     }
@@ -338,6 +401,7 @@ const SearchAndFilterBar = ({
     setLocalSortBy("newest");
     setIsSortOpen(false);
 
+    // Reset should also exit overlays for clarity.
     if (!isLgUp) setIsFilterOpen(false);
     if (isLgUp && typeof onDesktopCloseFilters === "function") {
       onDesktopCloseFilters();
@@ -449,7 +513,7 @@ const SearchAndFilterBar = ({
                     onClick={toggleSort}
                     className="ui-input relative flex w-full cursor-pointer items-center justify-between pr-10 pl-10 sm:pl-3 text-left"
                   >
-                    {/* mobile sort icon */}
+                    {/* Mobile-only icon helps hint "this is a dropdown" */}
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 sm:hidden">
                       <IconSort className="h-4 w-4" />
                     </span>

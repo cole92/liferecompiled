@@ -8,14 +8,22 @@ import EditProfileForm from "./EditProfileForm";
 import { SkeletonLine } from "../../../components/ui/skeletonLoader/SkeletonBits";
 
 /**
- * Settings
+ * @component Settings
  *
- * - Fetch user doc from Firestore
- * - Render EditProfileForm with loaded data
+ * Profile settings page with two responsibilities:
+ * - Load the current user's `users/{uid}` doc from Firestore (once per uid).
+ * - Render `EditProfileForm` only when data is ready, while keeping UX stable (skeleton/empty/error).
+ *
+ * Notes:
+ * - Uses a small `status` state machine to avoid scattered boolean flags.
+ * - Uses a `canceled` guard to prevent state updates after unmount / uid switch.
+ *
+ * @returns {JSX.Element}
  */
 const Settings = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
 
+  // Keep uid derived in one place so effects stay consistent.
   const uid = user?.uid || null;
 
   const [userData, setUserData] = useState(null);
@@ -30,19 +38,22 @@ const Settings = () => {
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-md";
 
-  // Feed-like card tint (same vibe as PostCardFeed)
+  // Feed-like card tint (keeps Settings aligned with dashboard/feed visuals).
   const feedCardSkin =
     "overflow-hidden border-zinc-800/70 " +
     "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
     "ring-sky-200/10";
 
   useEffect(() => {
+    // UI-only state: reset expanded bio when switching user or when bio changes.
     setShowFullBio(false);
   }, [uid, userData?.bio]);
 
   useEffect(() => {
+    // Do not fetch until auth check is done (prevents flicker / wrong state on first load).
     if (isCheckingAuth) return;
 
+    // Logged out: treat as empty settings state (no Firestore call).
     if (!uid) {
       setUserData(null);
       setStatus("empty");
@@ -61,6 +72,7 @@ const Settings = () => {
         if (canceled) return;
 
         if (snap.exists()) {
+          // Keep id in the payload for profile routes and child form writes.
           setUserData({ id: snap.id, ...snap.data() });
           setStatus("ready");
         } else {
@@ -70,6 +82,7 @@ const Settings = () => {
       } catch (error) {
         if (canceled) return;
         console.error("Error fetching user data:", error);
+
         setUserData(null);
         setStatus("error");
         setErrorMsg("Failed to load user data. Please refresh and try again.");
@@ -78,21 +91,25 @@ const Settings = () => {
 
     fetchUserData();
 
+    // Cleanup prevents setState on unmounted component and avoids race on uid changes.
     return () => {
       canceled = true;
     };
   }, [uid, isCheckingAuth]);
 
+  // Prefer Firestore doc id when available; fallback to auth uid for stable linking.
   const viewProfileId = userData?.id || uid || "";
   const displayName = userData?.name || user?.displayName || "Your profile";
   const bio = (userData?.bio || "").trim();
 
   const shortBio = useMemo(() => {
+    // Keep preview text deterministic and avoid layout jumps on long bios.
     if (!bio) return "";
     const max = 140;
     return bio.length > max ? bio.slice(0, max).trimEnd() + "..." : bio;
   }, [bio]);
 
+  // During auth bootstrap, avoid rendering intermediate UI states.
   if (isCheckingAuth) return null;
 
   return (
@@ -120,6 +137,7 @@ const Settings = () => {
 
               {status === "loading" ? (
                 <div className="mt-5 space-y-3">
+                  {/* Skeleton keeps the panel stable while Firestore resolves. */}
                   <SkeletonLine w="w-2/3" h="h-4" />
                   <SkeletonLine w="w-full" h="h-3" />
                   <SkeletonLine w="w-5/6" h="h-3" />
@@ -134,6 +152,7 @@ const Settings = () => {
                   {bio ? (
                     <div className="mt-1 text-sm text-zinc-400">
                       {showFullBio ? (
+                        // When expanded, cap height on large screens to avoid pushing the form too far down.
                         <div className="break-words whitespace-pre-wrap lg:max-h-28 lg:overflow-y-auto lg:pr-2 ui-scrollbar">
                           {bio}
                         </div>
@@ -217,6 +236,7 @@ const Settings = () => {
 
               {status === "loading" && (
                 <div className="mx-auto mt-2 space-y-2 max-w-xl">
+                  {/* Keep form area calm while the doc loads (matches preview panel). */}
                   <SkeletonLine w="w-1/2" h="h-6" />
                   <SkeletonLine w="w-full" h="h-4" />
                   <SkeletonLine w="w-5/6" h="h-4" />
@@ -235,6 +255,7 @@ const Settings = () => {
               {status === "error" && (
                 <div className="space-y-2">
                   <p className="text-red-300">{errorMsg}</p>
+                  {/* Helpful debug hint without exposing implementation details to end users. */}
                   <p className="text-sm text-zinc-500">
                     Tip: check Firestore rules for the users collection.
                   </p>

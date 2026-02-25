@@ -25,23 +25,51 @@ import {
 const CONTENT_PREVIEW_MAX = 300;
 const MAX_TAGS_IN_APP = 5;
 
+/**
+ * Normalize tag input into a consistent display form.
+ * - Trims whitespace
+ * - Strips leading "#" to support legacy/user-entered formats
+ * - Returns empty string for invalid/blank values
+ *
+ * @param {unknown} t
+ * @returns {string}
+ */
 const normalizeTagText = (t) => {
   const raw = String(t ?? "").trim();
   if (!raw) return "";
   return raw.replace(/^#+/, "").trim();
 };
 
+/**
+ * @component SavedPostCard
+ *
+ * Saved-post variant of the feed card, optimized for the Saved page.
+ *
+ * Key behaviors:
+ * - Card click navigates to post details.
+ * - Save button supports unsave + Undo flows (parent can intercept via `onUnsave`).
+ * - Uses `useCheckSavedStatus` to keep bookmark UI in sync with Firestore state.
+ * - Shows limited badges and "updated since saved" hint using snapshot metadata.
+ * - Tag rail is horizontally scrollable and stops event bubbling to avoid accidental navigation.
+ *
+ * @param {Object} props
+ * @param {Object} props.post - Saved post object (may contain snapshot metadata fields).
+ * @param {(post: Object) => void} [props.onUnsave] - Optional parent handler (Undo queue / optimistic remove).
+ * @param {boolean} [props.isPendingUndo=false] - Disables destructive actions while Undo timer is active.
+ * @returns {JSX.Element}
+ */
 const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  // Allow local optimistic UI, but keep initial truth sourced from Firestore.
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post.id);
 
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
-  // Tag rail: unique + normalized + max 5 (scroll handles overflow)
+  // Tag rail: normalize + case-insensitive dedupe + cap for predictable card height.
   const allTags = useMemo(() => {
     const raw = Array.isArray(post?.tags) ? post.tags : [];
 
@@ -64,6 +92,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
     return unique;
   }, [post?.tags]);
 
+  // Keep badge UI minimal to avoid visual noise in dense saved lists.
   const badgesToShow = useMemo(() => {
     const out = [];
     if (post?.badges?.mostInspiring) {
@@ -78,6 +107,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const handleCardClick = () => navigate(`/post/${post.id}`);
 
   const handleBadgeClick = (e, badgeKey) => {
+    // Badges open an info modal; do not trigger navigation.
     e.stopPropagation();
     setSelectedBadge(badgeKey);
     setShowBadgeModal(true);
@@ -86,13 +116,17 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
     if (!user) return;
+
+    // Prevent conflicting actions while Undo is pending.
     if (isPendingUndo) return;
 
+    // Parent can handle unsave (e.g., optimistic remove + Undo window).
     if (onUnsave) {
       onUnsave(post);
       return;
     }
 
+    // Snapshot some post metadata so Saved page can show "updated since saved".
     const currentUpdated = post?.updatedAt || post?.createdAt;
 
     const snapshot = {
@@ -104,10 +138,12 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
     setIsSaved(newState);
   };
 
+  // Compare current timestamps against the stored snapshot to detect edits since save.
   const cutoff = post?.postUpdatedAtAtSave;
   let isUpdatedSinceSaved = false;
 
   if (cutoff && (post?.updatedAt || post?.createdAt)) {
+    // Accept Timestamp-like objects or raw numbers, depending on stored shape.
     const current = (post.updatedAt || post.createdAt)?.toMillis
       ? (post.updatedAt || post.createdAt).toMillis()
       : post.updatedAt || post.createdAt;
@@ -123,6 +159,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
     "ring-1 ring-sky-200/10 shadow-sm " +
     "flex flex-col transition-colors transition-shadow duration-200";
 
+  // Locked posts remain navigable, but the visual style communicates restricted state.
   const cardInteractive = post?.locked
     ? "cursor-pointer"
     : "cursor-pointer hover:shadow-md hover:ring-sky-200/20 hover:border-sky-300/20";
@@ -131,11 +168,12 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
     ? "opacity-60 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"
     : "";
 
-  // Ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
+  // Ensure tag pills do NOT truncate even if `PILL_TAG` includes truncation utilities.
   const TAG_PILL_NO_TRUNC =
     `${PILL_TAG} ` +
     "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
 
+  // Removed posts render a special "unavailable" card that still supports unsave/remove.
   if (post.isRemoved) {
     const handleRemoveClick = async (e) => {
       e.stopPropagation();
@@ -197,13 +235,13 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
     );
   }
 
+  // Prefer description; fallback to content preview for older posts.
   const previewText = post?.description
     ? post.description
     : post?.content
       ? post.content.slice(0, CONTENT_PREVIEW_MAX)
       : "";
 
-  
   return (
     <>
       <article
@@ -313,17 +351,17 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
           )}
         </div>
 
-       {/* Status slot (keep layout stable) */}
-<div className="mt-2 min-h-[22px] flex flex-wrap items-center gap-2">
-  {isUpdatedSinceSaved && (
-    <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
-      Updated since saved
-    </span>
-  )}
+        {/* Status slot keeps layout stable even when no pill is visible. */}
+        <div className="mt-2 min-h-[22px] flex flex-wrap items-center gap-2">
+          {isUpdatedSinceSaved && (
+            <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+              Updated since saved
+            </span>
+          )}
 
-  {/* Archived pill removed on Saved cards (grayscale is enough). */}
-  {!isUpdatedSinceSaved && <span className="sr-only"> </span>}
-</div>
+          {/* Archived pill removed on Saved cards (grayscale is enough). */}
+          {!isUpdatedSinceSaved && <span className="sr-only"> </span>}
+        </div>
 
         {previewText ? (
           <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
@@ -340,7 +378,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
 
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
           <div className="min-h-[2.25rem]">
-            {/* Tag rail (same as Feed/Dashboard) */}
+            {/* Tag rail mirrors Feed/Dashboard UX (horizontal scroll). */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <div
                 className={
@@ -366,6 +404,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
                 )}
               </div>
 
+              {/* Fade edge indicates there may be more tags to scroll. */}
               <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>

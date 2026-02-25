@@ -6,6 +6,22 @@ import Spinner from "../components/Spinner";
 
 const UPLOAD_TOAST_ID = "cloudinary:upload";
 
+/**
+ * @component CloudinaryUpload
+ *
+ * Reusable, accessible image uploader for Cloudinary (unsigned upload preset).
+ * - Validates file type and size before sending any network request.
+ * - Emits lifecycle callbacks so parent components can coordinate UI state:
+ *   `onUploadStart` -> `onUploadComplete` | `onUploadError`
+ * - Keeps SR-friendly status updates separate from visual UI status text.
+ *
+ * UX notes:
+ * - Uses a hidden native `<input type="file">` and triggers it via "Choose file"
+ * - Toasts are de-duped with a stable `toastId`
+ *
+ * @param {Object} props
+ * @returns {JSX.Element}
+ */
 const CloudinaryUpload = (props) => {
   const {
     onUploadComplete,
@@ -21,11 +37,12 @@ const CloudinaryUpload = (props) => {
 
     disabled = false,
 
-    // new UI controls
+    // Optional UI controls for embedding in different layouts.
     centered = false,
     showFileName = true,
   } = props;
 
+  // Support both camelCase and kebab-case aria props for ergonomic usage.
   const ariaLabelledbyFinal = ariaLabelledby || props["aria-labelledby"];
   const ariaDescribedbyFinal = ariaDescribedby || props["aria-describedby"];
 
@@ -39,6 +56,7 @@ const CloudinaryUpload = (props) => {
 
   const inputRef = useRef(null);
 
+  // Keep long file names from breaking layout while preserving full name in title tooltip.
   const truncateName = (name) => {
     if (!name) return "";
     if (name.length <= 34) return name;
@@ -46,6 +64,7 @@ const CloudinaryUpload = (props) => {
   };
 
   const uiStatusText = useMemo(() => {
+    // Text is intentionally short: parents own the "Save changes" step.
     if (uiStatus === "uploading") return "Uploading...";
     if (uiStatus === "uploaded")
       return 'Uploaded. Click "Save changes" to apply.';
@@ -58,10 +77,12 @@ const CloudinaryUpload = (props) => {
   const shouldShowFileName = showFileName && hasSelectedName;
 
   const handleChooseClick = () => {
+    // Guard prevents double-trigger while loading and respects disabled state.
     if (disabled || isLoading) return;
     inputRef.current?.click();
   };
 
+  // Resetting native input allows selecting the same file again (browser otherwise may not fire change).
   const resetNativeInput = () => {
     if (inputRef.current) inputRef.current.value = "";
   };
@@ -69,6 +90,7 @@ const CloudinaryUpload = (props) => {
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
 
+    // No file (user canceled picker): keep component in idle state.
     if (!file) {
       setSrStatus("No file selected.");
       setUiStatus("idle");
@@ -79,6 +101,7 @@ const CloudinaryUpload = (props) => {
     setSelectedName(file.name);
     setUiStatus("idle");
 
+    // Validate client-side to avoid unnecessary Cloudinary calls.
     if (!file.type.startsWith("image/")) {
       setSrStatus("Selected file is not an image.");
       setUiStatus("error");
@@ -89,6 +112,7 @@ const CloudinaryUpload = (props) => {
       return;
     }
 
+    // Enforce a simple upload limit for predictable UX and bandwidth costs.
     if (file.size > 5 * 1024 * 1024) {
       setSrStatus("File is too large. Maximum is 5MB.");
       setUiStatus("error");
@@ -99,6 +123,7 @@ const CloudinaryUpload = (props) => {
       return;
     }
 
+    // Env-based config keeps secrets out of the repo and allows per-env Cloudinary projects.
     const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
     const cloud = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     if (!preset || !cloud) {
@@ -128,6 +153,7 @@ const CloudinaryUpload = (props) => {
 
       const data = await response.json();
 
+      // Cloudinary may return JSON with an error payload even on non-2xx responses.
       if (!response.ok) {
         const msg = data?.error?.message || "Upload failed";
         setSrStatus("Upload failed.");
@@ -137,6 +163,7 @@ const CloudinaryUpload = (props) => {
         return;
       }
 
+      // Parent decides how/when to persist the returned URL (e.g., save form).
       onUploadComplete?.(data.secure_url);
 
       setUiStatus("uploaded");
@@ -158,6 +185,7 @@ const CloudinaryUpload = (props) => {
     }
   };
 
+  // Compose described-by chain so SR users get both static help and dynamic status.
   const describedBy = [
     description ? `${inputId}-desc` : null,
     ariaDescribedbyFinal || null,
@@ -169,6 +197,7 @@ const CloudinaryUpload = (props) => {
 
   return (
     <div className="mt-2" aria-busy={isLoading ? "true" : "false"}>
+      {/* If parent provides an external label, we do not render a duplicate one here. */}
       {!ariaLabelledbyFinal && (
         <label className="ui-label" id={`${inputId}-label`}>
           {label}
@@ -241,6 +270,7 @@ const CloudinaryUpload = (props) => {
         </p>
       )}
 
+      {/* SR-only status mirrors UI intent but stays concise for screen readers. */}
       <p id={`${inputId}-status`} className="sr-only" aria-live="polite">
         {srStatus}
       </p>
@@ -266,7 +296,7 @@ CloudinaryUpload.propTypes = {
   ariaLabelledby: PropTypes.string,
   ariaDescribedby: PropTypes.string,
 
-  // allow kebab-case aria props (e.g. <CloudinaryUpload aria-labelledby="..." />)
+  // Allow kebab-case aria props (e.g. <CloudinaryUpload aria-labelledby="..." />).
   "aria-labelledby": PropTypes.string,
   "aria-describedby": PropTypes.string,
 

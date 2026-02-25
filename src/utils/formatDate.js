@@ -4,10 +4,22 @@ const TZ = "Europe/Belgrade";
 const LOCALE = "en-GB";
 
 /**
- * formatPostDateLabel
- * - compact: short label for XS (less width)
- * - edited: choose "Edited:" vs "Posted:"
- * - stable across OS/browser via Intl + fixed timeZone
+ * @helper formatPostDateLabel
+ *
+ * Formats a stable, timezone-fixed date label for post metadata.
+ *
+ * Why:
+ * - Uses `Intl.DateTimeFormat` with a fixed `timeZone` to avoid OS/browser timezone drift.
+ * - Supports a compact label for XS screens and a longer ISO-like label for wider layouts.
+ *
+ * Behavior:
+ * - Prefers `updatedAt` over `createdAt` for the displayed timestamp.
+ * - Returns an empty string when the timestamp is missing or not a Firestore Timestamp.
+ *
+ * @param {Object} post - Post object with `createdAt` / `updatedAt` Firestore timestamps.
+ * @param {Object} [options]
+ * @param {boolean} [options.compact=false] - Use shorter label for small screens.
+ * @returns {string} Human-readable label ("Posted:" / "Edited:" / "Last edited:").
  */
 export function formatPostDateLabel(post, { compact = false } = {}) {
   const ts = post?.updatedAt || post?.createdAt;
@@ -15,7 +27,7 @@ export function formatPostDateLabel(post, { compact = false } = {}) {
 
   const d = ts.toDate();
 
-  // XS: "24 Jan" (short, stable)
+  // XS: short label (less width)
   if (compact) {
     const dateStr = new Intl.DateTimeFormat(LOCALE, {
       timeZone: TZ,
@@ -26,7 +38,7 @@ export function formatPostDateLabel(post, { compact = false } = {}) {
     return post?.updatedAt ? `Edited: ${dateStr}` : `Posted: ${dateStr}`;
   }
 
-  // sm+: "2026-01-24" (ISO-like, stable)
+  // sm+: ISO-like format (stable + sortable-looking)
   const dateStr = new Intl.DateTimeFormat("en-CA", {
     timeZone: TZ,
     year: "numeric",

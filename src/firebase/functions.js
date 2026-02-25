@@ -1,36 +1,52 @@
 // commentApi.js
 
-// 1) Uzimamo samo httpsCallable iz Firebase SDK-a
 import { httpsCallable } from "firebase/functions";
-
-// 2) Uvozimo konfigurisan Firebase functions objekat
-//    (putanja se moze razlikovati u zavisnosti od strukture projekta)
 import { functions } from "../firebase";
 
 /**
- * Poziva Cloud Function za rekurzivno brisanje komentara i svih potomaka.
+ * Cloud Functions wrappers for comment-related operations.
  *
- * @function
- * @param {Object} data
- * @param {string} data.commentId - ID komentara koji treba obrisati
- * @returns {Promise<Object>} - Response sa `{ success: true }` ako je uspesno
+ * Why wrappers:
+ * - Keep UI layers unaware of function names.
+ * - Centralize callable definitions (single source of truth).
+ * - Allow future instrumentation (logging, retries, metrics) in one place.
+ *
+ * NOTE:
+ * - All validation, auth checks and recursive logic live server-side.
+ * - Client only forwards structured input and handles success/error states.
+ */
+
+/**
+ * @helper deleteComment
+ *
+ * Calls the Cloud Function that deletes a comment and all its descendants
+ * in a single trusted server-side operation.
+ *
+ * Server guarantees:
+ * - Auth + ownership/permission checks
+ * - Recursive deletion of child comments
+ * - Consistent cleanup (no orphaned replies)
+ *
+ * @param {{ commentId: string }} data
+ * @returns {Promise<{ data: { success: boolean } }>}
  */
 export const deleteComment = httpsCallable(
   functions,
-  "deleteCommentAndChildren"
+  "deleteCommentAndChildren",
 );
 
 /**
- * Poziva Cloud Function za dodavanje novog komentara uz validaciju.
+ * @helper addCommentSecure
  *
- * @function
- * @param {Object} data
- * @param {string} data.postId - ID posta kojem komentar pripada
- * @param {string} data.content - Tekst komentara
- * @param {string|null} data.parentId - (opciono) ID roditeljskog komentara
- * @returns {Promise<Object>} - Response sa `{ success: true, commentId }`
+ * Calls the Cloud Function responsible for securely creating a comment.
+ *
+ * Server guarantees:
+ * - Auth validation
+ * - Input sanitization / length validation
+ * - Proper parent-child linkage for threaded replies
+ * - Atomic write to Firestore
+ *
+ * @param {{ postId: string, content: string, parentId?: string|null }} data
+ * @returns {Promise<{ data: { success: boolean, commentId: string } }>}
  */
-export const addCommentSecure = httpsCallable(
-  functions,
-  "addCommentSecure"
-);
+export const addCommentSecure = httpsCallable(functions, "addCommentSecure");

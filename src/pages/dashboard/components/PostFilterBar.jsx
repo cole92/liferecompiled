@@ -5,6 +5,15 @@ import { NavLink, useLocation } from "react-router-dom";
 
 import { AuthContext } from "../../../context/AuthContext";
 
+/**
+ * @component IconSearch
+ *
+ * Small inline SVG used for search toggle on mobile.
+ * Kept local to avoid extra icon deps for a tiny static asset.
+ *
+ * @param {string} [className] - Optional CSS classes for sizing/color.
+ * @returns {JSX.Element}
+ */
 const IconSearch = ({ className = "" }) => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
     <path
@@ -28,6 +37,15 @@ IconSearch.propTypes = {
   className: PropTypes.string,
 };
 
+/**
+ * @component IconFilter
+ *
+ * Small inline SVG used for filter toggle on mobile.
+ * Local component keeps bundle lean and avoids runtime icon styling differences.
+ *
+ * @param {string} [className] - Optional CSS classes for sizing/color.
+ * @returns {JSX.Element}
+ */
 const IconFilter = ({ className = "" }) => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
     <path
@@ -44,6 +62,27 @@ IconFilter.propTypes = {
   className: PropTypes.string,
 };
 
+/**
+ * @component PostFilterBar
+ *
+ * Filter + search controls for the My Posts dashboard list.
+ *
+ * Core idea:
+ * - Filters (Active/Archived/All) are mutually exclusive.
+ * - Search mode takes priority: when searching, filter controls are disabled to avoid mixed mental models.
+ *
+ * Responsive behavior:
+ * - < sm: compact icon row that toggles either Search panel or Filters panel.
+ * - sm+: inline filter pills + optional search input on the right.
+ *
+ * @param {Object} props
+ * @param {string} props.activeFilter - Current filter key ("active" | "locked" | "all").
+ * @param {(next: string) => void} props.onFilterChange - Updates the active filter.
+ * @param {string} props.searchTerm - Current search term (title search).
+ * @param {(next: string) => void} props.onSearchChange - Updates the search term.
+ * @param {boolean} [props.showDesktopSearch=true] - Allows pages to hide the desktop search field.
+ * @returns {JSX.Element}
+ */
 const PostFilterBar = ({
   activeFilter,
   onFilterChange,
@@ -83,6 +122,7 @@ const PostFilterBar = ({
 
   const hasSearch = searchTerm.trim().length > 0;
 
+  // Mobile: default to showing Search panel when a search term exists.
   const [openPanel, setOpenPanel] = useState(hasSearch ? "search" : "none");
 
   useEffect(() => {

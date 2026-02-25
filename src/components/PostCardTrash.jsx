@@ -15,8 +15,20 @@ import {
   PILL_META,
 } from "../constants/uiClasses";
 
+// UX cap: keep trash cards compact and avoid noisy tag floods
 const MAX_TAGS_IN_APP = 5;
 
+/**
+ * TTL pill styling for Trash restore window.
+ *
+ * - Green: plenty of time left
+ * - Amber: mid window
+ * - Rose: last days
+ * - Neutral: expired/unknown edge
+ *
+ * @param {number} daysLeft
+ * @returns {string} Tailwind class list
+ */
 function getTtlPillClasses(daysLeft) {
   if (daysLeft > 20)
     return "border border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
@@ -27,12 +39,43 @@ function getTtlPillClasses(daysLeft) {
   return "border border-zinc-700 bg-zinc-950/40 text-zinc-200";
 }
 
+/**
+ * Normalize tag label for display.
+ *
+ * - Trims whitespace
+ * - Strips leading '#' characters
+ * - Returns empty string for invalid input
+ *
+ * @param {string} t
+ * @returns {string}
+ */
 const normalizeTagText = (t) => {
   const raw = String(t ?? "").trim();
   if (!raw) return "";
   return raw.replace(/^#+/, "").trim();
 };
 
+/**
+ * @component PostCardTrash
+ *
+ * Trash-only post card (read-only preview + restore window actions).
+ *
+ * - Not clickable (no navigation)
+ * - Shows TTL restore badge (days left) and action buttons
+ * - Preserves the same visual structure as feed cards (tags rail, meta row)
+ * - Marks archived/locked posts as "Archived" for context
+ *
+ * Notes:
+ * - Tags are normalized, de-duped case-insensitively, and capped for layout stability
+ * - Tag rail uses horizontal scroll to handle overflow without truncation
+ *
+ * @param {Object} props
+ * @param {Object} props.post - Post data used for rendering the card
+ * @param {number} [props.daysLeft] - Days remaining in restore window
+ * @param {Function} props.onRestore - Restore handler
+ * @param {Function} props.onDeletePermanently - Hard delete handler
+ * @returns {JSX.Element}
+ */
 const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
   const authorName = post?.author?.name || "Unknown";
 
@@ -59,7 +102,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
     return unique;
   }, [post?.tags]);
 
-  // Ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
+  // IMPORTANT: ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
   const TAG_PILL_NO_TRUNC =
     `${PILL_TAG} ` +
     "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
@@ -101,15 +144,16 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
           </span>
         </div>
 
-      {post?.locked && (
-  <span
-    className={`${PILL_META} inline-flex items-center gap-1`}
-    title="Archived"
-  >
-    <FiLock className="text-sm shrink-0" />
-    <span>Archived</span>
-  </span>
-)}
+        {/* Lock context: indicates the post was archived/locked (still trashed) */}
+        {post?.locked && (
+          <span
+            className={`${PILL_META} inline-flex items-center gap-1`}
+            title="Archived"
+          >
+            <FiLock className="text-sm shrink-0" />
+            <span>Archived</span>
+          </span>
+        )}
       </div>
 
       {/* Title */}
@@ -182,14 +226,15 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
               )}
             </div>
 
+            {/* Visual fade hint (scroll affordance) */}
             <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
           </div>
         </div>
 
-        {/* NEW divider: tags -> status/actions */}
+        {/* Divider: tags -> status/actions */}
         <div className="mt-2 border-t border-zinc-800/50" />
 
-        {/* TTL (always left) */}
+        {/* TTL restore window */}
         {typeof daysLeft === "number" && (
           <div className="mt-2 flex justify-start">
             <span
@@ -205,6 +250,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
           </div>
         )}
 
+        {/* Actions */}
         <div className="mt-3 flex items-center justify-between gap-2">
           <button
             type="button"

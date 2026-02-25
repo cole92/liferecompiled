@@ -14,6 +14,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../firebase";
 import { showInfoToast, showErrorToast } from "../../utils/toastUtils";
 
+// -------------------- UI MAPS --------------------
 const iconMap = {
   idea: FaRegLightbulb,
   hot: FaFire,
@@ -32,15 +33,16 @@ const reactionLabels = {
   powerup: "⚡ Powerup — Show support for the author.",
 };
 
+// -------------------- UX / SAFETY --------------------
 const COOLDOWN_MS = 200;
 
-// toast ids
+// Toast IDs (anti-spam + stable dedupe)
 const REACT_AUTH_TOAST_ID = "react:auth";
 const REACT_ERROR_TOAST_ID = "react:error";
 const REACT_HELP_TOAST_ID = "react:help";
 const REACT_HELP_THROTTLE_MS = 1200;
 
-// throttle memory (module-scope)
+// Module-scope throttle memory (shared across instances on the page)
 const lastToastAt = new Map();
 
 function canShowToast(id) {
@@ -51,6 +53,7 @@ function canShowToast(id) {
   return true;
 }
 
+// Session-only helper hints (per reaction type)
 function hasSeenHelp(type) {
   try {
     return sessionStorage.getItem(`reactHelp:${type}`) === "1";
@@ -71,6 +74,19 @@ function markSeenHelp(type) {
 const buildReactionId = (postId, userId, type) =>
   `${postId}__${userId}__${type}`;
 
+/**
+ * @component ReactionIcon
+ *
+ * Single reaction toggle (💡 / 🔥 / ⚡) with:
+ * - deterministic reaction doc id (prevents duplicates per user/type/post)
+ * - optimistic UI count delta (instant feedback)
+ * - per-click cooldown (prevents accidental double taps)
+ * - optional "soft block" mode (e.g. self-powerup), still allows a toast
+ *
+ * Notes:
+ * - If `userId` prop is provided, this component will NOT attach an auth listener.
+ * - If `fetchActiveOnMount` is true, the component checks Firestore for active state.
+ */
 const ReactionIcon = ({
   type,
   postId,
@@ -80,8 +96,8 @@ const ReactionIcon = ({
   userId,
   fetchActiveOnMount = true,
 
-  // NEW
-  disabled = false, // "soft block" (e.g. self powerup)
+  // Soft block (do not toggle, but allow a click handler for UX messaging)
+  disabled = false,
   onBlockedClick,
 }) => {
   const Icon = iconMap[type];
@@ -91,18 +107,19 @@ const ReactionIcon = ({
   const [isToggling, setIsToggling] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
 
-  // Optimistic count delta (instant UI feedback)
+  // Optimistic count delta (parent still owns the authoritative count)
   const [optimisticDelta, setOptimisticDelta] = useState(0);
 
   const cooldownTimerRef = useRef(null);
 
-  // If parent provides userId, use it and do NOT attach per-icon auth listener
+  // If parent provides userId, treat it as source of truth (no per-icon auth listener).
   useEffect(() => {
     if (typeof userId !== "undefined") {
       setUid(userId ?? null);
     }
   }, [userId]);
 
+  // Fallback: subscribe to auth state changes (only when userId is NOT provided).
   useEffect(() => {
     if (typeof userId !== "undefined") return;
 
@@ -130,7 +147,7 @@ const ReactionIcon = ({
     };
   }, []);
 
-  // Reset optimistic delta once the parent delivers a new authoritative count
+  // Reset optimistic delta once the parent delivers a new authoritative count.
   useEffect(() => {
     setOptimisticDelta(0);
   }, [count]);
@@ -154,14 +171,14 @@ const ReactionIcon = ({
     }
   }, [postId, type, uid]);
 
-  // Default behavior: fetch active state on mount
+  // Default behavior: resolve active state on mount (and when deps change).
   useEffect(() => {
     if (!fetchActiveOnMount) return;
     fetchIsActive();
   }, [fetchActiveOnMount, fetchIsActive]);
 
-  const hardDisabled = locked || isToggling || isCoolingDown; // true disabled
-  const softBlocked = !!disabled; // click should show toast (self powerup)
+  const hardDisabled = locked || isToggling || isCoolingDown; // native disabled
+  const softBlocked = !!disabled; // clickable, but does not toggle
   const uiDisabled = hardDisabled || softBlocked;
 
   const handleClick = async (e) => {
@@ -177,7 +194,7 @@ const ReactionIcon = ({
     if (!postId || !type) return;
     if (hardDisabled) return;
 
-    // NEW: self-block etc (do not toggle, but allow toast)
+    // Soft-block mode: do not toggle, only inform the user.
     if (softBlocked) {
       onBlockedClick?.();
       return;
@@ -194,11 +211,13 @@ const ReactionIcon = ({
       const nextIsActive = await runTransaction(db, async (tx) => {
         const snap = await tx.get(reactionRef);
 
+        // Toggle OFF
         if (snap.exists()) {
           tx.delete(reactionRef);
           return false;
         }
 
+        // Toggle ON
         tx.set(reactionRef, {
           postId,
           userId: uid,
@@ -212,7 +231,7 @@ const ReactionIcon = ({
       setIsActive(nextIsActive);
       setOptimisticDelta((d) => d + (nextIsActive ? 1 : -1));
 
-      // Show help toast only on activation, once per type per session
+      // Show a short one-time hint (per type per session) when the user activates a reaction.
       if (
         nextIsActive &&
         !hasSeenHelp(type) &&
@@ -225,6 +244,7 @@ const ReactionIcon = ({
         markSeenHelp(type);
       }
 
+      // Parent can refresh aggregates; fallback is to re-fetch active state.
       if (typeof onAfterToggle === "function") {
         onAfterToggle();
       } else if (fetchActiveOnMount) {
@@ -237,6 +257,7 @@ const ReactionIcon = ({
         toastId: REACT_ERROR_TOAST_ID,
       });
 
+      // Roll back optimistic UI
       setIsActive(prevIsActive);
       setOptimisticDelta((d) => d + (prevIsActive ? 1 : -1));
 
@@ -267,6 +288,7 @@ const ReactionIcon = ({
       ? "opacity-60 cursor-not-allowed hover:bg-transparent"
       : "cursor-pointer";
 
+    // Extra accent only when Powerup is active (subtle “reward” feel).
     const powerupAccent =
       type === "powerup" ? " ring-1 ring-sky-500/15 bg-sky-500/5" : "";
 
@@ -278,7 +300,7 @@ const ReactionIcon = ({
       <button
         type="button"
         onClick={handleClick}
-        // IMPORTANT: only hardDisabled uses native disabled
+        // IMPORTANT: only hardDisabled uses native disabled (soft block should still allow click UX).
         disabled={hardDisabled}
         aria-disabled={uiDisabled}
         aria-pressed={isActive}
@@ -304,7 +326,6 @@ ReactionIcon.propTypes = {
   userId: PropTypes.string,
   fetchActiveOnMount: PropTypes.bool,
 
-  // NEW
   disabled: PropTypes.bool,
   onBlockedClick: PropTypes.func,
 };

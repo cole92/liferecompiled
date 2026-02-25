@@ -7,10 +7,28 @@ import {
   AVATAR_RING_TOP,
 } from "../../constants/uiClasses";
 
+/**
+ * Clamp a number into [min, max].
+ * Used to keep parsed percent values safe for CSS `object-position`.
+ */
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
+/**
+ * @helper parseAvatarSrc
+ *
+ * Supports optional crop/position hints encoded in the URL hash.
+ * Format:
+ * - "https://.../img.jpg#pos=50,20" or "#crop=50,20"
+ *
+ * Why hash:
+ * - Keeps the stored image URL stable while allowing per-user positioning tweaks.
+ * - Avoids extra fields in Firestore for simple avatar adjustments.
+ *
+ * @param {string} src
+ * @returns {{ baseSrc: string, objectPosition: (string|null) }}
+ */
 function parseAvatarSrc(src) {
   const raw = String(src || "");
   const [base, hash] = raw.split("#");
@@ -18,7 +36,7 @@ function parseAvatarSrc(src) {
   let objectPosition = null;
 
   if (hash) {
-    // supports: #pos=50,20 or #crop=50,20
+    // Accepts: #pos=50,20 or #crop=50,20 (percent-based)
     const m = hash.match(/(?:pos|crop)=([0-9]{1,3}),([0-9]{1,3})/);
     if (m) {
       const x = clamp(parseInt(m[1], 10), 0, 100);
@@ -30,6 +48,25 @@ function parseAvatarSrc(src) {
   return { baseSrc: base || raw, objectPosition };
 }
 
+/**
+ * @component Avatar
+ *
+ * Shared avatar renderer with:
+ * - Consistent ring/frame styling via UI tokens
+ * - Optional badge ring (Top Contributor)
+ * - Optional zoom-in modal for profile images (keyboard accessible)
+ *
+ * Crop behavior:
+ * - Uses `object-position` from `src` hash when present, with optional prop override.
+ *
+ * @param {string} src - Image url (may include hash hints like "#pos=50,20").
+ * @param {number} size - Render size in px (square).
+ * @param {boolean} zoomable - Enables click/keyboard open of the zoom modal.
+ * @param {boolean} badge - Toggles special ring styling (e.g., Top Contributor).
+ * @param {string} alt - Accessible alt text.
+ * @param {string} objectPosition - Optional override for preview/testing ("50% 50%").
+ * @returns {JSX.Element}
+ */
 export default function Avatar({
   src,
   size = 40,
@@ -47,13 +84,13 @@ export default function Avatar({
     objectPosition || parsed.objectPosition || "50% 50%";
 
   const handleOpen = (e) => {
-    // Only used when zoomable is true
+    // Prevent parent click handlers (e.g., card navigation) from triggering.
     e.stopPropagation();
     setOpen(true);
   };
 
   const handleKeyOpen = (e) => {
-    // Only used when zoomable is true
+    // Keyboard parity: Enter/Space opens the zoom modal when enabled.
     if (e.key === "Enter" || e.key === " ") {
       e.stopPropagation();
       if (e.key === " ") e.preventDefault();

@@ -1,4 +1,4 @@
-// Paketi
+// Packages
 import { useContext, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import dayjs from "dayjs";
@@ -15,27 +15,34 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-// Konfiguracija i kontekst
+// Config + context
 import { httpsCallable } from "firebase/functions";
 import { functions, db } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
 
-// Util funkcije i konstante
+// Utils + constants
 import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { getDaysLeft } from "../../utils/dateUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Komponente
+// Components
 import PostCardTrash from "../../components/PostCardTrash";
 import EmptyState from "./components/EmptyState";
 import SkeletonCard from "../../components/ui/skeletonLoader/SkeletonCard";
 
 const POST_PER_PAGE = 10;
 
-// Converts filterRange into Firestore where() constraints over deletedAt.
-// This makes filter work across ALL pages (not just loaded items).
+/**
+ * Build Firestore `where()` constraints over `deletedAt` based on the active filter range.
+ * This keeps filtering server-side so it works across ALL pages (not only loaded items).
+ *
+ * Ranges are aligned with `getDaysLeft()` semantics (30-day retention window).
+ *
+ * @param {string|null} filterRange
+ * @returns {Array} Firestore query constraints
+ */
 const getDeletedAtConstraints = (filterRange) => {
   if (!filterRange) return [];
 
@@ -52,6 +59,20 @@ const getDeletedAtConstraints = (filterRange) => {
   return [];
 };
 
+/**
+ * @component Trash
+ *
+ * User Trash page (soft-deleted posts) with:
+ * - Server-side filtering by retention range (`deletedAt` constraints)
+ * - Cursor pagination (+1 prefetch to avoid "fake" Load more)
+ * - Optimistic restore / permanent delete with rollback on failure
+ *
+ * Data contract:
+ * - Trash items are posts where `deleted === true`
+ * - Ordering is by `deletedAt desc` to reflect retention countdown UX
+ *
+ * @returns {JSX.Element}
+ */
 const Trash = () => {
   const { user } = useContext(AuthContext);
   const { filterRange } = useOutletContext();
@@ -65,11 +86,12 @@ const Trash = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [postIdToDelete, setPostIdToDelete] = useState(null);
 
-  // Paginacija
+  // Pagination state
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
+  // Post cards expect an `author` shape; in Trash we derive it from auth context.
   const author = user
     ? {
         id: user.uid,
@@ -82,8 +104,8 @@ const Trash = () => {
   const gridBase = "grid gap-4 grid-cols-1 lg:grid-cols-2";
 
   // IMPORTANT:
-  // Dashboard layout najverovatnije vec ima ui-shell oko Outlet-a,
-  // zato ovde NE stavljamo ui-shell (da ne dobijemo dupli/narrow wrapper).
+  // Dashboard layout likely already wraps the Outlet with `ui-shell`,
+  // so we avoid adding another shell here to prevent a double/narrow wrapper.
   const shell = "w-full pb-2";
   const wrap = "space-y-6 py-2";
 
@@ -93,6 +115,8 @@ const Trash = () => {
 
     const fetchFirstPage = async () => {
       setIsLoading(true);
+
+      // Reset list + cursor whenever uid or filter changes.
       setDeletedPosts([]);
       setLastDoc(null);
       setHasMore(true);
@@ -102,7 +126,7 @@ const Trash = () => {
         const postRef = collection(db, "posts");
         const constraints = getDeletedAtConstraints(filterRange);
 
-        // Prefetch +1 (eliminise fake Load more kad ima tacno 10)
+        // Prefetch +1 eliminates a "fake" Load more when there are exactly 10 items.
         const q = query(
           postRef,
           where("userId", "==", user.uid),
@@ -130,6 +154,7 @@ const Trash = () => {
           return;
         }
 
+        // Cursor is the last doc in the rendered page.
         setLastDoc(pageDocs[pageDocs.length - 1]);
         setHasMore(docs.length > POST_PER_PAGE);
 
@@ -139,6 +164,7 @@ const Trash = () => {
             id: d.id,
             ...data,
             author,
+            // Keep shape stable for cards even if comments is missing.
             comments: data.comments || [],
           };
         });
@@ -146,6 +172,8 @@ const Trash = () => {
         setDeletedPosts(posts);
       } catch (error) {
         console.error("Error fetching posts:", error);
+
+        // User-facing message stays generic; details remain in console.
         if (!canceled) {
           showErrorToast("Failed to load your posts. Please try again.");
         }
@@ -156,6 +184,7 @@ const Trash = () => {
 
     fetchFirstPage();
 
+    // Cleanup prevents setState after unmount or when uid/filter changes mid-request.
     return () => {
       canceled = true;
     };
@@ -163,6 +192,7 @@ const Trash = () => {
   }, [user?.uid, filterRange]);
 
   const handleLoadMore = async () => {
+    // Guard against duplicate fetches and invalid cursor state.
     if (!user || !hasMore || isLoadingMore || !lastDoc) return;
     setIsLoadingMore(true);
 
@@ -170,7 +200,7 @@ const Trash = () => {
       const postRef = collection(db, "posts");
       const constraints = getDeletedAtConstraints(filterRange);
 
-      // Prefetch +1
+      // Prefetch +1 keeps hasMore accurate.
       const q = query(
         postRef,
         where("userId", "==", user.uid),
@@ -209,6 +239,7 @@ const Trash = () => {
         };
       });
 
+      // Merge by id to avoid duplicates if queries overlap (or after optimistic changes).
       setDeletedPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         newPosts.forEach((p) => map.set(p.id, p));
@@ -222,12 +253,17 @@ const Trash = () => {
     }
   };
 
-  // Optimistic helper: remove from UI immediately
+  // Optimistic helper: remove from UI immediately to keep the page responsive.
   const removeFromUI = (postId) => {
     setDeletedPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
-  // Restore: optimistic remove + rollback on failure
+  /**
+   * Restore flow:
+   * - Optimistically remove the card
+   * - Flip `deleted=false` and clear `deletedAt` in Firestore
+   * - Roll back on failure to avoid silent data loss in UI
+   */
   const handleRestore = async (postId) => {
     if (!postId) return;
 
@@ -244,6 +280,7 @@ const Trash = () => {
     } catch (err) {
       console.error("Error restoring post:", err);
 
+      // Roll back only if we have a snapshot (keeps UI stable even on edge cases).
       if (snapshot) {
         setDeletedPosts((prev) => {
           const map = new Map(prev.map((p) => [p.id, p]));
@@ -256,7 +293,12 @@ const Trash = () => {
     }
   };
 
-  // Permanent delete: optimistic remove + rollback on failure
+  /**
+   * Permanent delete flow:
+   * - Optimistically remove the card
+   * - Delegate to Cloud Function (`deletePostCascade`) for hard delete + cleanup
+   * - Roll back on failure
+   */
   const handleDeletePermanent = async () => {
     if (!postIdToDelete) return;
 
@@ -280,16 +322,17 @@ const Trash = () => {
 
       showErrorToast("Failed to delete post.");
     } finally {
+      // Always close modal and clear selection (even after failures).
       setDeleteModalOpen(false);
       setPostIdToDelete(null);
     }
   };
 
-  // Server-side filter already applied, so UI list is the filtered list.
+  // Server-side filter is already applied, so UI list is the filtered list.
   const filteredPosts = deletedPosts;
 
-  // Auto-fill: if page becomes empty (restore/delete), and there is more, pull next page
   useEffect(() => {
+    // Auto-fill: if list becomes empty after restore/delete and there is more, pull next page.
     if (isLoading) return;
     if (isLoadingMore) return;
     if (!hasMore) return;
@@ -300,7 +343,7 @@ const Trash = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, isLoadingMore, hasMore, lastDoc, deletedPosts.length]);
 
-  // EmptyState
+  // EmptyState: show only when we are done loading and there is no next page.
   const shouldShowEmpty = !isLoading && deletedPosts.length === 0 && !hasMore;
 
   const emptyMessage = filterRange
@@ -325,6 +368,7 @@ const Trash = () => {
             <div className={gridBase}>
               <AnimatePresence>
                 {filteredPosts.map((post) => {
+                  // Derived display value for the retention countdown UI.
                   const daysLeft = post.deletedAt
                     ? getDaysLeft(post.deletedAt)
                     : null;

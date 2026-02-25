@@ -4,22 +4,41 @@ import remarkGfm from "remark-gfm";
 
 import aboutMdRaw from "../content/about.md?raw";
 
+/**
+ * Extract a simple "hero" title from markdown if the first line is `# ...`.
+ * Keeping title outside the markdown body allows a consistent page header layout
+ * while still letting the content remain fully markdown-driven.
+ *
+ * @param {string} md
+ * @returns {{ title: string, body: string }}
+ */
 function getMarkdownTitleAndBody(md) {
   const lines = String(md || "").split("\n");
   const first = (lines[0] || "").trim();
 
   if (first.startsWith("# ")) {
     const title = first.replace(/^#\s+/, "").trim();
+
+    // Remove the first heading line and trim extra leading empty lines in the body.
     const body = lines
       .slice(1)
       .join("\n")
       .replace(/^\s*\n+/, "");
+
     return { title, body };
   }
 
+  // If there is no leading H1, keep markdown content as-is.
   return { title: "", body: String(md || "") };
 }
 
+/**
+ * Markdown renderer overrides used across the About page.
+ * Purpose:
+ * - Keep typography consistent with the app design system
+ * - Apply safe link behavior (internal routes vs hash vs external)
+ * - Style code blocks and blockquotes without relying on global markdown CSS
+ */
 const mdComponents = {
   h1: (props) => (
     <h1 className="mt-10 text-2xl font-semibold text-zinc-100" {...props} />
@@ -39,6 +58,13 @@ const mdComponents = {
     <strong className="font-semibold text-zinc-100" {...props} />
   ),
   hr: (props) => <hr className="my-8 border-zinc-800" {...props} />,
+
+  /**
+   * Link behavior:
+   * - Hash links stay as anchors (same page)
+   * - App routes use `<Link>` for SPA navigation
+   * - External links open in a new tab with `noopener` for safety
+   */
   a: ({ href = "", children, ...props }) => {
     const isHash = href.startsWith("#");
     const isRoute = href.startsWith("/");
@@ -78,12 +104,19 @@ const mdComponents = {
       </a>
     );
   },
+
   blockquote: (props) => (
     <blockquote
       className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 text-zinc-300"
       {...props}
     />
   ),
+
+  /**
+   * Code styling:
+   * - Inline code uses a compact pill background
+   * - Block code is scrollable and framed to avoid layout breaks on long lines
+   */
   code: ({ inline, className, children, ...props }) => {
     if (inline) {
       return (
@@ -109,6 +142,16 @@ const mdComponents = {
   },
 };
 
+/**
+ * @component About
+ *
+ * Markdown-driven About page.
+ * - Title is extracted from the first `# ...` heading to render a consistent hero.
+ * - Body is rendered with `react-markdown` + `remark-gfm` for tables/lists/code.
+ * - Links are routed safely (hash vs internal routes vs external new-tab).
+ *
+ * @returns {JSX.Element}
+ */
 const About = () => {
   const { title, body } = getMarkdownTitleAndBody(aboutMdRaw);
 

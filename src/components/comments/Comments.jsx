@@ -13,6 +13,34 @@ import { db } from "../../firebase";
 import CommentForm from "./CommentForm";
 import CommentItem from "./CommentItem";
 
+/**
+ * @component Comments
+ *
+ * Comments list + composer for a post.
+ *
+ * Supports two data modes:
+ * - Controlled: `comments` prop provided by parent (no Firestore subscription here).
+ * - Uncontrolled: subscribes to Firestore for the post (`shouldSubscribe`), keeps local state in sync.
+ *
+ * Key behaviors:
+ * - Builds an adjacency list (`childrenMap`) for nested replies.
+ * - Hides deleted root comments unless they still have visible (non-deleted) descendants.
+ * - "showAll" toggles between compact preview (2 roots) and paged list with "Load more".
+ * - Emits a non-deleted count via `onCountChange` for header/badges elsewhere in the UI.
+ *
+ * @param {string} postID - Current post id.
+ * @param {Array<Object>|undefined} comments - Optional externally-provided comments array.
+ * @param {boolean} showAll - If false, render a compact preview; if true, render paged list.
+ * @param {boolean} locked - If true, disable composing and show archived message.
+ * @param {boolean} disableBadgeModal - Prop forwarded to CommentItem for read-only contexts.
+ * @param {boolean} renderOnlyForm - Used when parent wants only the composer (no list/header).
+ * @param {(count:number)=>void} onCountChange - Notifies parent about non-deleted comment count.
+ * @param {boolean} hideHeader - Hide "Comments" header and total.
+ * @param {boolean} hideForm - Hide composer even when unlocked.
+ * @param {string} formWrapperClassName - Layout hook for composer container.
+ * @param {string} listWrapperClassName - Layout hook for list container.
+ * @returns {JSX.Element|null}
+ */
 const Comments = ({
   postID,
   comments: commentsProp,
@@ -32,16 +60,18 @@ const Comments = ({
 
   const [visibleCount, setVisibleCount] = useState(10);
 
+  // Subscribe only when parent does not supply comments.
   const shouldSubscribe = !commentsProp;
 
   useEffect(() => {
-    // Reset pagination when post changes (prevents weird "half list" states)
+    // Reset pagination on post change to avoid carrying UI state across routes.
     setVisibleCount(10);
   }, [postID]);
 
   useEffect(() => {
     if (!postID || !shouldSubscribe) return;
 
+    // Live query: newest first, client builds tree from parentID.
     const qRef = query(
       collection(db, "comments"),
       where("postID", "==", postID),
@@ -57,6 +87,7 @@ const Comments = ({
   }, [postID, shouldSubscribe]);
 
   const childrenMap = useMemo(() => {
+    // Adjacency list: parentCommentId -> array of direct child comments.
     const map = {};
     for (const c of comments) {
       const pid = c.parentID ?? null;
@@ -68,6 +99,7 @@ const Comments = ({
   }, [comments]);
 
   const rootComments = useMemo(() => {
+    // Roots are comments without `parentID`. Sort newest-first for consistent feed ordering.
     const roots = comments.filter((c) => !c.parentID);
     return [...roots].sort((a, b) => {
       const aT =
@@ -78,19 +110,21 @@ const Comments = ({
     });
   }, [comments]);
 
-  // Count shown in header: only non-deleted
+  // Header count: non-deleted only (deleted items remain for thread structure).
   const totalCount = useMemo(
     () => comments.filter((c) => !c.deleted).length,
     [comments],
   );
 
   useEffect(() => {
+    // Lift count to parent (e.g., for tabs/badges) without requiring parent to recompute.
     onCountChange?.(totalCount);
   }, [totalCount, onCountChange]);
 
-  // Hide deleted root comments that have no visible descendants
   const hasVisibleDescendant = useCallback(
     (id, memo = {}) => {
+      // Memoized DFS: checks if a (possibly deleted) root still has visible children.
+      // This prevents hiding an entire conversation thread when only the root is deleted.
       if (memo[id] !== undefined) return memo[id];
 
       const kids = childrenMap?.[id] || [];
@@ -112,6 +146,7 @@ const Comments = ({
   );
 
   const visibleRootComments = useMemo(() => {
+    // Deleted roots are hidden unless they still have any visible descendants.
     const memo = {};
     return rootComments.filter(
       (c) => !c.deleted || hasVisibleDescendant(c.id, memo),
@@ -119,6 +154,7 @@ const Comments = ({
   }, [rootComments, hasVisibleDescendant]);
 
   if (renderOnlyForm) {
+    // Composer-only variant for embedded UIs (e.g., sheet/modal).
     return !locked ? (
       <CommentForm
         postId={postID}
@@ -128,6 +164,7 @@ const Comments = ({
     ) : null;
   }
 
+  // Compact view renders only first 2 visible roots; full view uses client-side paging.
   const slice = showAll
     ? visibleRootComments.slice(0, visibleCount)
     : visibleRootComments.slice(0, 2);

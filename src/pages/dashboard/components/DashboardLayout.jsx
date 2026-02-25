@@ -10,13 +10,32 @@ import DashboardTabs from "./DashboardTabs";
 import TrashFilterBar from "./TrashFilterBar";
 import PostFilterBar from "./PostFilterBar";
 
+/**
+ * @component DashboardLayout
+ *
+ * Shared layout shell for all `/dashboard/*` routes.
+ *
+ * Responsibilities:
+ * - Renders a sticky header panel with tabs + page-specific controls.
+ * - Exposes shared dashboard UI state to nested routes via `Outlet` context.
+ * - Subscribes to trash count in real time to keep the Trash tab badge accurate.
+ *
+ * Responsive behavior:
+ * - md+: uses a 2-col grid so controls can align (tabs left, actions/search right).
+ * - < md: stacks controls vertically to keep the header compact on mobile.
+ *
+ * @returns {JSX.Element}
+ */
 const DashboardLayout = () => {
   const location = useLocation();
+
+  // Route-derived UI mode flags for conditional header controls.
   const isTrashPage = location.pathname.includes("/trash");
   const isMyPostsPage = location.pathname === "/dashboard";
   const isSavedPage = location.pathname.includes("/saved");
 
   const { user } = useContext(AuthContext);
+
   const [trashCount, setTrashCount] = useState(0);
   const [filterRange, setFilterRange] = useState(null);
   const [filter, setFilter] = useState("all");
@@ -24,8 +43,11 @@ const DashboardLayout = () => {
   const [myPostsSearch, setMyPostsSearch] = useState("");
 
   useEffect(() => {
+    // Guard: do not subscribe until we have a stable uid.
     if (!user?.uid) return;
 
+    // Live trash count is derived from the user's `deleted === true` posts.
+    // Keeps tab badge accurate without manual refresh.
     const q = query(
       collection(db, "posts"),
       where("userId", "==", user.uid),
@@ -69,6 +91,7 @@ const DashboardLayout = () => {
 
                 {/* Row 1, Col 2 */}
                 <div className="flex items-center justify-end gap-2">
+                  {/* Email is informational only (truncate prevents header overflow). */}
                   {user?.email ? (
                     <span className="text-sm text-zinc-300 max-w-[360px] truncate">
                       {user.email}
@@ -106,6 +129,7 @@ const DashboardLayout = () => {
 
                   {isSavedPage && (
                     <div className="flex flex-wrap gap-2">
+                      {/* Saved sort is stored in Outlet context and consumed by SavedPosts page. */}
                       <button
                         type="button"
                         onClick={() => setSavedSortDirection("desc")}
@@ -159,7 +183,7 @@ const DashboardLayout = () => {
                 </div>
               </div>
 
-              {/* Mobile-only bars stay as-is */}
+              {/* Mobile-only bars keep the same controls, stacked for smaller screens. */}
               <div className="md:hidden">
                 <div className="hidden lg:block">
                   <DashboardBreadcrumb />
@@ -228,6 +252,7 @@ const DashboardLayout = () => {
       </div>
 
       <div className="pt-6">
+        {/* Outlet context is the single shared source for dashboard filter/sort UI state. */}
         <Outlet
           context={{
             filterRange,

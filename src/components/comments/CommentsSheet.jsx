@@ -12,6 +12,24 @@ const getPortalRoot = () =>
 
 const DRAG_CLOSE_PX = 96;
 
+/**
+ * @component CommentsSheet
+ *
+ * Mobile-first bottom sheet for reading/writing comments.
+ *
+ * - Uses a portal to render above the app shell (prevents z-index/layout issues).
+ * - Locks body scroll while open and traps focus inside the panel for accessibility.
+ * - Supports drag-to-close via a handle (threshold-based, avoids accidental closes).
+ * - Keeps the composer collapsed by default to prioritize reading (and reduce visual noise).
+ *
+ * @param {boolean} isOpen - Controls visibility.
+ * @param {Function} onClose - Close handler (Escape, backdrop click, drag threshold).
+ * @param {string} postId - Current post id for comments query + composer.
+ * @param {boolean} locked - If true, disables composing and shows read-only UI.
+ * @param {number} count - External comment count for the header badge.
+ * @param {Array<Object>} comments - Optional preloaded comments list (no internal fetching).
+ * @returns {JSX.Element|null}
+ */
 const CommentsSheet = ({
   isOpen,
   onClose,
@@ -21,6 +39,7 @@ const CommentsSheet = ({
   comments,
 }) => {
   const root = useMemo(() => {
+    // SSR/edge safety: do not touch `document` when unavailable.
     if (typeof document === "undefined") return null;
     return getPortalRoot();
   }, []);
@@ -30,7 +49,7 @@ const CommentsSheet = ({
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
 
-  // drag-to-close (handle)
+  // Drag-to-close state (handle-only). Keeps the gesture predictable and avoids scrolling conflicts.
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartYRef = useRef(0);
@@ -38,6 +57,7 @@ const CommentsSheet = ({
 
   useEffect(() => {
     if (!isOpen) {
+      // Reset sheet-only UI state so reopening always starts clean.
       setIsComposerOpen(false);
       setDragY(0);
       setIsDragging(false);
@@ -45,12 +65,15 @@ const CommentsSheet = ({
       return;
     }
 
+    // Focus entry: ensures keyboard users land inside the dialog.
     closeBtnRef.current?.focus();
 
     const onKeyDown = (e) => {
+      // Escape closes the sheet.
       if (e.key === "Escape") onClose();
       if (e.key !== "Tab") return;
 
+      // Focus trap: keep tabbing within the panel.
       const panel = panelRef.current;
       if (!panel) return;
 
@@ -81,6 +104,8 @@ const CommentsSheet = ({
     };
 
     document.addEventListener("keydown", onKeyDown);
+
+    // Prevent background scroll while the modal sheet is open.
     document.body.style.overflow = "hidden";
 
     return () => {
@@ -95,6 +120,7 @@ const CommentsSheet = ({
     if (locked) return;
     setIsComposerOpen(true);
 
+    // Defer focus until after layout updates to avoid focusing a non-mounted textarea.
     requestAnimationFrame(() => {
       const panel = panelRef.current;
       const ta = panel?.querySelector("textarea");
@@ -103,17 +129,18 @@ const CommentsSheet = ({
   };
 
   const onHandlePointerDown = (e) => {
-    // only primary button / touch
+    // Only primary button / touch to avoid right-click or secondary pointers.
     if (e.button != null && e.button !== 0) return;
 
     pointerIdRef.current = e.pointerId;
     dragStartYRef.current = e.clientY;
     setIsDragging(true);
 
+    // Pointer capture keeps the drag stable even if the pointer leaves the handle area.
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
-      // ignore
+      // ignore (browser support differences)
     }
   };
 
@@ -122,6 +149,7 @@ const CommentsSheet = ({
     if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current)
       return;
 
+    // Only allow downward movement (no negative translate).
     const delta = e.clientY - dragStartYRef.current;
     setDragY(Math.max(0, delta));
   };
@@ -130,11 +158,13 @@ const CommentsSheet = ({
     if (!isDragging) return;
     setIsDragging(false);
 
+    // Close only after passing the threshold to avoid accidental dismiss.
     if (dragY >= DRAG_CLOSE_PX) {
       onClose();
       return;
     }
 
+    // Snap back when not far enough.
     setDragY(0);
   };
 
@@ -150,7 +180,7 @@ const CommentsSheet = ({
         aria-hidden="true"
       />
 
-      {/* Make it taller + full width on xs (no side padding), centered max width on sm+ */}
+      {/* Layout: full-width on xs, centered max width on sm+ */}
       <div className="absolute inset-x-0 bottom-0 top-2 sm:top-10 flex justify-center px-0 sm:px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
         <div
           ref={panelRef}
@@ -163,10 +193,11 @@ const CommentsSheet = ({
             "rounded-t-2xl sm:rounded-2xl",
             "border border-zinc-800 bg-zinc-950/90 shadow-xl overflow-hidden",
             "flex flex-col",
+            // Avoid fighting the user's drag with animations; animate only when snapping.
             isDragging ? "" : "transition-transform duration-200 ease-out",
           ].join(" ")}
         >
-          {/* Keep an accessible close control (invisible) so focus/keyboard is OK */}
+          {/* Accessible close control (sr-only) for focus entry + keyboard users */}
           <button
             ref={closeBtnRef}
             type="button"
@@ -176,7 +207,7 @@ const CommentsSheet = ({
             Close comments
           </button>
 
-          {/* Grab handle (always visible + centered) */}
+          {/* Grab handle (handle-only drag to avoid interfering with list scrolling) */}
           <div className="flex justify-center pt-2 pb-2 flex-none">
             <div
               className="w-full flex justify-center touch-none select-none cursor-grab active:cursor-grabbing"
@@ -189,13 +220,13 @@ const CommentsSheet = ({
             </div>
           </div>
 
-          {/* Header (no X) */}
+          {/* Header (count comes from parent to avoid duplicating list computation) */}
           <div className="flex items-baseline gap-2 px-4 pb-3 border-b border-zinc-800 flex-none">
             <h2 className="text-sm font-semibold text-zinc-100">Comments</h2>
             <span className="text-xs text-zinc-400">{count ?? 0}</span>
           </div>
 
-          {/* List */}
+          {/* List (scroll container) */}
           <div className="flex-1 overflow-y-auto px-4 py-4 ui-scrollbar">
             <Comments
               postID={postId}

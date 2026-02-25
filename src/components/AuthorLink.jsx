@@ -2,14 +2,22 @@ import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 
 /**
- * Universal author profile link.
+ * @component AuthorLink
  *
- * Props:
- * - author: { id: string, name: string }
- * - children: optional label override
- * - className: optional extra classes
+ * Reusable navigation link to an author's profile page.
+ *
+ * - Renders a <Link> to `/profile/:id`
+ * - Stops event propagation to prevent parent card click triggers
+ * - Supports optional label override via `children`
+ * - Returns null if author id is missing (defensive guard)
+ *
+ * @param {{ id: string, name: string }} author - Author identity object
+ * @param {React.ReactNode} [children] - Optional custom link label
+ * @param {string} [className] - Additional Tailwind/custom classes
+ * @returns {JSX.Element|null}
  */
 const AuthorLink = ({ author, children, className = "" }) => {
+  // Defensive guard: do not render invalid profile links
   if (!author?.id) return null;
 
   const base =
@@ -23,6 +31,7 @@ const AuthorLink = ({ author, children, className = "" }) => {
     <Link
       to={`/profile/${author.id}`}
       className={`${base} ${className}`}
+      // Prevent navigation conflicts when used inside clickable parent cards
       onClick={(e) => e.stopPropagation()}
       aria-label={`Open profile: ${author?.name ?? "author"}`}
     >

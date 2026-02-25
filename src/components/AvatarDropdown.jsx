@@ -18,19 +18,33 @@ import {
 } from "../constants/uiClasses";
 
 /**
- * AvatarDropdown
+ * @component AvatarDropdown
+ *
+ * Header user avatar dropdown menu with navigation links and logout action.
+ *
+ * - Closes automatically on route change (prevents stale open menus)
+ * - Subscribes to the current user's Firestore doc for live badge/avatar updates
+ * - Closes on outside click and `Escape` for predictable UX and accessibility
+ * - Uses shared UI tokens (`SURFACE_PANEL*`, `FOCUS_RING`) for consistent styling
+ *
+ * @param {Object} props
+ * @param {Object} props.user - Auth user object (supports multiple id shapes)
+ * @param {Function} props.logout - Logout handler
+ * @param {boolean} props.isLoggingOut - Disables logout button and shows loading label
+ * @returns {JSX.Element}
  */
 const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
   const location = useLocation();
   const [showMenu, setShowMenu] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Normalize user id
+  // Normalize user id shape across auth sources (uid/id/userId)
   const userId = user?.uid || user?.id || user?.userId;
 
   const [isTopContributor, setIsTopContributor] = useState(false);
   const [liveProfilePicture, setLiveProfilePicture] = useState(null);
 
+  // Auto-close menu when navigation occurs
   useEffect(() => {
     setShowMenu(false);
   }, [location.pathname]);
@@ -44,6 +58,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
 
     const userRef = doc(db, "users", userId);
 
+    // Live read: keep badge state and profile picture in sync without refresh
     const unsubscribe = onSnapshot(
       userRef,
       (snap) => {
@@ -53,6 +68,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
       },
       (err) => {
         console.error("AvatarDropdown: failed to read user doc", err);
+        // Fail closed: do not show badge if user doc is missing/denied
         setIsTopContributor(false);
       },
     );
@@ -75,6 +91,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
       if (showMenu && event.key === "Escape") setShowMenu(false);
     };
 
+    // Global listeners while menu is open; cleaned up on unmount/update
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
 
@@ -91,6 +108,7 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
 
   const linkActive = "bg-zinc-900/60 font-medium text-zinc-100";
 
+  // Prefer live Firestore profile picture when available; fall back to auth/default
   const avatarSrc =
     liveProfilePicture || user?.profilePicture || DEFAULT_PROFILE_PICTURE;
 

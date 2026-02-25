@@ -49,6 +49,16 @@ const REPORT_POST_ERROR_TOAST_ID = "report:post:error";
 const POST_DELETE_SUCCESS_TOAST_ID = "post:delete:success";
 const POST_DELETE_ERROR_TOAST_ID = "post:delete:error";
 
+/**
+ * @hook useMediaQuery
+ *
+ * Small helper hook to track a CSS media query.
+ * - Uses `matchMedia` and listens for changes
+ * - Safe fallback for SSR environments
+ *
+ * @param {string} q - Media query string (e.g. "(min-width: 1024px)")
+ * @returns {boolean} Whether the query currently matches
+ */
 const useMediaQuery = (q) => {
   const getMatch = () =>
     typeof window !== "undefined" && window.matchMedia
@@ -59,13 +69,14 @@ const useMediaQuery = (q) => {
 
   useEffect(() => {
     if (!window.matchMedia) return;
-    const mql = window.matchMedia(q);
 
+    const mql = window.matchMedia(q);
     const onChange = (e) => setMatches(e.matches);
 
     if (mql.addEventListener) mql.addEventListener("change", onChange);
     else mql.addListener(onChange);
 
+    // Ensure state matches on mount (some browsers need this explicit sync)
     setMatches(mql.matches);
 
     return () => {
@@ -79,12 +90,30 @@ const useMediaQuery = (q) => {
 
 const MAX_TAGS_IN_DETAILS = 12;
 
+/**
+ * Normalize a single tag to a display-friendly string.
+ * - Trims whitespace
+ * - Strips leading "#" characters
+ *
+ * @param {unknown} t
+ * @returns {string}
+ */
 const normalizeTagText = (t) => {
   const raw = String(t ?? "").trim();
   if (!raw) return "";
   return raw.replace(/^#+/, "").trim();
 };
 
+/**
+ * Build a stable, unique list of tags.
+ * - Accepts string tags or tag objects
+ * - De-dupes case-insensitively
+ * - Enforces a maximum count
+ *
+ * @param {unknown[]} rawTags
+ * @param {number} max
+ * @returns {string[]}
+ */
 const buildUniqueTags = (rawTags, max = MAX_TAGS_IN_DETAILS) => {
   const raw = Array.isArray(rawTags) ? rawTags : [];
 
@@ -107,6 +136,22 @@ const buildUniqueTags = (rawTags, max = MAX_TAGS_IN_DETAILS) => {
   return out;
 };
 
+/**
+ * @component PostDetails
+ *
+ * Post details page:
+ * - Real-time post document (onSnapshot)
+ * - Real-time comments list (onSnapshot)
+ * - Author lookup (userService)
+ * - Save/unsave logic via `toggleSavePost`
+ * - Reporting flow via `submitReport`
+ * - Admin hard delete via Cloud Function `deletePostCascade`
+ *
+ * Layout:
+ * - Main post content on the left
+ * - Desktop (lg+) shows docked comments column
+ * - Mobile uses a bottom button that opens `CommentsSheet`
+ */
 const PostDetails = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -129,21 +174,28 @@ const PostDetails = () => {
   const postAuthorId = post?.userId ?? null;
   const isAdmin = user?.isAdmin === true;
 
+  // Post management permissions: author or admin
   const isAuthor =
     currentUserId && postAuthorId && currentUserId === postAuthorId;
   const canManagePost = isAuthor || isAdmin;
 
+  // Display-only: locked date label
   const lockedDate = post?.lockedAt?.toDate?.()?.toLocaleDateString?.() ?? null;
 
+  // Saved state (bookmarks)
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, post && post.id);
 
+  // Desktop breakpoint for docked comments column
   const isLgUp = useMediaQuery("(min-width: 1024px)");
 
+  // Mobile comments sheet state
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   useEffect(() => {
+    // If we reach desktop, close the mobile sheet to avoid duplicated UI states
     if (isLgUp) setIsCommentsOpen(false);
   }, [isLgUp]);
 
+  // Real-time comments
   const [comments, setComments] = useState([]);
 
   useEffect(() => {
@@ -163,10 +215,12 @@ const PostDetails = () => {
     return unsub;
   }, [postId]);
 
+  // Visible comments count excludes soft-deleted comments
   const commentsCount = useMemo(() => {
     return comments.reduce((acc, c) => (c?.deleted ? acc : acc + 1), 0);
   }, [comments]);
 
+  // Real-time post document
   useEffect(() => {
     setIsLoading(true);
     let cancelled = false;
@@ -207,6 +261,7 @@ const PostDetails = () => {
     };
   }, [postId]);
 
+  // Fetch author profile (separate user doc)
   useEffect(() => {
     if (!post?.userId) return;
 
@@ -226,11 +281,16 @@ const PostDetails = () => {
     };
   }, [post?.userId]);
 
+  // Stable unique tags for display
   const tags = useMemo(() => buildUniqueTags(post?.tags), [post?.tags]);
 
   if (isLoading) return <Spinner />;
   if (!post) return <p>Post not found.</p>;
 
+  /**
+   * Toggle saved state for this post.
+   * Stores a small snapshot so saved items can display useful context later.
+   */
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
 
@@ -245,12 +305,18 @@ const PostDetails = () => {
     setIsSaved(newState);
   };
 
+  /**
+   * Open badge explanation modal (badgeKey selects content).
+   */
   const handleBadgeClick = (e, badgeKey) => {
     e.stopPropagation();
     setSelectedBadge(badgeKey);
     setShowBadgeModal(true);
   };
 
+  /**
+   * Entry point for reporting a post (auth-gated).
+   */
   const onReportClick = () => {
     if (!user) {
       showInfoToast("Please login to report 😊", {
@@ -261,6 +327,12 @@ const PostDetails = () => {
     setShowReportModal(true);
   };
 
+  /**
+   * Confirm report action.
+   * - Must be logged in
+   * - Cannot report own post
+   * - Writes report via reportService
+   */
   const onConfirmReport = async () => {
     if (!user) {
       showInfoToast("Please login to report 😊", {
@@ -300,6 +372,10 @@ const PostDetails = () => {
     }
   };
 
+  /**
+   * Admin-only hard delete.
+   * Calls Cloud Function `deletePostCascade` to remove the post and related data.
+   */
   const handleAdminHardDelete = async () => {
     if (!isAdmin || isDeletingPost) return;
 
@@ -325,6 +401,7 @@ const PostDetails = () => {
     }
   };
 
+  // Date labels: short for mobile, long for desktop
   const createdLabelShort = post?.createdAt?.toDate?.()
     ? post.createdAt.toDate().toLocaleDateString()
     : "";
@@ -333,6 +410,7 @@ const PostDetails = () => {
     ? post.createdAt.toDate().toLocaleString()
     : "";
 
+  // Layout classes
   const wrapperClass =
     "w-full max-w-7xl mx-auto my-0 sm:my-8 " +
     "pb-[calc(1.25rem+env(safe-area-inset-bottom))] lg:pb-0";
@@ -377,6 +455,7 @@ const PostDetails = () => {
                       alt={author?.name ?? "Author"}
                     />
 
+                    {/* Top Contributor badge button (opens modal) */}
                     {author?.badges?.topContributor && (
                       <button
                         type="button"
@@ -402,6 +481,7 @@ const PostDetails = () => {
                   </div>
 
                   <div className="min-w-0">
+                    {/* Author link (only when author loaded) */}
                     {author?.id && (
                       <AuthorLink
                         author={author}
@@ -420,6 +500,7 @@ const PostDetails = () => {
                   </div>
                 </div>
 
+                {/* Right side actions: save + report */}
                 <div className="flex items-center gap-1.5 flex-none shrink-0">
                   <button
                     type="button"
@@ -446,10 +527,12 @@ const PostDetails = () => {
                 </div>
               </div>
 
+              {/* Post title */}
               <h1 className="mt-3 text-[1.45rem] leading-tight sm:text-3xl font-bold text-zinc-100 break-words">
                 {post.title}
               </h1>
 
+              {/* Category + badges + locked marker */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {post?.category && (
                   <span
@@ -511,6 +594,7 @@ const PostDetails = () => {
             {/* FOOTER */}
             <div className="flex-none">
               <div className="mt-6 border-t border-zinc-800 pt-4">
+                {/* Tag rail */}
                 <div className="min-h-[2.25rem]">
                   <div
                     className="relative -mx-1 px-1"
@@ -540,10 +624,12 @@ const PostDetails = () => {
                       )}
                     </div>
 
+                    {/* Fade edge for horizontal scroll */}
                     <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
                   </div>
                 </div>
 
+                {/* Reactions */}
                 <div className={tags.length > 0 ? "mt-2" : "mt-3"}>
                   <ReactionSummary
                     postId={post.id}
@@ -555,6 +641,7 @@ const PostDetails = () => {
                 </div>
               </div>
 
+              {/* Admin tools */}
               {canManagePost && (
                 <div className="mt-4 flex gap-2 border-t border-zinc-800 pt-4">
                   {isAdmin && (
@@ -577,6 +664,7 @@ const PostDetails = () => {
           </div>
         </div>
 
+        {/* Desktop comments column (lg+) */}
         {isLgUp && (
           <aside className="hidden lg:block min-w-0">
             <div
@@ -593,6 +681,7 @@ const PostDetails = () => {
                 </div>
               </div>
 
+              {/* Comments list */}
               <div className="flex-1 overflow-y-auto px-4 py-4 ui-scrollbar">
                 <Comments
                   postID={postId}
@@ -606,6 +695,7 @@ const PostDetails = () => {
                 />
               </div>
 
+              {/* Comment form (separate render to keep it always visible at bottom) */}
               <div className="flex-none border-t border-zinc-800/70 bg-zinc-950/20 px-4 py-3">
                 <Comments
                   postID={postId}
@@ -619,6 +709,7 @@ const PostDetails = () => {
         )}
       </div>
 
+      {/* Mobile bottom bar (opens CommentsSheet) */}
       {!isLgUp && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur">
           <div className="mx-auto w-full max-w-7xl px-3 py-3">
@@ -638,6 +729,7 @@ const PostDetails = () => {
         </div>
       )}
 
+      {/* Mobile comments sheet */}
       {!isLgUp && (
         <CommentsSheet
           isOpen={isCommentsOpen}
@@ -649,6 +741,7 @@ const PostDetails = () => {
         />
       )}
 
+      {/* Badge explanation modals */}
       {showBadgeModal && (
         <BadgeModal
           isOpen={showBadgeModal}
@@ -665,6 +758,7 @@ const PostDetails = () => {
         authorBadge="topContributor"
       />
 
+      {/* Report confirmation */}
       <ConfirmModal
         isOpen={showReportModal}
         title="Are you sure you want to report this post?"
@@ -674,6 +768,7 @@ const PostDetails = () => {
         onConfirm={onConfirmReport}
       />
 
+      {/* Admin delete confirmation */}
       <ConfirmModal
         isOpen={deleteModalOpen}
         title="Delete Post Permanently"

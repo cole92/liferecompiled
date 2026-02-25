@@ -1,20 +1,39 @@
 import { createContext, useState } from "react";
 import PropTypes from "prop-types";
 
-// Kontekst koji sluzi za pretragu, sortiranje i filtriranje postova.
+/**
+ * Global search/sort/filter context for post listings.
+ *
+ * Centralizes UI state shared across Home and related views, so the feed query
+ * logic stays consistent even when controls live in different components.
+ *
+ * NOTE:
+ * - Defaults match the primary feed experience (empty search, newest sort, no categories).
+ * - This is UI state only; data fetching remains in the page layer/services.
+ */
 const SearchContext = createContext();
 
 /**
- * SearchProvider komponenta – omotava aplikaciju i omogucava deljenje stanja
- * za pretragu, sortiranje i filtere izmedju vise komponenti.
+ * @component SearchProvider
+ *
+ * Wraps the app (or a subtree) and exposes shared state for:
+ * - Search term
+ * - Sort mode
+ * - Category selection
+ * - A single "reset" action used by toolbars and empty states
+ *
+ * @param {{ children: React.ReactNode }} props
+ * @returns {JSX.Element}
  */
-
 export const SearchProvider = ({ children }) => {
-  const [searchTerm, setSearchTerm] = useState(""); // Stanje za unos pretrage
-  const [sortBy, setSortBy] = useState("newest"); // Stanje za sortiranje (default: najnoviji postovi)
-  const [selectedCategories, setSelectedCategories] = useState([]); // Stanje za odabrane kategorije
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
-  // Metoda za reset svih stanja na pocetne vrednosti
+  /**
+   * Reset all feed controls to their baseline defaults.
+   * Keeps UX predictable when switching views or clearing filters from the UI.
+   */
   const handleResetFilters = () => {
     setSearchTerm("");
     setSortBy("newest");
@@ -22,10 +41,6 @@ export const SearchProvider = ({ children }) => {
   };
 
   return (
-    /**
-     * SearchContext.Provider – omoguxava svim komponentama unutar njega
-     * da pristupe i azuriraju podatke o pretrazi, sortiranju i filtriranju.
-     */
     <SearchContext.Provider
       value={{
         searchTerm,
@@ -37,13 +52,13 @@ export const SearchProvider = ({ children }) => {
         handleResetFilters,
       }}
     >
-      {children} {/* Omogucava da svi potomci ovog providera koriste kontekst */}
+      {children}
     </SearchContext.Provider>
   );
 };
 
 SearchProvider.propTypes = {
-  children: PropTypes.node.isRequired, // `children` mora biti JSX element
+  children: PropTypes.node.isRequired,
 };
 
 export { SearchContext };

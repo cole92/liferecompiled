@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TagsInput from "./TagsInput";
 import { validCategories } from "../constants/postCategories";
 
+// Allow broad language support while restricting to a safe, predictable set.
 const TITLE_REGEX = /^[\p{L}0-9 ,.?!-]+$/u;
 
 const DEFAULT_INITIAL_VALUES = {
@@ -14,6 +15,15 @@ const DEFAULT_INITIAL_VALUES = {
   tags: [],
 };
 
+/**
+ * Normalize tag inputs to stable plain strings for comparisons.
+ *
+ * - Accepts mixed shapes: string or objects like { text }, { id }
+ * - Trims whitespace and drops empty values
+ *
+ * @param {Array<string|Object>} list
+ * @returns {string[]}
+ */
 function normalizeTagTexts(list) {
   const arr = Array.isArray(list) ? list : [];
   return arr
@@ -26,6 +36,15 @@ function normalizeTagTexts(list) {
     .filter(Boolean);
 }
 
+/**
+ * Create a stable representation of form values for dirty-checking.
+ *
+ * - Trims user inputs to avoid false positives from trailing spaces
+ * - Normalizes tags to comparable string list
+ *
+ * @param {Object} values
+ * @returns {string}
+ */
 function serializeForDirtyCheck({
   title,
   description,
@@ -42,6 +61,15 @@ function serializeForDirtyCheck({
   });
 }
 
+/**
+ * Validate post fields and return a keyed error map.
+ *
+ * - Keeps rules centralized so Create/Edit share identical constraints
+ * - Category is validated against the canonical `validCategories` list
+ *
+ * @param {Object} fields
+ * @returns {Record<string,string>}
+ */
 function validatePost({ title, description, content, category }) {
   const errors = {};
 
@@ -80,6 +108,13 @@ function validatePost({ title, description, content, category }) {
   return errors;
 }
 
+/**
+ * Scroll an element into view with a best-effort fallback.
+ *
+ * @param {HTMLElement|null} el
+ * @param {number} offset
+ * @returns {void}
+ */
 function scrollToElement(el, offset = 96) {
   if (!el) return;
 
@@ -99,6 +134,15 @@ function scrollToElement(el, offset = 96) {
   }
 }
 
+/**
+ * Focus an element by id and then scroll it into view.
+ *
+ * - Uses a tiny delay to avoid layout/jank during validation render
+ *
+ * @param {string} id
+ * @param {number} offset
+ * @returns {void}
+ */
 function focusAndScrollById(id, offset = 96) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -114,6 +158,12 @@ function focusAndScrollById(id, offset = 96) {
   }, 50);
 }
 
+/**
+ * Focus the first field with an error in a consistent order.
+ *
+ * @param {Record<string,string>} errors
+ * @returns {void}
+ */
 function focusFirstError(errors) {
   const order = ["title", "description", "content", "category"];
   const firstKey = order.find((k) => errors[k]);
@@ -122,6 +172,33 @@ function focusFirstError(errors) {
   focusAndScrollById(firstKey, 110);
 }
 
+/**
+ * @component PostEditorForm
+ *
+ * Shared Create/Edit post editor form.
+ *
+ * - Validates inputs consistently via `validatePost`
+ * - Tracks dirty state using a normalized serialized baseline
+ * - Warns on tab close/refresh when there are unsaved changes
+ * - Improves UX by focusing and scrolling to the first invalid field
+ * - Supports locked mode (read-only review with saving blocked)
+ *
+ * Notes:
+ * - Dirty checks trim values to avoid false positives from whitespace
+ * - Category values are validated against `validCategories` (source of truth)
+ *
+ * @param {Object} props
+ * @param {Object} [props.initialValues] - Pre-fill values (edit mode)
+ * @param {"create"|"edit"} props.mode - Controls labels/placeholders
+ * @param {boolean} [props.isSubmitting] - Disables inputs/buttons while saving
+ * @param {boolean} [props.isLocked] - Locks the form (review-only)
+ * @param {string} [props.lockMessage] - Custom locked banner text
+ * @param {Function} props.onSubmit - Called with normalized payload
+ * @param {Function} props.onCancel - Called when user cancels
+ * @param {string} props.submitLabel - Submit button label (non-loading)
+ * @param {string} props.cancelLabel - Cancel button label
+ * @returns {JSX.Element}
+ */
 const PostEditorForm = ({
   initialValues = DEFAULT_INITIAL_VALUES,
   mode,
@@ -145,6 +222,7 @@ const PostEditorForm = ({
   const firstLoadRef = useRef(true);
   const baselineRef = useRef("");
 
+  // Initialize state once and capture baseline for dirty-checking.
   useEffect(() => {
     if (!firstLoadRef.current) return;
 
@@ -165,6 +243,7 @@ const PostEditorForm = ({
     baselineRef.current = serializeForDirtyCheck(next);
     firstLoadRef.current = false;
 
+    // In locked mode, do not auto-focus (review only).
     if (isLocked) return;
 
     const t = setTimeout(() => {
@@ -184,12 +263,14 @@ const PostEditorForm = ({
     });
   }, [title, description, content, category, tags]);
 
+  // Dirty state is disabled in locked mode to avoid false navigation warnings.
   const isDirty = useMemo(() => {
     if (!baselineRef.current) return false;
     if (isLocked) return false;
     return baselineRef.current !== currentSerialized;
   }, [currentSerialized, isLocked]);
 
+  // Warn on refresh/close only when the user can actually lose edits.
   useEffect(() => {
     if (!isDirty) return;
     if (isSubmitting) return;
@@ -235,6 +316,7 @@ const PostEditorForm = ({
 
     setErrors({});
 
+    // Payload is trimmed to match validation and reduce backend noise.
     const payload = {
       title: title.trim(),
       description: description.trim(),
@@ -346,7 +428,9 @@ const PostEditorForm = ({
               </label>
               <textarea
                 id="content"
-                className={`${inputBase} ${errors.content ? inputErr : inputOk} resize-none`}
+                className={`${inputBase} ${
+                  errors.content ? inputErr : inputOk
+                } resize-none`}
                 placeholder={
                   mode === "edit"
                     ? "Change the main content of the post"
@@ -383,7 +467,9 @@ const PostEditorForm = ({
                 </label>
                 <select
                   id="category"
-                  className={`${inputBase} ${errors.category ? inputErr : inputOk}`}
+                  className={`${inputBase} ${
+                    errors.category ? inputErr : inputOk
+                  }`}
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   aria-invalid={Boolean(errors.category)}

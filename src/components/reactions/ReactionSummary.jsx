@@ -4,7 +4,7 @@ import { showInfoToast } from "../../utils/toastUtils";
 
 const ZERO_COUNTS = { idea: 0, hot: 0, powerup: 0 };
 
-// session-only toast (once per tab/session)
+// Session-only toast (shown once per tab/session)
 const SELF_POWERUP_SESSION_KEY = "lr:selfPowerupBlockedShown";
 const SELF_POWERUP_TOAST_ID = "reaction:powerup:self";
 
@@ -15,7 +15,7 @@ function maybeShowSelfPowerupToast() {
       sessionStorage.setItem(SELF_POWERUP_SESSION_KEY, "1");
     }
   } catch {
-    // ignore
+    // ignore (privacy mode / blocked storage)
   }
 
   showInfoToast("You can't power up your own post 🙂", {
@@ -24,13 +24,21 @@ function maybeShowSelfPowerupToast() {
   });
 }
 
+/**
+ * @component ReactionSummary
+ *
+ * Compact reaction row (💡 / 🔥 / ⚡) for a post.
+ * - Normalizes missing counts to zeros.
+ * - Optionally blocks self-powerup (author reacting with ⚡ to own post).
+ * - Delegates the actual toggle logic to <ReactionIcon />.
+ */
 const ReactionSummary = ({
   postId,
   locked,
   reactionCounts,
   onAfterToggle,
   userId, // current user id
-  postAuthorId, // NEW
+  postAuthorId, // post owner id
   fetchActiveOnMount = true,
 }) => {
   const safeCounts = {
@@ -40,6 +48,7 @@ const ReactionSummary = ({
       : {}),
   };
 
+  // Block "powerup" when the current user is the post author
   const isSelf =
     !!userId && !!postAuthorId && String(userId) === String(postAuthorId);
 
@@ -76,8 +85,8 @@ const ReactionSummary = ({
           onAfterToggle={onAfterToggle}
           userId={userId}
           fetchActiveOnMount={fetchActiveOnMount}
-          disabled={isSelf} // NEW: self powerup block
-          onBlockedClick={maybeShowSelfPowerupToast} // NEW
+          disabled={isSelf} // self-powerup block (soft)
+          onBlockedClick={maybeShowSelfPowerupToast}
         />
       </div>
     </div>
@@ -96,10 +105,10 @@ ReactionSummary.propTypes = {
 
   onAfterToggle: PropTypes.func,
 
-  // current user id
+  // Current user id
   userId: PropTypes.string,
 
-  // NEW: author user id (post owner)
+  // Post owner id
   postAuthorId: PropTypes.string,
 
   fetchActiveOnMount: PropTypes.bool,

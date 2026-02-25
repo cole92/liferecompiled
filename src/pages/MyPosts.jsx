@@ -23,14 +23,18 @@ import EmptyState from "./dashboard/components/EmptyState";
 import buildPostsQuery from "../services/postsService";
 
 /**
- * MyPosts
+ * @component MyPosts
  *
- * UI-only changes in this pass:
- * - Remove large "Welcome, email" heading and Create button (Create moved to DashboardTabs).
- * - Disable comment thread preview in list view (comments live on PostDetails only).
- * - Button styling aligned with app tokens.
+ * Dashboard page for managing the current user's posts.
+ * - Fetches paginated post lists from Firestore with server-side search support
+ * - Applies client-side "active/locked/all" view filtering (when not in search mode)
+ * - Supports soft delete (move to Trash) and manual lock (archive) via transactions
  *
- * NOTE: No logic changes (fetch/filter/pagination/transactions untouched).
+ * UI notes:
+ * - Uses dashboard header controls from `DashboardLayout` (tabs + filters/search via Outlet context)
+ * - Uses `PostsList` with `PostCardDashboard` for consistent card rendering
+ *
+ * @returns {JSX.Element}
  */
 const MyPosts = () => {
   const { user } = useContext(AuthContext);
@@ -54,6 +58,8 @@ const MyPosts = () => {
   const [debouncedSearch, setDebouncedSearch] = useState(rawSearch.trim());
 
   useEffect(() => {
+    // Debounce search input so we do not re-query Firestore on every keystroke.
+    // Keeps the UI responsive and reduces read volume.
     const trimmed = rawSearch.trim();
 
     if (trimmed === "") {
@@ -74,6 +80,7 @@ const MyPosts = () => {
     let canceled = false;
 
     const fetchPosts = async () => {
+      // Reset pagination state on any filter/search change to keep cursors valid.
       setPosts([]);
       setLastDoc(null);
       setHasMore(true);
@@ -85,7 +92,7 @@ const MyPosts = () => {
           userId: user.uid,
           filter,
           afterDoc: null,
-          pageSize: POST_PER_PAGE + 1,
+          pageSize: POST_PER_PAGE + 1, // prefetch +1 to avoid showing "Load more" when exact page size
           q: trimmedSearch,
         });
 
@@ -98,6 +105,8 @@ const MyPosts = () => {
           return;
         }
 
+        // Author snapshot is embedded into cards so UI can render consistently
+        // even if post docs do not include denormalized author fields.
         const author = {
           id: user.uid,
           name: user.name || "Unknown author",
@@ -154,7 +163,7 @@ const MyPosts = () => {
         userId: user.uid,
         filter,
         afterDoc: lastDoc,
-        pageSize: POST_PER_PAGE + 1,
+        pageSize: POST_PER_PAGE + 1, // prefetch +1 for accurate `hasMore`
         q: trimmedSearch,
       });
 
@@ -187,6 +196,7 @@ const MyPosts = () => {
         comments: docSnap.data().comments || [],
       }));
 
+      // De-dup by id to stay stable if Firestore returns overlaps across pages.
       setPosts((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]));
         newPosts.forEach((p) => map.set(p.id, p));
@@ -205,9 +215,11 @@ const MyPosts = () => {
 
   const handleDelete = async (postId) => {
     try {
+      // Transaction prevents races (e.g., double delete or state changed by another client).
       await runTransaction(db, async (tx) => {
         const postRef = doc(db, "posts", postId);
         const snapshot = await tx.get(postRef);
+
         if (!snapshot.exists()) throw new Error("Post does not exist.");
         if (snapshot.data().deleted) throw new Error("Already deleted.");
 
@@ -218,6 +230,8 @@ const MyPosts = () => {
       });
 
       showSuccessToast("Post moved to Trash.");
+
+      // Optimistic UI: remove immediately after success to keep list snappy.
       setPosts((prev) => prev.filter((p) => p.id !== postId));
     } catch (error) {
       console.error("Error during soft delete:", error);
@@ -230,6 +244,7 @@ const MyPosts = () => {
 
   const handleLock = async (postId) => {
     try {
+      // Transaction keeps lock operation idempotent and avoids stale writes.
       await runTransaction(db, async (transaction) => {
         const postRef = doc(db, "posts", postId);
         const snapshot = await transaction.get(postRef);
@@ -248,6 +263,7 @@ const MyPosts = () => {
       setIsLockModalOpen(false);
       showSuccessToast("Post successfully arhived.");
 
+      // Update local cache so the UI reflects "locked" without refetching.
       setPosts((prevPosts) =>
         prevPosts.map((post) =>
           post.id === postId
@@ -265,6 +281,8 @@ const MyPosts = () => {
     }
   };
 
+  // Filter mode is client-side and only affects the current in-memory list.
+  // Search mode uses server-side query, so we do not apply extra client filtering.
   const filteredPosts = posts.filter((post) => {
     if (filter === "active") return !post.locked;
     if (filter === "locked") return post.locked;
@@ -275,6 +293,8 @@ const MyPosts = () => {
   const visiblePosts = isSearchMode ? posts : filteredPosts;
 
   useEffect(() => {
+    // Auto-fill: if current page becomes empty (e.g., after delete/lock),
+    // and there are more pages, pull the next page to avoid a blank grid.
     if (isLoading) return;
     if (isLoadingMore) return;
     if (!hasMore) return;

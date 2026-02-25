@@ -1,5 +1,22 @@
 /* eslint-disable */
 
+/**
+ * Firebase Cloud Functions (v2) entrypoint.
+ *
+ * Goals:
+ * - Keep all HTTP/callable endpoints, Firestore triggers and schedulers in one place.
+ * - Prefer correctness under retries over minimal writes (idempotency + ledger).
+ *
+ * Patterns used:
+ * - `processedEvents` docs act as idempotency markers (TTL ~30d) to avoid double-apply.
+ * - `reactionLedger` docs act as per-reaction source-of-truth ("counted" vs "not counted").
+ * - "stale_create/stale_delete" guards skip outdated events when users toggle quickly.
+ * - External cleanup (Cloudinary) is best-effort and must never crash the runtime.
+ *
+ * Conventions:
+ * - Comments/JSDoc are English-only and use plain latin (no diacritics).
+ */
+
 // -------------------- IMPORTS --------------------
 const admin = require("firebase-admin");
 console.log("[CF] index loaded");
@@ -18,11 +35,12 @@ const {
 } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
-// Cloudinary helper je opcion (best-effort). Ako fali config ili modul — ne ruši ceo container.
+// Cloudinary helper is optional (best-effort cleanup).
+// If config/env/package is missing, keep the runtime alive and skip image deletes.
 let cloudinary = { uploader: { destroy: async () => {} } };
 try {
-  // samo ako postoji i moze da se ucita
-  // (ako baca zbog env var ili paketa, ostaje stub iznad)
+  // Load only if available.
+  // If it throws due to env vars or missing package, keep the stub above.
   cloudinary = require("./cloudinary");
   console.log("[CF] cloudinary helper loaded");
 } catch (e) {
@@ -44,7 +62,12 @@ exports.ping = onRequest({ invoker: "public" }, (req, res) => {
 
 // -------------------- HELPERS --------------------
 
-// Azuriranje permDelete statistike
+/**
+ * @helper bumpPermanentDeletesForUser
+ * Tracks "hard delete" stats for the post author.
+ * - Creates the stats doc if missing (safe defaults).
+ * - Uses atomic `increment` for retry safety.
+ */
 async function bumpPermanentDeletesForUser(userId) {
   try {
     const ref = admin.firestore().collection("userStats").doc(userId);
@@ -65,7 +88,7 @@ async function bumpPermanentDeletesForUser(userId) {
           permanentlyDeletedPosts: FieldValue.increment(1),
           updatedAt: FieldValue.serverTimestamp(),
         },
-        { merge: true }
+        { merge: true },
       );
     }
 
@@ -80,11 +103,16 @@ async function bumpPermanentDeletesForUser(userId) {
   }
 }
 
-// BFS brisanje cele grane komentara
+/**
+ * @helper deleteCommentBatch
+ * Deletes a full comment subtree (BFS) by following `parentID`.
+ * - Collects all descendants first, then deletes in batches (Firestore limit: 500 ops/batch).
+ * - Assumes `parentID` forms a tree (no cycles); BFS prevents missing children.
+ */
 async function deleteCommentBatch(rootId) {
   const toDelete = [rootId];
 
-  // prikupi sve potomke
+  // Collect descendants first so we can delete the whole subtree deterministically.
   for (let i = 0; i < toDelete.length; i++) {
     const parentId = toDelete[i];
     const snap = await db
@@ -94,7 +122,7 @@ async function deleteCommentBatch(rootId) {
     snap.docs.forEach((doc) => toDelete.push(doc.id));
   }
 
-  // batched delete (max 500)
+  // Batch delete to stay under Firestore 500 writes per batch.
   while (toDelete.length) {
     const batch = db.batch();
     const chunk = toDelete.splice(0, 500);
@@ -103,7 +131,20 @@ async function deleteCommentBatch(rootId) {
   }
 }
 
-// Kaskadno brisanje posta + veza
+/**
+ * @helper deletePostCascadeInternal
+ * Hard-deletes a post and its related data (reactions, comments, image).
+ *
+ * Why order matters:
+ * - Deletes reactions/comments before the post so onDelete triggers have a chance to read post data.
+ * - Uses cursor pagination + batched deletes to safely handle large datasets.
+ *
+ * Security:
+ * - Only the post author or an admin can execute.
+ *
+ * Best-effort:
+ * - Cloudinary delete must not block post deletion.
+ */
 async function deletePostCascadeInternal({ postId, uid }) {
   const postRef = db.collection("posts").doc(postId);
   const postSnap = await postRef.get();
@@ -118,11 +159,11 @@ async function deletePostCascadeInternal({ postId, uid }) {
   if (!authorId) {
     throw new HttpsError(
       "failed-precondition",
-      "Post is missing author userId."
+      "Post is missing author userId.",
     );
   }
 
-  // 1) Ucitamo user dokument da proverimo rolu
+  // Role gate: author or admin only.
   const userRef = db.collection("users").doc(uid);
   const userSnap = await userRef.get();
 
@@ -130,20 +171,19 @@ async function deletePostCascadeInternal({ postId, uid }) {
   const isAuthor = authorId === uid;
   const isAdmin = role === "admin";
 
-  // 2) Author ili admin mogu da prodju
   if (!isAuthor && !isAdmin) {
     throw new HttpsError(
       "permission-denied",
-      "You are not allowed to delete this post."
+      "You are not allowed to delete this post.",
     );
   }
 
-  // Fallback: FieldPath.documentId() moze biti undefined u nekim setup-ima
+  // Fallback: `FieldPath.documentId()` may be undefined in some setups.
   const docIdField = admin.firestore.FieldPath?.documentId
     ? admin.firestore.FieldPath.documentId()
     : "__name__";
 
-  // 3) Reakcije PRVO (da onDelete CF ima vece sanse da ucita post dok jos postoji)
+  // Delete reactions first to reduce chance of post-missing in reaction triggers.
   let lastReaction = null;
   do {
     let q = db
@@ -164,7 +204,7 @@ async function deletePostCascadeInternal({ postId, uid }) {
     lastReaction = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // 4) Komentari
+  // Delete comments in chunks (cursor pagination + batch limit).
   let lastComment = null;
   do {
     let q = db
@@ -185,7 +225,7 @@ async function deletePostCascadeInternal({ postId, uid }) {
     lastComment = snap.docs[snap.docs.length - 1];
   } while (true);
 
-  // 5) Cloudinary slika (best-effort)
+  // Best-effort external cleanup; do not fail the hard-delete because of Cloudinary.
   if (postData.imagePublicId) {
     try {
       await cloudinary.uploader.destroy(postData.imagePublicId);
@@ -194,10 +234,10 @@ async function deletePostCascadeInternal({ postId, uid }) {
     }
   }
 
-  // 6) Na kraju obrisi sam post
+  // Delete the post last.
   await postRef.delete();
 
-  // 7) Stat bump treba da ide AUTORU posta (ne adminu koji je kliknuo delete)
+  // Stat bump must be attributed to the author (not an admin requestor).
   try {
     await bumpPermanentDeletesForUser(authorId);
   } catch (err) {
@@ -211,20 +251,28 @@ async function deletePostCascadeInternal({ postId, uid }) {
 }
 
 // -------------------- ReactionThresholds helper and fallback --------------------
+
+// Reaction thresholds are configurable in Firestore.
+// Fallback prevents broken config from producing always-true badges or badge spam.
 const REACTION_THRESHOLDS_FALLBACK = Object.freeze({
   idea: 5,
   hot: 10,
   powerup: 30,
 });
 
+/**
+ * @helper getReactionThresholds
+ * Loads badge thresholds from `appSettings/reactionThresholds`.
+ * - Normalizes invalid values back to safe fallbacks.
+ * - Keeps triggers resilient if the settings doc is missing or misconfigured.
+ */
 async function getReactionThresholds() {
   const ref = db.collection("appSettings").doc("reactionThresholds");
 
-  // Validates one threshold value and falls back if invalid
+  // Guardrails: keep thresholds positive integers to avoid always-true badge logic.
   const normalize = (value, key) => {
     const fallback = REACTION_THRESHOLDS_FALLBACK[key];
 
-    // Must be a finite number
     if (!Number.isFinite(value)) {
       console.warn(
         "[warn] reactionThreshold invalid (not finite), using fallback",
@@ -232,12 +280,11 @@ async function getReactionThresholds() {
           key,
           value,
           fallback,
-        }
+        },
       );
       return fallback;
     }
 
-    // Must be > 0 to avoid always-true badge logic
     if (value <= 0) {
       console.warn("[warn] reactionThreshold invalid (<= 0), using fallback", {
         key,
@@ -247,7 +294,6 @@ async function getReactionThresholds() {
       return fallback;
     }
 
-    // Optional strictness: thresholds should be integers
     if (!Number.isInteger(value)) {
       console.warn(
         "[warn] reactionThreshold invalid (not integer), using fallback",
@@ -255,7 +301,7 @@ async function getReactionThresholds() {
           key,
           value,
           fallback,
-        }
+        },
       );
       return fallback;
     }
@@ -302,7 +348,7 @@ exports.deletePostCascade = onCall(
     if (!postId) throw new HttpsError("invalid-argument", "Missing postId.");
     await deletePostCascadeInternal({ postId, uid: req.auth.uid });
     return { success: true };
-  }
+  },
 );
 
 // deleteCommentAndChildren (v2)
@@ -310,7 +356,7 @@ exports.deleteCommentAndChildren = onCall(async (req) => {
   if (!req.auth)
     throw new HttpsError(
       "unauthenticated",
-      "You must be logged in to delete a comment."
+      "You must be logged in to delete a comment.",
     );
   const { commentId } = req.data || {};
   if (!commentId)
@@ -327,7 +373,7 @@ exports.deleteCommentAndChildren = onCall(async (req) => {
     console.error("Error while deleting comment and its children:", err);
     throw new HttpsError(
       "internal",
-      "An error occurred while deleting the comment."
+      "An error occurred while deleting the comment.",
     );
   }
 });
@@ -337,7 +383,7 @@ exports.softDeleteComment = onCall(async (req) => {
   if (!req.auth)
     throw new HttpsError(
       "unauthenticated",
-      "You must be logged in to delete a comment."
+      "You must be logged in to delete a comment.",
     );
 
   const { commentId } = req.data || {};
@@ -352,10 +398,9 @@ exports.softDeleteComment = onCall(async (req) => {
   const commentData = docSnap.data();
   const uid = req.auth.uid;
 
-  // Author check
+  // Permission: author or admin can soft-delete.
   const isAuthor = commentData.userID === uid;
 
-  // Admin check
   const userRef = db.collection("users").doc(uid);
   const userSnap = await userRef.get();
   const role = userSnap.exists ? userSnap.data().role : "user";
@@ -364,7 +409,7 @@ exports.softDeleteComment = onCall(async (req) => {
   if (!isAuthor && !isAdmin) {
     throw new HttpsError(
       "permission-denied",
-      "You are not authorized to delete this comment."
+      "You are not authorized to delete this comment.",
     );
   }
 
@@ -381,7 +426,7 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
   if (!req.auth)
     throw new HttpsError(
       "unauthenticated",
-      "You must be authenticated to add a comment."
+      "You must be authenticated to add a comment.",
     );
 
   const { postId, content, parentId = null } = req.data || {};
@@ -390,18 +435,18 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
   if (!postId || !trimmedContent) {
     throw new HttpsError(
       "invalid-argument",
-      "Missing postId or comment content is empty."
+      "Missing postId or comment content is empty.",
     );
   }
 
   if (trimmedContent.length > 500) {
     throw new HttpsError(
       "invalid-argument",
-      "Comment must not exceed 500 characters."
+      "Comment must not exceed 500 characters.",
     );
   }
 
-  // Rate limit: max 3 komentara u 30 sekundi
+  // Rate limit: allow up to 3 comments per 30s window (4th is rejected).
   const now = Timestamp.now();
   const thirtySecondsAgo = Timestamp.fromMillis(now.toMillis() - 30_000);
 
@@ -415,7 +460,7 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
   if (recent.size >= 4) {
     throw new HttpsError(
       "resource-exhausted",
-      "You are sending comments too quickly. Try again in a few seconds."
+      "You are sending comments too quickly. Try again in a few seconds.",
     );
   }
 
@@ -435,10 +480,15 @@ exports.addCommentSecure = onCall({ memory: "256MiB" }, async (req) => {
     console.error("Error adding comment:", error);
     throw new HttpsError(
       "internal",
-      "An error occurred while saving the comment."
+      "An error occurred while saving the comment.",
     );
   }
 });
+
+// -------------------- FIRESTORE TRIGGERS / SCHEDULERS --------------------
+
+// NOTE: Post/userStats triggers and reaction triggers are designed for retry safety.
+// They use idempotency markers (`processedEvents`) and per-reaction ledgers (`reactionLedger`).
 
 // -------------------- FIRESTORE TRIGGER: onCreate (v2) --------------------
 exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
@@ -450,8 +500,7 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
       const createdAt = data?.createdAt;
       if (!userId) return;
 
-      // monthKey = "YYYY-MM"
-      // Ako nema createdAt, fallback je new Date()
+      // Derive month key ("YYYY-MM") from createdAt; fallback to current time if missing.
       const d = createdAt?.toDate ? createdAt.toDate() : new Date();
       const y = d.getUTCFullYear();
       const m = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -461,14 +510,14 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
       const markerRef = db.collection("processedEvents").doc(event.id);
 
       await db.runTransaction(async (tx) => {
-        // Idempotency marker: ako postoji, prekidamo
+        // Idempotency marker: if already processed, do nothing.
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
         const statsSnap = await tx.get(statsRef);
 
         if (!statsSnap.exists) {
-          // Prvo kreiranje stats dokumenta
+          // First-time stats doc creation.
           tx.set(statsRef, {
             totalPosts: 1,
             postsPerMonth: { [monthKey]: 1 },
@@ -478,12 +527,12 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
             updatedAt: FieldValue.serverTimestamp(),
           });
         } else {
-          // 1) Globalni inkrementi
+          // Update totals + month bucket (merge-safe map increment).
           tx.update(statsRef, {
             totalPosts: FieldValue.increment(1),
             updatedAt: FieldValue.serverTimestamp(),
           });
-          // 2) Siguran inkrement u mapi preko merge objekta
+
           tx.set(
             statsRef,
             {
@@ -491,17 +540,18 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
                 [monthKey]: FieldValue.increment(1),
               },
             },
-            { merge: true }
+            { merge: true },
           );
         }
 
+        // Keep processedEvents small with TTL (cleanup handled by Firestore TTL policy).
         tx.set(markerRef, {
           type: "posts.onCreate",
           postId: event.params.postId,
           userId,
           processedAt: FieldValue.serverTimestamp(),
           expiresAt: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           ),
         });
       });
@@ -520,11 +570,10 @@ exports.updateUserStatsOnPostCreateV2 = onDocumentCreated(
       });
       return null;
     }
-  }
+  },
 );
 
 // On restore
-
 exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
   "posts/{postId}",
   async (event) => {
@@ -533,9 +582,10 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
       const after = event.data?.after?.data();
       if (!before || !after) return;
 
+      // Only handle restore transition: deleted:true -> deleted:false
       const wasDeleted = before.deleted === true;
       const isDeleted = after.deleted === true;
-      if (!(wasDeleted && !isDeleted)) return; // samo restore
+      if (!(wasDeleted && !isDeleted)) return;
 
       const userId = after.userId;
       if (!userId) return;
@@ -545,7 +595,7 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
 
       await db.runTransaction(async (tx) => {
         const markerSnap = await tx.get(markerRef);
-        if (markerSnap.exists) return; // već obrađeno
+        if (markerSnap.exists) return;
 
         const statsSnap = await tx.get(statsRef);
         if (!statsSnap.exists) {
@@ -564,7 +614,7 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
               restoredPosts: FieldValue.increment(1),
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
         }
 
@@ -574,7 +624,7 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
           userId,
           processedAt: FieldValue.serverTimestamp(),
           expiresAt: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           ),
         });
       });
@@ -592,8 +642,14 @@ exports.bumpRestoredOnPostUpdate = onDocumentUpdated(
       });
       return null;
     }
-  }
+  },
 );
+
+// -------------------- Reaction triggers pattern --------------------
+// - Idempotency markers (`processedEvents`) prevent double-apply on retries.
+// - Ledgers (`reactionLedger`) prevent double-counting across rapid toggles.
+// - Stale guards skip outdated create/delete events when doc state has changed.
+// - TTL fields keep bookkeeping collections bounded over time.
 
 // -------------------- FIRESTORE TRIGGER: reactions.idea.onCreate (v2) --------------------
 exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
@@ -607,6 +663,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
+      // Guard: only handle idea reactions with a postId.
       if (!postId || reactionType !== "idea") return null;
 
       const eventId = event?.id;
@@ -628,18 +685,18 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
 
       // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       // ledger TTL (only when active:false)
       const ledgerExpiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       const { idea: ideaThreshold } = await getReactionThresholds();
 
       await db.runTransaction(async (tx) => {
-        // ---------------- READS (all first) ----------------
+        // Firestore tx rule: do all reads before writes for clarity/safety.
 
         // 0) Idempotency per event
         const markerSnap = await tx.get(markerRef);
@@ -664,12 +721,12 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // B) stale-create: reaction must still exist
+        // B) Stale-create: reaction must still exist at apply-time.
         const liveReactionSnap = await tx.get(reactionRef);
         if (!liveReactionSnap.exists) {
           tx.set(
@@ -683,7 +740,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
               lastReason: "stale_create",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -699,12 +756,12 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // C) post must exist
+        // C) Post must exist to update aggregates.
         const postSnap = await tx.get(postRef);
         if (!postSnap.exists) {
           tx.set(
@@ -718,7 +775,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -734,7 +791,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -749,7 +806,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
-        // ledger becomes active (counted) -> remove TTL field
+        // Ledger becomes active (counted) -> remove TTL field.
         tx.set(
           ledgerRef,
           {
@@ -761,7 +818,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
 
         tx.set(
@@ -777,7 +834,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
       });
 
@@ -796,7 +853,7 @@ exports.reactionsIdeaOnCreateV2 = onDocumentCreated(
       });
       throw err;
     }
-  }
+  },
 );
 
 // -------------------- FIRESTORE TRIGGER: reactions.idea.onDelete (v2 + ledger) --------------------
@@ -830,17 +887,17 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
       const markerId = `reactions.idea.onDelete__${eventId}`;
       const markerRef = db.collection("processedEvents").doc(markerId);
 
-      // Ledger is keyed by reactionId (deterministic id) -> tracks whether it was counted
+      // Ledger is keyed by reactionId -> tracks whether it was counted.
       const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
       // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       // ledger TTL (only when active:false)
       const ledgerExpiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       const { idea: ideaThreshold } = await getReactionThresholds();
@@ -852,7 +909,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
-        // 1) stale_delete: if reaction doc exists again (user re-toggled ON), skip this delete
+        // 1) Stale-delete: if reaction exists again, skip decrement.
         const liveReactionSnap = await tx.get(reactionRef);
         if (liveReactionSnap.exists) {
           tx.set(
@@ -868,12 +925,12 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // 2) Ledger gate: only decrement if it was previously counted
+        // 2) Ledger gate: only decrement if it was previously counted.
         const ledgerSnap = await tx.get(ledgerRef);
         const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
         const wasCounted = ledgerData.active === true;
@@ -892,12 +949,12 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // 3) Post must exist; if not, just flip ledger off and stop (with TTL)
+        // 3) Post must exist; if not, flip ledger off and stop (with TTL).
         const postSnap = await tx.get(postRef);
         if (!postSnap.exists) {
           tx.set(
@@ -909,7 +966,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -925,7 +982,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -940,7 +997,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
           "badges.mostInspiring": next >= ideaThreshold,
         });
 
-        // ledger becomes inactive -> set TTL
+        // Ledger becomes inactive -> set TTL.
         tx.set(
           ledgerRef,
           {
@@ -950,7 +1007,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
 
         tx.set(
@@ -966,7 +1023,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
       });
 
@@ -985,7 +1042,7 @@ exports.reactionsIdeaOnDeleteV2 = onDocumentDeleted(
       });
       throw err;
     }
-  }
+  },
 );
 
 // -------------------- FIRESTORE TRIGGER: reactions.hot.onCreate (v2) --------------------
@@ -1000,6 +1057,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
       const postId = data?.postId;
       const reactionType = data?.reactionType;
 
+      // Guard: only handle hot reactions with a postId.
       if (!postId || reactionType !== "hot") return null;
 
       const eventId = event?.id;
@@ -1021,12 +1079,12 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
 
       // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       // ledger TTL (only when active:false)
       const ledgerExpiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       const { hot: hotThreshold } = await getReactionThresholds();
@@ -1055,11 +1113,12 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
+        // Stale-create: reaction must still exist at apply-time.
         const liveReactionSnap = await tx.get(reactionRef);
         if (!liveReactionSnap.exists) {
           tx.set(
@@ -1073,7 +1132,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
               lastReason: "stale_create",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -1089,7 +1148,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -1107,7 +1166,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -1123,7 +1182,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -1139,7 +1198,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
           "badges.trending": next >= hotThreshold,
         });
 
-        // ledger becomes active -> remove TTL field
+        // Ledger becomes active -> remove TTL field.
         tx.set(
           ledgerRef,
           {
@@ -1151,7 +1210,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
 
         tx.set(
@@ -1167,7 +1226,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
       });
 
@@ -1186,7 +1245,7 @@ exports.reactionsHotOnCreateV2 = onDocumentCreated(
       });
       throw err;
     }
-  }
+  },
 );
 
 // -------------------- FIRESTORE TRIGGER: reactions.hot.onDelete (v2) --------------------
@@ -1222,12 +1281,12 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
 
       // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       // ledger TTL (only when active:false)
       const ledgerExpiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       const { hot: hotThreshold } = await getReactionThresholds();
@@ -1237,7 +1296,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
-        // stale-delete: if reaction exists again -> skip decrement
+        // Stale-delete: if reaction exists again, skip decrement.
         const liveReactionSnap = await tx.get(reactionRef);
         if (liveReactionSnap.exists) {
           tx.set(
@@ -1253,18 +1312,18 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // ledger: only decrement if counted (and matches this post/type)
+        // Ledger gate: only decrement if it was counted (and matches this post/type).
         const ledgerSnap = await tx.get(ledgerRef);
         const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
 
         const wasCounted = ledgerData?.active === true;
 
-        // optional sanity: avoid decrement if ledger belongs to other post/type
+        // Optional sanity: avoid decrement if ledger belongs to other post/type.
         const ledgerPostId = ledgerData?.postId ?? null;
         const ledgerType = ledgerData?.reactionType ?? null;
         const ledgerMismatch =
@@ -1287,7 +1346,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -1303,7 +1362,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -1319,7 +1378,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -1332,6 +1391,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
           "reactionCounts.hot": next,
         };
 
+        // Keep badge consistent with threshold (latch off when under).
         if (next < hotThreshold) {
           update["badges.trending"] = false;
         }
@@ -1339,7 +1399,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
         // ---------------- WRITES ----------------
         tx.update(postRef, update);
 
-        // ledger becomes inactive -> set TTL
+        // Ledger becomes inactive -> set TTL.
         tx.set(
           ledgerRef,
           {
@@ -1349,7 +1409,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
 
         tx.set(
@@ -1365,7 +1425,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
       });
 
@@ -1384,7 +1444,7 @@ exports.reactionsHotOnDeleteV2 = onDocumentDeleted(
       });
       throw err;
     }
-  }
+  },
 );
 
 // -------------------- SCHEDULER cleanupExpiredPosts (v2) --------------------
@@ -1398,7 +1458,7 @@ exports.cleanupExpiredPostsV2 = onSchedule(
   async () => {
     const now = Timestamp.now();
     const cutoff = Timestamp.fromMillis(
-      now.toMillis() - 30 * 24 * 60 * 60 * 1000
+      now.toMillis() - 30 * 24 * 60 * 60 * 1000,
     );
 
     const snap = await db
@@ -1418,6 +1478,7 @@ exports.cleanupExpiredPostsV2 = onSchedule(
       const postId = doc.id;
       const authorId = doc.get("userId");
       try {
+        // Scheduler has no auth context; run as author so permission checks pass.
         await deletePostCascadeInternal({ postId, uid: authorId });
         console.log(`Deleted post ${postId}`);
       } catch (err) {
@@ -1426,7 +1487,7 @@ exports.cleanupExpiredPostsV2 = onSchedule(
     }
 
     return null;
-  }
+  },
 );
 
 // -------------------- SCHEDULER expireTrendingPosts (v2) --------------------
@@ -1448,6 +1509,7 @@ exports.expireTrendingPostsV2 = onSchedule(
     async function processQuery(baseQuery, reason) {
       let query = baseQuery;
 
+      // Cursor pagination + batch updates to avoid timeouts on large datasets.
       while (true) {
         const snap = await query.get();
         if (snap.empty) break;
@@ -1498,7 +1560,7 @@ exports.expireTrendingPostsV2 = onSchedule(
     });
 
     return null;
-  }
+  },
 );
 
 // -------------------- FIRESTORE TRIGGER: reactions.powerup.onCreate (v2) --------------------
@@ -1515,6 +1577,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       const reactorId = data?.userId;
       const reactionType = data?.reactionType;
 
+      // Guard: only handle powerup reactions.
       if (reactionType !== "powerup") return null;
 
       const eventId = event?.id;
@@ -1531,12 +1594,12 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
 
       // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       // ledger TTL (only when active:false)
       const ledgerExpiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       if (!postId || !reactorId) {
@@ -1554,7 +1617,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
         return null;
       }
@@ -1562,7 +1625,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       const postRef = db.collection("posts").doc(postId);
       const reactionRef = db.collection("reactions").doc(reactionId);
 
-      // Ledger: source-of-truth da li je reaction vec uracunat
+      // Ledger is the source-of-truth for whether this reaction was counted.
       const ledgerRef = db.collection("reactionLedger").doc(reactionId);
 
       const { powerup: powerupThreshold } = await getReactionThresholds();
@@ -1574,7 +1637,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
-        // A) Ledger state (da li je vec uracunat)
+        // A) Ledger state: already counted?
         const ledgerSnap = await tx.get(ledgerRef);
         const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
         const alreadyCounted = ledgerData?.active === true;
@@ -1595,15 +1658,14 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // B) Stale-create guard: reaction doc mora jos da postoji
+        // B) Stale-create guard: reaction doc must still exist.
         const liveReactionSnap = await tx.get(reactionRef);
         if (!liveReactionSnap.exists) {
-          // Nista nije uracunato, ledger ostaje inactive + TTL
           tx.set(
             ledgerRef,
             {
@@ -1616,7 +1678,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               lastReason: "stale_create",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -1634,12 +1696,12 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // C) Post mora da postoji
+        // C) Post must exist
         const postSnap = await tx.get(postRef);
         if (!postSnap.exists) {
           tx.set(
@@ -1654,7 +1716,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -1672,7 +1734,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -1693,7 +1755,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               lastReason: "author_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -1711,14 +1773,14 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
         const isSelf = reactorId === authorId;
 
-        // userStats se cita samo ako nije self
+        // userStats is read only if not self (self-powerups are rejected).
         const userStatsRef = db.collection("userStats").doc(authorId);
         const userPublicRef = db.collection("users").doc(authorId);
 
@@ -1732,10 +1794,10 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
 
         // ---------------- WRITES ----------------
 
-        // Stamp authorId (safe update, ne moze resurrect)
+        // Stamp authorId for safer onDelete resolution (best-effort; reaction already exists).
         tx.update(reactionRef, { authorId });
 
-        // Self-powerup: ne uracunava se + ledger inactive + TTL
+        // Self-powerup: do not count; keep ledger inactive with TTL for cleanup.
         if (isSelf) {
           tx.set(
             ledgerRef,
@@ -1750,7 +1812,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               lastReason: "self_powerup_rejected",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -1768,7 +1830,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -1778,7 +1840,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
           "reactionCounts.powerup": FieldValue.increment(1),
         });
 
-        // 2) Author aggregate (+1) + badge threshold
+        // 2) Author aggregate (+1) + badge threshold (latch on)
         const currentTotal = userStatsData?.powerupsTotal ?? 0;
         const nextTotal = currentTotal + 1;
 
@@ -1800,15 +1862,14 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
         tx.set(userStatsRef, patch, { merge: true });
 
         if (shouldSetTop) {
-          // NESTED (avoid literal key)
           tx.set(
             userPublicRef,
             { badges: { topContributor: true } },
-            { merge: true }
+            { merge: true },
           );
         }
 
-        // 3) Ledger: sad JE uracunato -> remove TTL field
+        // 3) Ledger becomes active (counted) -> remove TTL field.
         tx.set(
           ledgerRef,
           {
@@ -1822,7 +1883,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
 
         // Marker applied
@@ -1841,7 +1902,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
       });
 
@@ -1860,7 +1921,7 @@ exports.reactionsPowerupOnCreateV2 = onDocumentCreated(
       });
       throw err;
     }
-  }
+  },
 );
 
 // -------------------- FIRESTORE TRIGGER: reactions.powerup.onDelete (v2) --------------------
@@ -1879,6 +1940,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
 
       const stampedAuthorId = data?.authorId ?? null;
 
+      // Guard: only handle powerup reactions.
       if (reactionType !== "powerup") return null;
 
       const eventId = event?.id;
@@ -1895,12 +1957,12 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
 
       // processedEvents TTL
       const expiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       // ledger TTL (only when active:false)
       const ledgerExpiresAt = Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       );
 
       if (!postId || !reactorId) {
@@ -1918,7 +1980,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
         return null;
       }
@@ -1934,7 +1996,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
         const markerSnap = await tx.get(markerRef);
         if (markerSnap.exists) return;
 
-        // 1) Stale-delete guard: if reaction exists again, skip decrement
+        // 1) Stale-delete guard: if reaction exists again, skip decrement.
         const liveReactionSnap = await tx.get(reactionRef);
         if (liveReactionSnap.exists) {
           tx.set(
@@ -1952,12 +2014,12 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // 2) Ledger: only decrement if it was counted
+        // 2) Ledger gate: only decrement if it was counted.
         const ledgerSnap = await tx.get(ledgerRef);
         const ledgerData = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
         const wasCounted = ledgerData?.active === true;
@@ -1978,7 +2040,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -1992,7 +2054,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
 
         if (!authorId && postExists) authorId = postData?.userId ?? null;
 
-        // If we cannot resolve authorId, we still MUST turn ledger off (with TTL)
+        // If authorId cannot be resolved, we still must turn ledger off (with TTL).
         if (!authorId) {
           tx.set(
             ledgerRef,
@@ -2003,7 +2065,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               lastReason: postExists ? "author_missing" : "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -2021,12 +2083,12 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // Self guard (safety) -> ledger off with TTL
+        // Safety: self-powerups must never affect aggregates.
         if (reactorId === authorId) {
           tx.set(
             ledgerRef,
@@ -2037,7 +2099,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               lastReason: "self_powerup_rejected",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -2055,7 +2117,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
@@ -2068,14 +2130,14 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
 
         // ---------------- WRITES ----------------
 
-        // A) Decrement post aggregate only if post exists
+        // A) Decrement post aggregate only if post exists.
         if (postExists) {
           const currentPostPowerups = postData?.reactionCounts?.powerup ?? 0;
           const nextPostPowerups = Math.max(currentPostPowerups - 1, 0);
 
           tx.update(postRef, { "reactionCounts.powerup": nextPostPowerups });
         } else {
-          // post missing, but reaction was counted -> ledger must go off (with TTL)
+          // Post missing, but reaction was counted -> ledger must go off (with TTL).
           tx.set(
             ledgerRef,
             {
@@ -2085,7 +2147,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               lastReason: "post_missing",
               updatedAt: FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           tx.set(
@@ -2103,17 +2165,17 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
               processedAt: FieldValue.serverTimestamp(),
               expiresAt,
             },
-            { merge: true }
+            { merge: true },
           );
           return;
         }
 
-        // B) Decrement author aggregate (clamp 0) - latch badges
+        // B) Decrement author aggregate (clamp to 0) - badges are latched on.
         const currentTotal = userStatsData?.powerupsTotal ?? 0;
         const nextTotal = Math.max(currentTotal - 1, 0);
         tx.set(userStatsRef, { powerupsTotal: nextTotal }, { merge: true });
 
-        // C) Ledger: no longer counted -> set TTL
+        // C) Ledger becomes inactive -> set TTL.
         tx.set(
           ledgerRef,
           {
@@ -2123,7 +2185,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             lastReason: null,
             updatedAt: FieldValue.serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
 
         // Marker applied
@@ -2142,7 +2204,7 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
             processedAt: FieldValue.serverTimestamp(),
             expiresAt,
           },
-          { merge: true }
+          { merge: true },
         );
       });
 
@@ -2161,5 +2223,5 @@ exports.reactionsPowerupOnDeleteV2 = onDocumentDeleted(
       });
       throw err;
     }
-  }
+  },
 );

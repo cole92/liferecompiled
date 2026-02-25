@@ -12,36 +12,41 @@ import {
 import { normalizePostDoc } from "../mappers/posts/normalizePostDoc";
 
 /**
- * Dohvata sve aktivne postove iz Firestore baze, sortirane po datumu kreiranja (najnoviji prvi).
+ * Fetches all active posts from Firestore, sorted by creation date (newest first).
  *
- * - Ukljucuje samo postove koji nisu soft-obrisani (`deleted === false`)
- * - Za svaki post dodatno dohvata podatke o autoru iz 'users' kolekcije
- * - Ako nema komentara, koristi prazan niz kao fallback
+ * Behavior:
+ * - Includes only posts that are not soft-deleted (`deleted === false`)
+ * - For each post, fetches the author data from the `users` collection
+ * - Ensures `comments` is always an array (falls back to an empty array)
+ *
+ * Notes:
+ * - This function performs 1 query for posts + 1 user fetch per post (N+1 reads).
+ *   For large feeds, consider paging + batching author reads (or using a page service).
  *
  * @async
  * @function getPosts
- * @returns {Promise<Array<Object>>} Lista postova sa informacijama o autoru.
- * Svaki post ukljucuje: `id`, `author`, ostala polja iz posta, i eventualno `comments`.
- * @throws {Error} Ako dodje do greske prilikom dohvatanja.
+ * @returns {Promise<Array<Object>>} List of posts including `id`, `author`, post fields, and `comments`.
+ * @throws {Error} If fetching fails.
  */
-
 export const getPosts = async () => {
   try {
     const postsRef = collection(db, "posts");
+
     const q = query(
       postsRef,
-      where("deleted", "==", false), // Dohvatamo samo postove koji nisu oznaceni kao obrisani
-      orderBy("createdAt", "desc")
+      where("deleted", "==", false), // Only active (not deleted) posts
+      orderBy("createdAt", "desc"),
     );
 
     const querySnapshot = await getDocs(q);
+
     const posts = await Promise.all(
       querySnapshot.docs.map(async (docSnap) => {
         const postData = docSnap.data();
-        // Dohvata autora posta na osnovu userId
 
-        const userRef = doc(db, "users", postData.userId); // Referenca na korisnika
-        const userSnap = await getDoc(userRef); // Dohvati korisnika
+        // Fetch the author based on userId
+        const userRef = doc(db, "users", postData.userId);
+        const userSnap = await getDoc(userRef);
 
         return {
           id: docSnap.id,
@@ -49,9 +54,9 @@ export const getPosts = async () => {
           author: userSnap.exists()
             ? { ...userSnap.data(), id: userSnap.id }
             : { name: "Unknown", id: null },
-          comments: postData.comments || [], // Ako nema komentara, stavljamo prazan niz
+          comments: postData.comments || [], // Ensure array fallback
         };
-      })
+      }),
     );
 
     return posts;
@@ -62,15 +67,14 @@ export const getPosts = async () => {
 };
 
 /**
- * Dohvata jedan post iz Firestore baze na osnovu njegovog ID-ja.
+ * Fetches a single post from Firestore by its ID.
  *
  * @async
  * @function getPostById
- * @param {string} postId - Jedinstveni ID posta koji se trazi.
- * @returns {Promise<Object|null>} Post objekat ako postoji, inače `null`.
- * @throws {Error} Ako dodje do greske prilikom dohvatanja.
+ * @param {string} postId - Unique post ID.
+ * @returns {Promise<Object|null>} The normalized post object if it exists, otherwise `null`.
+ * @throws {Error} If fetching fails.
  */
-
 export const getPostById = async (postId) => {
   try {
     const ref = doc(db, "posts", postId);

@@ -19,6 +19,24 @@ import SavedPostCard from "./SavedPostCard";
 import EmptyState from "../EmptyState";
 import SkeletonCard from "../../../../components/ui/skeletonLoader/SkeletonCard";
 
+/**
+ * @component SavedPosts
+ *
+ * Saved posts page with pagination and Undo-enabled unsave flow.
+ *
+ * Key behaviors:
+ * - Fetches saved post IDs from `users/{uid}/savedPosts`, then resolves each real post doc.
+ * - Uses "ghost" fallback cards when a post no longer exists or cannot be fetched.
+ * - Supports Load More pagination via cursor (`lastDoc`) and `hasMore` boundary.
+ * - Unsave is optimistic with an Undo window; final status messages are de-duped via toastId.
+ *
+ * UX notes:
+ * - Uses skeletons while auth is checking and during initial page load.
+ * - Avoids state updates after unmount via `mountedRef`.
+ * - Uses `Promise.allSettled` so one broken post does not break the whole list.
+ *
+ * @returns {JSX.Element}
+ */
 const SavedPosts = () => {
   const { user, isCheckingAuth } = useContext(AuthContext);
   const { savedSortDirection } = useOutletContext();
@@ -30,16 +48,18 @@ const SavedPosts = () => {
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
+  // Local page constants: Saved page is intentionally capped for fast "resolve per post" fan-out.
   const POST_PER_PAGE = 10;
   const UNDO_MS = 7000;
 
-  // One shared status toast id so we do not stack "Removed/Restored/Failed" messages
+  // One shared status toast id so we do not stack "Removed/Restored/Failed" messages.
   const SAVED_STATUS_TOAST_ID = "saved:status";
 
   // Map<postId, { snapshot, index, didUndo }>
+  // Tracks items currently in the Undo window (also used to disable repeated actions).
   const pendingUndoRef = useRef(new Map());
 
-  // Guard: avoid setState after unmount
+  // Guard: avoid setState after unmount.
   const mountedRef = useRef(false);
   useEffect(() => {
     mountedRef.current = true;
@@ -48,12 +68,29 @@ const SavedPosts = () => {
     };
   }, []);
 
+  /**
+   * Immutable helper: insert an item back at its previous index.
+   * Used by Undo and error recovery paths.
+   *
+   * @param {any[]} arr
+   * @param {number} index
+   * @param {any} item
+   * @returns {any[]}
+   */
   const insertAt = (arr, index, item) => {
     const copy = arr.slice();
     copy.splice(Math.min(index, copy.length), 0, item);
     return copy;
   };
 
+  /**
+   * Create a "ghost" post for saved entries whose source post was removed.
+   * Keeps the list stable and still allows unsave/removal from the Saved page.
+   *
+   * @param {Object} savedMeta
+   * @param {string} id
+   * @returns {Object}
+   */
   const buildGhostFromSaved = (savedMeta, id) => ({
     id,
     title: savedMeta.postTitleAtSave || "Post is no longer available",
@@ -77,9 +114,11 @@ const SavedPosts = () => {
   useEffect(() => {
     let canceled = false;
 
+    // Wait until auth state is known to avoid flashes and unnecessary queries.
     if (isCheckingAuth) return;
     if (!user) return;
 
+    // Reset paging state when user or sort direction changes.
     setSavedPosts([]);
     setLastDoc(null);
     setHasMore(true);
@@ -89,6 +128,7 @@ const SavedPosts = () => {
       setIsLoading(true);
 
       try {
+        // Fetch one extra doc to decide `hasMore` without a separate count query.
         const q = buildSavedQuery({
           uid: user.uid,
           pageSize: POST_PER_PAGE + 1,
@@ -116,6 +156,7 @@ const SavedPosts = () => {
         setLastDoc(pageDocs[pageDocs.length - 1]);
         setHasMore(docs.length > POST_PER_PAGE);
 
+        // Resolve each saved entry to a post; failures become ghost cards.
         const results = await Promise.allSettled(
           pageDocs.map(async (docItem) => {
             const savedMeta = docItem.data();
@@ -173,6 +214,12 @@ const SavedPosts = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, isCheckingAuth, savedSortDirection]);
 
+  /**
+   * Cursor-based pagination for saved posts.
+   * Uses `lastDoc` + pageSize+1 strategy to derive `hasMore`.
+   *
+   * @returns {Promise<void>}
+   */
   const handleLoadMore = async () => {
     if (!user || !hasMore || isLoadingMore || !lastDoc) return;
     setIsLoadingMore(true);
@@ -240,6 +287,7 @@ const SavedPosts = () => {
         .filter((r) => r.status === "fulfilled")
         .map((r) => r.value);
 
+      // Merge by id to avoid duplicates on fast paging or inconsistent snapshots.
       setSavedPosts((prev) => {
         const merged = [...prev, ...newPosts];
         const byId = new Map(merged.map((p) => [p.id, p]));
@@ -256,6 +304,7 @@ const SavedPosts = () => {
   };
 
   useEffect(() => {
+    // Edge-case recovery: if first fetch returns empty but we still have paging state, try once.
     if (isLoading) return;
     if (isLoadingMore) return;
     if (!hasMore) return;
@@ -284,6 +333,10 @@ const SavedPosts = () => {
     );
   }
 
+  /**
+   * Inline toast content used for Undo.
+   * Local component avoids extra abstraction and keeps toast markup near its usage.
+   */
   const UndoToast = ({ onUndo }) => (
     <div className="flex items-center gap-3">
       <span>Removed from saved.</span>
@@ -320,15 +373,31 @@ const SavedPosts = () => {
     );
   }
 
+  /**
+   * Optimistic unsave with Undo window.
+   *
+   * Flow:
+   * 1) Remove item from UI immediately
+   * 2) Call `unsavePost` (server write)
+   * 3) Show Undo toast for `UNDO_MS`
+   * 4) If Undo -> restore UI + `savePost` again; else finalize success message
+   *
+   * @param {Object} post
+   * @returns {Promise<void>}
+   */
   const handleUnsave = async (post) => {
     if (!user) return;
+
+    // Prevent double-unsave while an Undo is already pending for this post.
     if (pendingUndoRef.current.has(post.id)) return;
 
     const index = savedPosts.findIndex((p) => p.id === post.id);
     if (index === -1) return;
 
+    // Optimistic remove keeps the list snappy.
     setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
 
+    // Keep minimal metadata so Saved cards can show "updated since saved" after restore.
     const snapshotForSave = {
       postTitleAtSave: post?.title || "Untitled",
       postUpdatedAtAtSave: post?.updatedAt || post?.createdAt || null,
@@ -343,6 +412,7 @@ const SavedPosts = () => {
     try {
       await unsavePost(user.uid, post.id);
     } catch (error) {
+      // Hard failure: revert immediately to avoid data/UI drift.
       pendingUndoRef.current.delete(post.id);
       if (mountedRef.current) {
         setSavedPosts((prev) => insertAt(prev, index, post));
@@ -354,6 +424,7 @@ const SavedPosts = () => {
       return;
     }
 
+    // Toast is tied to the post id so multiple unsaves do not stack duplicates.
     const toastId = toast(<UndoToast onUndo={onUndo} />, {
       toastId: `unsave-undo:${post.id}`,
       autoClose: UNDO_MS,
@@ -364,6 +435,7 @@ const SavedPosts = () => {
         const entry = pendingUndoRef.current.get(post.id);
         if (!entry) return;
 
+        // If Undo was not used, finalize with a single status toast.
         if (!entry.didUndo) {
           showSuccessToast("Removed from saved!", {
             toastId: SAVED_STATUS_TOAST_ID,
@@ -378,6 +450,7 @@ const SavedPosts = () => {
       const entry = pendingUndoRef.current.get(post.id);
       if (!entry) return;
 
+      // Mark Undo to prevent "Removed" success toast in onClose.
       pendingUndoRef.current.set(post.id, { ...entry, didUndo: true });
 
       if (mountedRef.current) {
@@ -392,6 +465,7 @@ const SavedPosts = () => {
         await savePost(user.uid, post.id, snapshotForSave);
         showInfoToast("Restored.", { toastId: SAVED_STATUS_TOAST_ID });
       } catch (e) {
+        // Restore failed server-side: revert UI again to keep state honest.
         if (mountedRef.current) {
           setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
         }

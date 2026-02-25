@@ -1,6 +1,25 @@
 import PropTypes from "prop-types";
 import ModalPortal from "./ModalPortal";
 
+/**
+ * @component ConfirmModal
+ *
+ * Reusable confirmation dialog (destructive by default).
+ *
+ * - Uses `ModalPortal` for ESC/backdrop close + consistent modal layering.
+ * - `handleConfirm` awaits `onConfirm` (supports async actions) and then closes via `onCancel`.
+ *   This avoids UI closing before the caller finishes its side effects.
+ *
+ * @param {boolean} isOpen
+ * @param {string} title
+ * @param {string} message
+ * @param {Function} onConfirm - Action to run when user confirms (may be async).
+ * @param {Function} onCancel - Close handler (also used after confirm).
+ * @param {string=} confirmText
+ * @param {string=} confirmButtonClass
+ * @param {string=} cancelButtonClass
+ * @returns {JSX.Element}
+ */
 const ConfirmModal = ({
   isOpen,
   title,
@@ -12,7 +31,8 @@ const ConfirmModal = ({
   cancelButtonClass,
 }) => {
   const handleConfirm = async () => {
-    // Important: wait confirm (async safe), then close
+    // Await confirm to keep caller logic consistent (delete/ban/report can be async),
+    // then close the modal using the shared cancel handler.
     await Promise.resolve(onConfirm());
     onCancel();
   };

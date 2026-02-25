@@ -8,12 +8,19 @@ import topContributorBadge from "../ui/badges/badge_top_contributor.webp";
 /**
  * @component BadgeModal
  *
- * Modal prikaz PNG bedzeva za post ili autora.
+ * Simple modal that shows a large badge image + short explanation text.
  *
- * - badgeKey: prikazuje bedz za post: "mostInspiring", "trending"
- * - authorBadge: prikazuje bedz za autora: "topContributor"
- * - Zatvara se na ESC ili klik van prozora (ModalPortal)
- * - locked: samo vizuelno "pasivno" stanje (close uvek radi)
+ * - `badgeKey` targets post badges: "mostInspiring", "trending"
+ * - `authorBadge` targets author badges: "topContributor"
+ * - Closing behavior (ESC / backdrop click) is handled by `ModalPortal`.
+ * - `locked` is visual-only (grayscale/opacity); close is always allowed.
+ *
+ * @param {boolean} isOpen
+ * @param {Function} onClose
+ * @param {string=} authorBadge
+ * @param {string=} badgeKey
+ * @param {boolean=} locked
+ * @returns {JSX.Element}
  */
 const BadgeModal = ({ isOpen, onClose, authorBadge, badgeKey, locked }) => {
   const title =

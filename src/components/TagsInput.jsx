@@ -7,6 +7,10 @@ const MOBILE_PREDEFINED_LIMIT = 12;
 const MAX_TAGS = 5;
 const MAX_PER_CATEGORY = 50;
 
+/**
+ * Convert category keys (camelCase / snake_case) into a readable label.
+ * This keeps UI labels stable without duplicating config.
+ */
 function formatCategoryName(key) {
   const s = String(key ?? "")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -15,11 +19,23 @@ function formatCategoryName(key) {
   return s ? s[0].toUpperCase() + s.slice(1) : "";
 }
 
+/**
+ * Build a canonical tag index (module-scope, runs once).
+ *
+ * Why:
+ * - We only allow tags that exist in our curated sets (predefined + categorized).
+ * - We normalize by lowercase and store a canonical version to keep casing consistent.
+ *
+ * Returns:
+ * - `all`: Map<lowercasedTag, canonicalTagText>
+ * - `categories`: [{ key, label, tags: [{ text, lc }] }]
+ */
 function buildTagIndex() {
   const all = new Map();
   const categories = [];
 
   Object.entries(categorizedTags).forEach(([key, list]) => {
+    // Support a special "predefined" bucket inside categorizedTags.
     if (key === "predefined") {
       (list || []).forEach((t) => {
         const text = String(t);
@@ -44,6 +60,7 @@ function buildTagIndex() {
     });
   });
 
+  // Also merge top-level predefinedTags for mobile/desktop quick picks.
   predefinedTags.forEach((t) => {
     const text = String(t);
     const lc = text.toLowerCase();
@@ -55,18 +72,43 @@ function buildTagIndex() {
 
 const TAG_INDEX = buildTagIndex();
 
+/**
+ * @component TagsInput
+ *
+ * Curated tag picker with two entry paths:
+ * - Quick picks (predefined tags) for fast selection (mobile + desktop).
+ * - Typeahead search (react-tag-input) limited to the curated tag index.
+ *
+ * Key rules:
+ * - Only tags present in `TAG_INDEX` can be added (prevents arbitrary/free-form tags).
+ * - Max 5 tags total.
+ * - No duplicates (case-insensitive).
+ *
+ * UX details:
+ * - `useDeferredValue` reduces re-render pressure while the user types.
+ * - Clicking outside or pressing ESC clears the typeahead input (does not remove tags).
+ * - When maxed, remaining options become disabled except already-selected tags.
+ *
+ * @param {object} props
+ * @param {{id: string, text: string}[]} props.tags - Selected tags (controlled).
+ * @param {(next: {id: string, text: string}[]) => void} props.setTags - Setter for selected tags.
+ * @returns {JSX.Element}
+ */
 const TagsInput = ({ tags, setTags }) => {
   const [error, setError] = useState(null);
   const [inputValue, setInputValue] = useState("");
   const [showAllMobile, setShowAllMobile] = useState(false);
   const containerRef = useRef(null);
 
+  // Defer filtering work while typing (keeps UI responsive on large tag sets).
   const deferredInput = useDeferredValue(inputValue);
 
+  // Clear error when user removes all tags (common "reset" flow).
   useEffect(() => {
     if (tags.length === 0) setError(null);
   }, [tags]);
 
+  // Input reset helpers: click outside + ESC clears only the input text.
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -90,6 +132,7 @@ const TagsInput = ({ tags, setTags }) => {
     };
   }, []);
 
+  // Guard against leading spaces (prevents weird empty query states).
   const handleInputChange = (value) => {
     if (value.startsWith(" ")) setInputValue("");
     else setInputValue(value);
@@ -102,16 +145,18 @@ const TagsInput = ({ tags, setTags }) => {
     const lc = raw.toLowerCase();
     const canonical = TAG_INDEX.all.get(lc);
 
+    // This component is curated-only: free-form tags are rejected.
     if (!canonical) {
       setError("Please select a tag from the list.");
       return;
     }
 
     if (tags.length >= MAX_TAGS) {
-      setError("You can add up to 5 tags only.");
+      setError(`You can add up to ${MAX_TAGS} tags only.`);
       return;
     }
 
+    // Case-insensitive dedupe to keep canonical casing stable.
     if (
       tags.some(
         (t) => String(t.text ?? "").toLowerCase() === canonical.toLowerCase(),
@@ -130,6 +175,7 @@ const TagsInput = ({ tags, setTags }) => {
     setTags(tags.filter((_, i) => i !== index));
   };
 
+  // Disable unselected options once we reach max tags.
   const isTagDisabled = (tagText) => {
     return (
       tags.length >= MAX_TAGS &&
@@ -146,6 +192,7 @@ const TagsInput = ({ tags, setTags }) => {
         String(t.text ?? "").toLowerCase() === String(tagText).toLowerCase(),
     );
 
+  // Filtering is always based on the deferred input (smoother typing).
   const query = useMemo(
     () => deferredInput.trim().toLowerCase(),
     [deferredInput],
@@ -156,6 +203,7 @@ const TagsInput = ({ tags, setTags }) => {
 
     const out = [];
 
+    // Group matches by category label, capped per category for predictable dropdown size.
     for (const cat of TAG_INDEX.categories) {
       const matches = [];
       for (const t of cat.tags) {
@@ -260,6 +308,7 @@ const TagsInput = ({ tags, setTags }) => {
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
 
+  // Mobile: show a subset by default to keep the grid compact.
   const mobilePredefined = showAllMobile
     ? predefinedTags
     : predefinedTags.slice(0, MOBILE_PREDEFINED_LIMIT);
@@ -282,6 +331,7 @@ const TagsInput = ({ tags, setTags }) => {
         Tags
       </label>
 
+      {/* Mobile quick picks */}
       <div className="sm:hidden">
         <div
           id="mobile-predefined-tags"
@@ -322,13 +372,13 @@ const TagsInput = ({ tags, setTags }) => {
             aria-expanded={showAllMobile}
             aria-controls="mobile-predefined-tags"
           >
-            <span>{showAllMobile ? "Less tags" : "More tags"}</span>
+            <span>
+              {showAllMobile ? "Less tags" : `More tags (${moreCount})`}
+            </span>
 
             <svg
               viewBox="0 0 20 20"
-              className={`h-4 w-4 transition-transform ${
-                showAllMobile ? "rotate-180" : ""
-              }`}
+              className={`h-4 w-4 transition-transform ${showAllMobile ? "rotate-180" : ""}`}
               aria-hidden="true"
             >
               <path
@@ -340,6 +390,7 @@ const TagsInput = ({ tags, setTags }) => {
         ) : null}
       </div>
 
+      {/* Desktop quick picks */}
       <div className="hidden sm:grid sm:grid-cols-[repeat(auto-fit,minmax(110px,1fr))] sm:gap-2">
         {predefinedTags.map((tagText) => {
           const isActive = isActiveTag(tagText);
@@ -369,13 +420,15 @@ const TagsInput = ({ tags, setTags }) => {
       </div>
 
       <p className="text-xs text-zinc-400">
-        Add up to 5 tags to describe your post.
+        Add up to {MAX_TAGS} tags to describe your post.
       </p>
 
+      {/* Typeahead input (curated-only) */}
       <div
         className="relative"
         ref={containerRef}
         onKeyDown={(e) => {
+          // Prevent accidental form submit while tag input is focused.
           if (e.key === "Enter") e.preventDefault();
         }}
       >

@@ -29,22 +29,21 @@ import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 /**
  * @component PostCard
  *
- * Vizuelna kartica za prikaz jednog posta sa interakcijama i state indikatorima.
+ * Interactive post card used across multiple feeds (Home, MyPosts, Saved, Trash).
  *
- * Namena:
- * - Prikazuje naslov, autora, opis, tagove i kategoriju
- * - Rukuje reakcijama, komentarima, sacuvanim statusom i lock/trash stanjima
- * - Prati unified Trash UX (daysLeft badge, Restore / Delete Permanently)
- * - Odrzava Trending / Most Inspiring bedzeve i Top Contributor modal
- * - Kada je `post.locked === true` post je efektivno read-only za reakcije i komentare
+ * Responsibilities:
+ * - Displays post meta (title, author, description, tags, category, timestamps)
+ * - Handles interactions: open details, save/unsave, reactions, comments, badge modals
+ * - Supports unified Trash UX (restore window + permanent delete)
+ * - Respects lock state: locked posts are effectively read-only for reactions/comments
  *
- * Layout varijante:
- * - Regularni prikaz (Home, MyPosts, Saved) – kartica je klikabilna i vodi na `/post/:id`
- * - Trash mod – kartica nije klikabilna, prikazuje TTL badge i Trash akcije
- * - MyPosts – prikazuje Edit dugme + auto-lock countdown prvih 7 dana
+ * Variants:
+ * - Regular: card is clickable and navigates to `/post/:id`
+ * - Trash mode: not clickable, shows TTL badge + restore/delete actions
+ * - MyPosts: shows Edit button + auto-lock countdown (first 7 days)
  *
- * Kontrola komentara:
- * - `showCommentsThread === false` gasi prikaz Comments thread-a bez menjanja same Comments logike
+ * Notes:
+ * - `showCommentsThread=false` disables thread rendering without changing Comments logic
  *
  * @returns {JSX.Element}
  */
@@ -119,6 +118,7 @@ const PostCard = ({
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
 
+    // Snapshot helps SavedPosts detect stale saves after edits (title/updatedAt)
     const currentUpdated = updatedAt || createdAt;
 
     const snapshot = {
@@ -143,7 +143,7 @@ const PostCard = ({
         className={`${cardBase} ${cardInteractive} ${cardTrending}`}
         onClick={handleClick}
       >
-        {/* Top-right actions (fix: nema vise preklapanja Info i Delete) */}
+        {/* Top-right actions: keep Info + Delete separated (no overlap) */}
         <div className="absolute top-2 right-2 z-20 flex items-center gap-2">
           {showDeleteButton && (
             <button
@@ -171,7 +171,7 @@ const PostCard = ({
           </button>
         </div>
 
-        {/* Klikabilni PNG bedzevi (💡, 🔥) */}
+        {/* Clickable badge chips (Most Inspiring / Trending) */}
         <div className="absolute top-2 right-16 z-10 flex flex-col gap-1">
           {post.badges?.mostInspiring && (
             <Badge
@@ -233,7 +233,7 @@ const PostCard = ({
             )}
           </div>
 
-          {/* Lock badges */}
+          {/* Lock state indicators */}
           {post.locked && !isTrashMode && (
             <div className="mt-3 flex items-center gap-2">
               <span
@@ -257,7 +257,7 @@ const PostCard = ({
             </div>
           )}
 
-          {/* MyPost: manual lock */}
+          {/* MyPosts: manual lock action (only when unlocked) */}
           {isMyPost && post.locked === false && (
             <div className="mt-3">
               <button
@@ -293,12 +293,12 @@ const PostCard = ({
             </button>
           </div>
 
-          {/* Trash TTL badge */}
+          {/* Trash TTL badge (restore window) */}
           {isTrashMode && daysLeft !== null && (
             <div className="mt-2">
               <span
                 className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getBadgeColor(
-                  daysLeft
+                  daysLeft,
                 )}`}
               >
                 ⏳{" "}
@@ -345,7 +345,7 @@ const PostCard = ({
             </span>
           </div>
 
-          {/* Reactions */}
+          {/* Reactions (disabled in Trash mode) */}
           {!isTrashMode && (
             <div className="mt-4">
               <ReactionSummary
@@ -358,7 +358,7 @@ const PostCard = ({
             </div>
           )}
 
-          {/* Comments */}
+          {/* Comments thread (optional, does not affect Comments internals) */}
           {!isTrashMode && showCommentsThread && (
             <div className="mt-4">
               <Comments
@@ -369,7 +369,7 @@ const PostCard = ({
             </div>
           )}
 
-          {/* MyPosts: edit + countdown */}
+          {/* MyPosts: edit + countdown (only within 7-day edit window) */}
           {!isTrashMode && isMyPost && !post.locked && !isAutoLocked && (
             <div className="mt-4">
               <Link
@@ -389,7 +389,7 @@ const PostCard = ({
             </div>
           )}
 
-          {/* Auto-lock warning */}
+          {/* Auto-lock notice (MyPosts only) */}
           {isAutoLocked && isMyPost && (
             <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-200">
               <strong>Note:</strong> Editing is disabled. This post was locked
@@ -463,7 +463,7 @@ PostCard.propTypes = {
     tags: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string.isRequired,
-      })
+      }),
     ).isRequired,
 
     author: PropTypes.shape({
@@ -478,7 +478,7 @@ PostCard.propTypes = {
     comments: PropTypes.arrayOf(
       PropTypes.shape({
         text: PropTypes.string,
-      })
+      }),
     ),
 
     reactionCounts: PropTypes.shape({

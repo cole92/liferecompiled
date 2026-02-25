@@ -3,23 +3,27 @@ import ModalPortal from "./ModalPortal";
 
 /**
  * @component ReactionInfoModal
- * Modalni prozor koji prikazuje znacenje svakog tipa reakcije (💡, 🔥, ⚡).
- * Sluzi kao UX edukativni fallback za mobilne uredjaje gde tooltip nije pouzdan.
- * Zatvara se klikom na dugme ili pritiskom ESC tastera.
  *
- * @param {Function} onClose - Callback koji zatvara modal.
- * @param {boolean} isOpen - Kontrolise vidljivost modala.
- * @returns {JSX.Element} Modal sa objasnjenjem reakcija i dugmetom za zatvaranje.
+ * Educational modal that explains reaction meanings (💡/🔥/⚡) + related badges.
+ * Primary purpose: mobile-friendly fallback when hover tooltips are unreliable.
+ *
+ * Behavior:
+ * - Closes via backdrop/ESC through `ModalPortal` and via explicit CTA button.
+ * - Copy can mention current thresholds, but treat them as adjustable platform rules.
+ *
+ * @param {Function} onClose - Close handler for the modal.
+ * @param {boolean} isOpen - Visibility flag.
+ * @returns {JSX.Element}
  */
 const ReactionInfoModal = ({ onClose, isOpen }) => {
   return (
     <ModalPortal isOpen={isOpen} onClose={onClose} panelClassName="!p-5">
-      {/* Naslov modala */}
+      {/* Clear title to set context immediately (no tooltip dependency). */}
       <h2 className="text-base md:text-lg font-semibold mb-3 text-zinc-100">
         What do the reactions mean?
       </h2>
 
-      {/* Reakcije */}
+      {/* Compact, scannable explanation list: icon -> label -> meaning + short hint. */}
       <div className="text-sm space-y-4 mb-4 text-zinc-200">
         <div className="flex items-start gap-2">
           <span>💡</span>
@@ -58,7 +62,7 @@ const ReactionInfoModal = ({ onClose, isOpen }) => {
         </div>
       </div>
 
-      {/* Bedzevi */}
+      {/* Badge section: connects reactions to longer-term incentives/achievements. */}
       <div className="mt-4 pt-4 border-t border-zinc-800">
         <h2 className="text-base md:text-lg font-semibold mb-3 text-zinc-100">
           Badges from reactions — how to earn them
@@ -87,7 +91,7 @@ const ReactionInfoModal = ({ onClose, isOpen }) => {
         </div>
       </div>
 
-      {/* Dugme */}
+      {/* Single CTA keeps the close action obvious on mobile. */}
       <div className="flex justify-end mt-4">
         <button onClick={onClose} className="ui-button-primary">
           Got it

@@ -7,12 +7,25 @@ import { DEFAULT_PROFILE_PICTURE } from "../../constants/defaults";
 
 /**
  * @component LikesModal
- * Modalni prikaz korisnika koji su lajkovali komentar.
  *
- * - Prikazuje avatar i ime korisnika koji su lajkovali
- * - Ukljucuje loading stanje i poruku ako nema lajkova
- * - Omogucava "Load more" prikaz za duze liste
- * - Zatvara se klikom na dugme ili ESC/overlay (preko ModalPortal)
+ * Modal list of users who liked a comment.
+ *
+ * UX goals:
+ * - Keep the list scannable (avatar + name), with a clear empty/loading state.
+ * - Support long lists via "Load more" (client-side pagination via `visibleCount`).
+ * - Close on ESC/backdrop via `ModalPortal`, plus explicit Close button.
+ *
+ * Navigation:
+ * - Rows link to user profiles when `u.id` exists.
+ * - Clicking a profile closes the modal to avoid stacked navigation + overlay.
+ *
+ * @param {boolean} isOpen
+ * @param {Function} onClose
+ * @param {Array} users
+ * @param {boolean=} loading
+ * @param {number=} visibleCount
+ * @param {Function=} onLoadMore
+ * @returns {JSX.Element}
  */
 const LikesModal = ({
   isOpen,

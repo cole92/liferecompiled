@@ -1,18 +1,37 @@
 // src/pages/ReportIssue.jsx
 import { useContext, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+
 import { AuthContext } from "../context/AuthContext";
 import { showErrorToast, showSuccessToast } from "../utils/toastUtils";
 
 const SUPPORT_EMAIL =
   import.meta.env.VITE_SUPPORT_EMAIL || "support@example.com";
 
+/**
+ * Build a mailto: link (works with the user's default mail client).
+ *
+ * @param {object} params
+ * @param {string} params.to
+ * @param {string} params.subject
+ * @param {string} params.body
+ * @returns {string}
+ */
 function buildMailto({ to, subject, body }) {
   const s = encodeURIComponent(subject);
   const b = encodeURIComponent(body);
   return `mailto:${to}?subject=${s}&body=${b}`;
 }
 
+/**
+ * Build a Gmail web compose link (opens Gmail in the browser).
+ *
+ * @param {object} params
+ * @param {string} params.to
+ * @param {string} params.subject
+ * @param {string} params.body
+ * @returns {string}
+ */
 function buildGmailComposeUrl({ to, subject, body }) {
   const params = new URLSearchParams({
     view: "cm",
@@ -34,6 +53,23 @@ const TYPE_OPTIONS = [
   "Other",
 ];
 
+/**
+ * @component ReportIssue
+ *
+ * Support & feedback page.
+ *
+ * What it does:
+ * - Collects a category, title, message, and optional steps to reproduce.
+ * - Auto-includes basic debug metadata (route, url, uid/email, user agent, timestamp).
+ * - Helps the user send the report via:
+ *   - Gmail (web)
+ *   - Default email app (mailto)
+ *   - Copy-to-clipboard fallback
+ *
+ * Notes:
+ * - We require Title + Message before opening links/copying.
+ * - We avoid storing anything; this is a "compose and handoff" page.
+ */
 const ReportIssue = () => {
   const { user } = useContext(AuthContext);
   const location = useLocation();
@@ -44,6 +80,10 @@ const ReportIssue = () => {
   const [steps, setSteps] = useState("");
   const [showSteps, setShowSteps] = useState(false);
 
+  /**
+   * Debug metadata to include in the email body.
+   * Memoized to avoid recomputing unless route/user changes.
+   */
   const meta = useMemo(() => {
     const now = new Date().toISOString();
     return {
@@ -56,11 +96,17 @@ const ReportIssue = () => {
     };
   }, [location.pathname, user?.uid, user?.email]);
 
+  /**
+   * Email subject line.
+   */
   const subject = useMemo(() => {
     const t = title.trim() || "No title";
     return `[${type}] ${t} (route: ${meta.route})`;
   }, [type, title, meta.route]);
 
+  /**
+   * Full email body (user input + debug info).
+   */
   const composedBody = useMemo(() => {
     return [
       `Type: ${type}`,
@@ -82,10 +128,16 @@ const ReportIssue = () => {
     ].join("\n");
   }, [type, title, details, steps, meta]);
 
+  /**
+   * mailto: link (default email app).
+   */
   const mailtoHref = useMemo(() => {
     return buildMailto({ to: SUPPORT_EMAIL, subject, body: composedBody });
   }, [subject, composedBody]);
 
+  /**
+   * Gmail web compose link.
+   */
   const gmailHref = useMemo(() => {
     return buildGmailComposeUrl({
       to: SUPPORT_EMAIL,
@@ -94,6 +146,11 @@ const ReportIssue = () => {
     });
   }, [subject, composedBody]);
 
+  /**
+   * Validate required fields (title + message).
+   *
+   * @returns {boolean}
+   */
   const validateRequired = () => {
     if (!title.trim() || !details.trim()) {
       showErrorToast("Please enter a title and a message.", {
@@ -104,6 +161,9 @@ const ReportIssue = () => {
     return true;
   };
 
+  /**
+   * Copy the full report payload to clipboard.
+   */
   const handleCopy = async () => {
     if (!validateRequired()) return;
 
@@ -139,7 +199,7 @@ const ReportIssue = () => {
         </p>
 
         <div className="mt-6 space-y-4">
-          {/* Type */}
+          {/* Category */}
           <div className="space-y-2">
             <label className="ui-label" htmlFor="report-type">
               Category
@@ -175,7 +235,7 @@ const ReportIssue = () => {
             </p>
           </div>
 
-          {/* Details */}
+          {/* Message */}
           <div className="space-y-2">
             <label className="ui-label" htmlFor="report-details">
               Message <span className="text-zinc-400">(required)</span>
@@ -189,7 +249,7 @@ const ReportIssue = () => {
             />
           </div>
 
-          {/* Steps toggle + field */}
+          {/* Steps toggle + textarea */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <label className="ui-label" htmlFor="report-steps">

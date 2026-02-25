@@ -15,6 +15,26 @@ const COMMENT_ERROR_TOAST_ID = "comment:error";
 const COLD_START_HINT_SESSION_KEY = "comments:coldStartHintShown";
 const COLD_START_HINT_DELAY_MS = 1000;
 
+/**
+ * @component CommentForm
+ *
+ * Comment/reply composer with client-side validation and UX helpers.
+ *
+ * - Uses AuthContext (fallback to `auth.currentUser`) to gate submission.
+ * - Shows inline validation only after first submit attempt (avoid noisy UX while typing).
+ * - Displays a one-time-per-session cold start hint when the first submit may be slow.
+ * - Handles rate-limit errors with a dedicated toast (stable toastId to prevent stacking).
+ *
+ * @param {string} postId - Target post id.
+ * @param {string|null} parentId - If set, submits as a reply to this comment id.
+ * @param {Function} onSubmitSuccess - Optional callback after successful submit (e.g., refresh list / close sheet).
+ * @param {boolean} autoFocus - If true, focuses and scrolls textarea into view on mount.
+ * @param {string} wrapperClassName - Extra wrapper classes for layout control.
+ * @param {{id: string, name: string}|null} replyingTo - Optional author context for "Replying to" row.
+ * @param {number} rows - Optional textarea row override.
+ * @param {string} textareaClassName - Extra textarea classes.
+ * @returns {JSX.Element}
+ */
 const CommentForm = ({
   postId,
   parentId,
@@ -26,6 +46,8 @@ const CommentForm = ({
   textareaClassName = "",
 }) => {
   const { user: ctxUser } = useContext(AuthContext);
+
+  // Prefer context user; fallback supports edge cases where auth loads before context.
   const user = ctxUser || auth.currentUser;
 
   const [commentContent, setCommentContent] = useState("");
@@ -38,9 +60,11 @@ const CommentForm = ({
   const textareaRef = useRef(null);
   const coldHintTimerRef = useRef(null);
 
+  // Simple validity gate for button + inline error visibility.
   const isCommentValid = commentContent.trim().length > 0;
 
   useEffect(() => {
+    // Autofocus is opt-in to avoid stealing focus in lists/sheets.
     if (autoFocus && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.scrollIntoView({
@@ -51,13 +75,14 @@ const CommentForm = ({
   }, [autoFocus]);
 
   useEffect(() => {
+    // Cleanup timers to avoid state updates after unmount.
     return () => {
       if (coldHintTimerRef.current) clearTimeout(coldHintTimerRef.current);
     };
   }, []);
 
   const startColdStartTimer = () => {
-    // Only show once per session
+    // Only show once per session to prevent repetitive noise across multiple comments.
     try {
       const alreadyShown = sessionStorage.getItem(COLD_START_HINT_SESSION_KEY);
       if (alreadyShown) return;
@@ -85,11 +110,14 @@ const CommentForm = ({
     e.preventDefault();
     e.stopPropagation();
 
+    // Prevent double-submit (button spam / Enter repeats).
     if (isSubmitting) return;
 
+    // Inline validation is shown only after the first submit attempt.
     setHasSubmitted(true);
 
     try {
+      // Auth gate: keep UX friendly (toast), avoid throwing UI-level errors.
       if (!user) {
         showInfoToast("Please login to comment 😊", {
           toastId: COMMENT_AUTH_TOAST_ID,
@@ -97,6 +125,7 @@ const CommentForm = ({
         return;
       }
 
+      // Trim-based validation matches backend rules and avoids whitespace-only comments.
       if (!commentContent.trim()) {
         setError("Comment cannot be empty.");
         return;
@@ -105,20 +134,25 @@ const CommentForm = ({
       setIsSubmitting(true);
       startColdStartTimer();
 
+      // Use null parentId for top-level comments to keep data shape consistent.
       await addComment(postId, commentContent, parentId ?? null);
 
+      // Reset local UX state after success.
       setCommentContent("");
       setError("");
       setHasSubmitted(false);
       onSubmitSuccess?.();
     } catch (err) {
       const msg = err?.message || "";
+
+      // Rate limit is a common expected failure; show a short, deduped toast.
       if (msg.includes("too quickly") || msg.includes("resource-exhausted")) {
         showErrorToast(
           "You're sending comments too quickly. Please try again in a few seconds.",
           { toastId: COMMENT_RATE_TOAST_ID, autoClose: 2500 },
         );
       } else {
+        // Generic errors should not spam the user (stable toastId).
         showErrorToast("An error occurred while submitting the comment.", {
           toastId: COMMENT_ERROR_TOAST_ID,
         });
@@ -132,6 +166,7 @@ const CommentForm = ({
   const remainingChars = 500 - commentContent.length;
   const showInlineError = hasSubmitted && (!isCommentValid || !!error);
 
+  // Reply context is only shown when we have both parentId and a known target user.
   const showReplyingTo = !!parentId && !!replyingTo?.id;
 
   return (
@@ -170,6 +205,7 @@ const CommentForm = ({
         value={commentContent}
         onChange={(e) => {
           setCommentContent(e.target.value);
+          // Clear stale inline error as soon as user starts fixing input.
           if (error) setError("");
         }}
         maxLength={500}

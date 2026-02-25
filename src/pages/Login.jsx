@@ -12,6 +12,16 @@ import {
 import { useState, useEffect } from "react";
 import Spinner from "../components/Spinner";
 
+/**
+ * @helper withTimeout
+ * Defensive wrapper to prevent UI stalls on slow network/reload calls.
+ * - Used for best-effort `user.reload()` (auth state freshness)
+ * - Rejects after `ms` so the login flow can continue with a fallback behavior
+ *
+ * @param {Promise<any>} promise
+ * @param {number} ms
+ * @returns {Promise<any>}
+ */
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
@@ -21,10 +31,32 @@ function withTimeout(promise, ms) {
   ]);
 }
 
+/**
+ * @helper safeSignOut
+ * Fire-and-forget sign out used after verification gates.
+ * - Keeps UI responsive (no awaiting)
+ * - Swallows errors to avoid masking the primary user-facing message
+ *
+ * @returns {Promise<void>}
+ */
 function safeSignOut() {
   return signOut(auth).catch(() => {});
 }
 
+/**
+ * @component Login
+ *
+ * Login page with strict email verification gate.
+ * - Validates credentials client-side (fast feedback) before calling Firebase
+ * - Signs in via Firebase Auth and re-checks `emailVerified` after a best-effort reload
+ * - Blocks access until email is verified, with a "resend verification" recovery path
+ *
+ * Security notes:
+ * - Uses generic auth error messages where possible to reduce account enumeration risk
+ * - Signs out immediately when verification is missing so protected routes remain gated
+ *
+ * @returns {JSX.Element}
+ */
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
 
@@ -38,12 +70,15 @@ const Login = () => {
   const location = useLocation();
 
   useEffect(() => {
+    // Optional prefill from navigation state (e.g., after Register/Forgot Password).
+    // We then replace the current entry to avoid keeping stale state in history.
     if (location.state?.email) {
       setFormData((prev) => ({ ...prev, email: location.state.email }));
       navigate("/login", { replace: true });
     }
   }, [location.state, navigate]);
 
+  // Centralized mapping to keep UI messages consistent across auth error variants.
   const firebaseErrorMessages = {
     "auth/user-not-found": "Invalid email or password. Please try again.",
     "auth/invalid-credential": "Invalid email or password. Please try again.",
@@ -61,6 +96,7 @@ const Login = () => {
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.password) newErrors.password = "Password is required";
 
+    // Lightweight client-side email check (Firebase remains the source of truth).
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (formData.email && !emailRegex.test(formData.email)) {
       newErrors.email = "Invalid email format";
@@ -70,6 +106,12 @@ const Login = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Primary login flow:
+   * - Attempt sign-in
+   * - Best-effort refresh to read latest `emailVerified`
+   * - Gate the session until verified
+   */
   const handleLogin = async (e) => {
     e.preventDefault();
     setVerifyRequired(false);
@@ -77,6 +119,7 @@ const Login = () => {
     if (!validate()) return;
 
     setLoading(true);
+
     try {
       const cred = await signInWithEmailAndPassword(
         auth,
@@ -84,6 +127,7 @@ const Login = () => {
         formData.password,
       );
 
+      // Best-effort refresh: do not block UX on slow reload calls.
       try {
         await withTimeout(cred.user.reload(), 4000);
       } catch (error) {
@@ -101,7 +145,7 @@ const Login = () => {
           },
         );
 
-        // do not await (avoid UI lock)
+        // Sign out so protected routes stay gated until verification is complete.
         safeSignOut();
         return;
       }
@@ -111,6 +155,7 @@ const Login = () => {
         toastId: "login-success",
       });
 
+      // If routed here from a protected page, return there; otherwise go home.
       const from = location.state?.from?.pathname || "/";
       setTimeout(() => navigate(from, { replace: true }), 300);
     } catch (error) {
@@ -123,6 +168,12 @@ const Login = () => {
     }
   };
 
+  /**
+   * Recovery flow for unverified users:
+   * - Re-authenticate to get a `User` instance (required by `sendEmailVerification`)
+   * - If already verified, stop and inform user
+   * - Otherwise send verification email and sign out afterwards
+   */
   const handleResendVerification = async () => {
     if (!formData.email || !formData.password) {
       showErrorToast(
@@ -132,6 +183,7 @@ const Login = () => {
     }
 
     setResendLoading(true);
+
     try {
       const cred = await signInWithEmailAndPassword(
         auth,
@@ -164,6 +216,7 @@ const Login = () => {
         },
       );
 
+      // End the session after sending to keep the verification gate consistent.
       safeSignOut();
     } catch (error) {
       const message =
@@ -213,6 +266,8 @@ const Login = () => {
               value={formData.email}
               onChange={(e) => {
                 setFormData({ ...formData, email: e.target.value });
+
+                // Clear field error on edit to reduce "stuck" error state.
                 if (errors.email) setErrors({ ...errors, email: "" });
               }}
               aria-invalid={Boolean(errors.email)}
@@ -242,6 +297,7 @@ const Login = () => {
               value={formData.password}
               onChange={(e) => {
                 setFormData({ ...formData, password: e.target.value });
+
                 if (errors.password) setErrors({ ...errors, password: "" });
               }}
               aria-invalid={Boolean(errors.password)}
@@ -295,6 +351,8 @@ const Login = () => {
                   type="button"
                   onClick={() => {
                     setVerifyRequired(false);
+
+                    // Keeps guidance visible without changing auth state.
                     showInfoToast("After verifying, please log in again.", {
                       toastId: "verify-try-again",
                     });

@@ -1,5 +1,16 @@
 import PropTypes from "prop-types";
 
+/**
+ * @component BioSection
+ *
+ * Small profile helper that renders the user's bio with safe defaults.
+ * - Trims input to avoid showing whitespace-only bios.
+ * - Preserves line breaks and handles long unbroken strings via wrap rules.
+ * - Shows a friendly placeholder when bio is missing/empty.
+ *
+ * @param {string=} bio
+ * @returns {JSX.Element}
+ */
 const BioSection = ({ bio }) => {
   const text = typeof bio === "string" ? bio.trim() : "";
 

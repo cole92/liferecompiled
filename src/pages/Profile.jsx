@@ -30,6 +30,25 @@ import BadgeModal from "../components/modals/BadgeModal";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { FOCUS_RING } from "../constants/uiClasses";
 
+/**
+ * @component Profile
+ *
+ * Public profile page for a user (own profile or another user's profile).
+ *
+ * What it does:
+ * - Loads the target user document from Firestore ("users/{uid}")
+ * - Counts active (non-deleted) posts via Firestore count aggregation
+ * - Calculates total reactions received across all active posts
+ * - Builds a "Top 3 posts" list by sorting posts based on reactions total
+ *
+ * UI:
+ * - Hero card: avatar, name, badges, email, member since, stats, bio, highlights
+ * - Top posts card: top 3 most reacted posts (or empty / loading states)
+ *
+ * Notes:
+ * - This component intentionally keeps logic in the client for simplicity.
+ * - If performance becomes a concern, consider server-side aggregation for reactions/top posts.
+ */
 const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -54,12 +73,21 @@ const Profile = () => {
 
   const isOwnProfile = !!targetUid && !!ownUid && targetUid === ownUid;
 
+  /**
+   * Calculate total reactions for a post:
+   * idea + hot + powerup.
+   *
+   * @param {object} postData
+   * @returns {number}
+   */
   const getPostReactionsTotal = (postData) => {
     const rc = postData?.reactionCounts || {};
     return (rc.idea || 0) + (rc.hot || 0) + (rc.powerup || 0);
   };
 
-  // Fetch user doc
+  /**
+   * Fetch user document from "users/{uid}".
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -78,12 +106,12 @@ const Profile = () => {
         const docRef = doc(db, "users", targetUid);
         const docSnap = await getDoc(docRef);
 
-        if (!cancelled) {
-          if (docSnap.exists()) {
-            setUserData({ ...docSnap.data(), id: docSnap.id });
-          } else {
-            setUserData(null);
-          }
+        if (cancelled) return;
+
+        if (docSnap.exists()) {
+          setUserData({ ...docSnap.data(), id: docSnap.id });
+        } else {
+          setUserData(null);
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -99,15 +127,23 @@ const Profile = () => {
     };
   }, [targetUid]);
 
+  /**
+   * Badge: top contributor
+   */
   const isTopContributor = useMemo(() => {
     return Boolean(userData?.badges?.topContributor);
   }, [userData]);
 
+  /**
+   * Profile avatar fallback
+   */
   const avatarSrc = useMemo(() => {
     return userData?.profilePicture || DEFAULT_PROFILE_PICTURE;
   }, [userData]);
 
-  // Count active posts
+  /**
+   * Count active (non-deleted) posts using server-side count aggregation.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -146,7 +182,14 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Total reactions received
+  /**
+   * Total reactions received:
+   * - Loads all active posts for the user
+   * - Sums reactionCounts across documents
+   *
+   * Note: This is a full scan. If your dataset grows, consider storing an
+   * aggregated `reactionsReceived` counter on the user doc via Cloud Functions.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -189,7 +232,15 @@ const Profile = () => {
     };
   }, [targetUid]);
 
-  // Top 3 posts
+  /**
+   * Top 3 posts:
+   * - Loads all active posts for the user
+   * - Computes reaction totals
+   * - Sorts by reactions desc and takes first 3
+   *
+   * Note: This is also a scan. For scaling, store `reactionsTotal` on the post
+   * and query top 3 with orderBy + limit.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -237,6 +288,9 @@ const Profile = () => {
     };
   }, [targetUid]);
 
+  /**
+   * No user doc case (after load completes).
+   */
   if (!loadingUser && !userData) {
     return (
       <div className="w-full px-2 max-[360px]:px-1 sm:px-6 lg:px-10 2xl:px-16 py-6">
@@ -254,6 +308,10 @@ const Profile = () => {
   const displayName = userData?.name || "Unknown author";
   const displayEmail = userData?.email || "";
 
+  /**
+   * Simple engagement heuristic: reactions per post.
+   * Rounded to 1 decimal.
+   */
   const engagement =
     postCount && postCount > 0 && reactionsCount != null
       ? Math.round((reactionsCount / postCount) * 10) / 10
@@ -264,7 +322,7 @@ const Profile = () => {
       <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
         <section className="ui-card relative overflow-hidden p-3 sm:p-6 lg:p-8">
-          {/* subtle glow like feed */}
+          {/* Subtle background glow */}
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_10%_0%,rgba(56,189,248,0.10),transparent_55%),radial-gradient(100%_70%_at_90%_10%,rgba(34,197,94,0.08),transparent_55%)]" />
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/20 to-transparent" />
@@ -309,9 +367,7 @@ const Profile = () => {
                 <div
                   className={[
                     "min-w-0 flex-1 text-center",
-                    // sm+ avatar is left (row), but identity is centered due to empty space
                     "sm:flex sm:flex-col sm:items-center sm:text-center",
-                    // 2xl: back to left, since it becomes a true column layout
                     "2xl:items-start 2xl:text-left",
                   ].join(" ")}
                 >
@@ -362,6 +418,7 @@ const Profile = () => {
                           </span>
                         )}
                       </div>
+
                       <p
                         className="mt-2 text-sm text-zinc-400 [overflow-wrap:anywhere]"
                         title={displayEmail}
@@ -412,7 +469,6 @@ const Profile = () => {
             {/* Highlights */}
             <div className="2xl:col-span-3">
               <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-3 sm:p-5">
-                {/* Title row + (mobile/tablet) chip on the right */}
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-zinc-100">
                     Highlights
@@ -440,7 +496,6 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* Desktop (2xl) footer chip centered */}
                 <div className="mt-4 hidden 2xl:flex justify-center">
                   <span className="rounded-full border border-zinc-800 bg-zinc-950/30 px-2.5 py-1 text-[11px] text-zinc-400">
                     Public profile
@@ -451,7 +506,7 @@ const Profile = () => {
           </div>
         </section>
 
-        {/* Top Contributor badge modal (same as feed pattern) */}
+        {/* Top Contributor badge modal */}
         {showTopContributorModal && isTopContributor && (
           <BadgeModal
             isOpen={showTopContributorModal}

@@ -12,24 +12,52 @@ import {
   cx,
 } from "../constants/uiClasses";
 
-const MAX_TAGS_IN_APP = 5;
+const MAX_TAGS_IN_APP = 5; // UI limit: keep card compact and tag rail readable (avoid noisy overflow)
 
+/**
+ * Normalize tag input into a consistent display form.
+ * - Trims whitespace
+ * - Strips leading "#" to support legacy/user-entered formats
+ * - Returns empty string for invalid/blank values
+ *
+ * @param {unknown} t
+ * @returns {string}
+ */
 const normalizeTagText = (t) => {
   const raw = String(t ?? "").trim();
   if (!raw) return "";
   return raw.replace(/^#+/, "").trim();
 };
 
+/**
+ * @component TopPostCard
+ *
+ * Compact preview card used in "Top posts" style lists.
+ *
+ * Key behaviors:
+ * - Click + keyboard (Enter/Space) navigates to the post details route.
+ * - Preview text prefers `description`, falls back to trimmed `content` (clamped) or a safe placeholder.
+ * - Tags are normalized and deduped (case-insensitive), then capped to `MAX_TAGS_IN_APP` for UI stability.
+ * - Tag rail supports horizontal scroll without triggering card navigation via stopPropagation.
+ *
+ * @param {{ post: { id: string, title?: string, description?: string, content?: string, category?: string, tags?: any[], reactionsCount?: number } }} props
+ * @returns {JSX.Element}
+ */
 function TopPostCard({ post }) {
   const navigate = useNavigate();
+
+  // Keep navigation behavior centralized (click + keyboard) for consistent routing.
   const goToPost = () => navigate(`/post/${post.id}`);
 
   const previewText = useMemo(() => {
+    // Prefer curated summary when available; fallback keeps the card useful for older posts.
     const desc = post?.description?.trim();
     if (desc) return desc;
 
     const content = (post?.content ?? "").trim();
     if (!content) return "No description";
+
+    // Clamp long content to avoid tall cards and uneven grids.
     return content.length > 160 ? content.slice(0, 160) + "..." : content;
   }, [post?.description, post?.content]);
 
@@ -37,13 +65,16 @@ function TopPostCard({ post }) {
   const reactionsTotal = post?.reactionsCount ?? 0;
 
   const allTags = useMemo(() => {
+    // Defensive: tags may be missing or stored in mixed shapes depending on older data.
     const raw = Array.isArray(post?.tags) ? post.tags : [];
 
+    // Normalize to plain text, then remove empties.
     const normalized = raw
       .map((t) => (typeof t === "string" ? t : (t?.text ?? t?.name ?? "")))
       .map((t) => normalizeTagText(t))
       .filter(Boolean);
 
+    // Case-insensitive dedupe keeps UI tidy even if backend data is inconsistent.
     const seen = new Set();
     const unique = [];
 
@@ -52,6 +83,8 @@ function TopPostCard({ post }) {
       if (seen.has(key)) continue;
       seen.add(key);
       unique.push(t);
+
+      // Hard cap: prevents horizontal rail from becoming unwieldy on small screens.
       if (unique.length >= MAX_TAGS_IN_APP) break;
     }
 
@@ -82,6 +115,7 @@ function TopPostCard({ post }) {
     "text-[11px] px-2.5 py-1 font-medium text-zinc-500",
   );
 
+  // Tag rail is interactive (scroll/touch). Stop bubbling so it does not trigger card navigation.
   const stop = (e) => e.stopPropagation();
 
   return (
@@ -90,6 +124,7 @@ function TopPostCard({ post }) {
       tabIndex={0}
       onClick={goToPost}
       onKeyDown={(e) => {
+        // Keyboard parity: card behaves like a button for accessibility.
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           goToPost();
@@ -108,6 +143,7 @@ function TopPostCard({ post }) {
       )}
       aria-label={`Open post: ${post?.title ?? "Untitled"}`}
     >
+      {/* Decorative layers: visual depth without affecting layout or hit targets */}
       {/* base glow */}
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-100">
         <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-sky-500/5 blur-3xl" />
@@ -154,7 +190,7 @@ function TopPostCard({ post }) {
             </span>
           </div>
 
-          {/* Row 2: tag rail */}
+          {/* Row 2: tag rail (horizontal scroll) */}
           <div
             className="mt-2 min-h-[2.25rem] min-w-0"
             onClick={stop}
@@ -180,6 +216,7 @@ function TopPostCard({ post }) {
                 )}
               </div>
 
+              {/* Fade edge hints there is more content to scroll horizontally */}
               <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>

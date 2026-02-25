@@ -9,18 +9,44 @@ import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
 import Spinner from "../components/Spinner";
 import PostEditorForm from "../components/PostEditorForm";
 
+/**
+ * @component CreatePost
+ *
+ * Post creation page.
+ * - Delegates all validation/UI to `PostEditorForm`
+ * - Persists a new post in Firestore and navigates to the new post details page
+ *
+ * Data notes:
+ * - Stores `title_lc` for case-insensitive search/sort patterns
+ * - Initializes moderation/control fields (`deleted`, `locked`, timestamps)
+ *
+ * @returns {JSX.Element}
+ */
 const CreatePost = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /**
+   * Cancel behavior:
+   * - Prefer "back" when there is history (feels natural after navigation)
+   * - Fallback to dashboard when opened directly (no reliable history)
+   */
   const handleCancel = () => {
     if (window.history.length > 1) navigate(-1);
     else navigate("/dashboard");
   };
 
+  /**
+   * Persist a new post for the current user.
+   * Uses `serverTimestamp()` so createdAt is consistent across clients/timezones.
+   *
+   * @param {Object} postData - normalized payload from `PostEditorForm`
+   * @returns {Promise<void>}
+   */
   const handleCreate = async (postData) => {
+    // Guard: creation is not allowed without an authenticated user.
     if (!user) {
       showErrorToast("You must be logged in to create a post.");
       return;
@@ -29,6 +55,7 @@ const CreatePost = () => {
     setIsSubmitting(true);
 
     try {
+      // Lowercased title is used for case-insensitive searching.
       const normalizedTitle = postData.title.toLowerCase().trim();
 
       const docRef = await addDoc(collection(db, "posts"), {
@@ -36,6 +63,8 @@ const CreatePost = () => {
         title_lc: normalizedTitle,
         userId: user.uid,
         createdAt: serverTimestamp(),
+
+        // Default lifecycle fields (kept explicit for readability).
         deleted: false,
         deletedAt: null,
         updatedAt: null,
@@ -52,11 +81,13 @@ const CreatePost = () => {
     }
   };
 
+  // Auth bootstrap guard: avoids rendering a form that cannot submit.
   if (!user) return <Spinner message="Loading user info..." />;
 
   return (
     <div className="ui-shell py-6 sm:py-8">
       <div className="ui-card relative overflow-hidden p-5 sm:p-6 mb-6">
+        {/* Subtle hero glow keeps the page consistent with other dashboard surfaces. */}
         <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[34rem] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
         <div className="relative">
           <h1 className="text-3xl font-semibold text-zinc-100">

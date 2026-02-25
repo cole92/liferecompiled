@@ -5,43 +5,45 @@ import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
 /**
  * @helper makeFallbackAuthor
- * Gradi UI-safe oblik autora kada profil ne postoji ili je obrisan.
  *
- * Namena:
- * - Spreci lomljenje UI kada user dokument nedostaje ili je nedostupan.
- * - Omoguci dosledan prikaz "Unknown author" bez Link-a i bez bedzeva.
+ * Builds a UI-safe author shape when the user doc is missing, deleted, or not readable.
  *
- * Pravila:
- * - id = null → sentinel: ne koristi se za navigaciju/profil rute.
- * - badges = prazno: ne prikazujemo bedzeve za fallback autora.
+ * Why:
+ * - Prevents UI breakage when author references are stale or access is denied.
+ * - Keeps rendering consistent ("Unknown author") without profile links/badges.
  *
- * @returns {Object} fallback autor shape
+ * Rules:
+ * - `id = null` is a sentinel: do not use it for navigation/profile routes.
+ * - `badges = {}`: do not render badges for fallback authors.
+ *
+ * @returns {Object} UI-safe fallback author shape.
  */
 const makeFallbackAuthor = () => ({
-  id: null, // sentinel: nema profila → ne renderuj Link
+  id: null, // sentinel: no profile -> do not render Link
   name: "Unknown author",
   profilePicture: DEFAULT_PROFILE_PICTURE,
-  badges: {}, // ne prikazuj bedzeve za Unknown autora
+  badges: {}, // do not show badges for fallback authors
   deleted: true,
 });
 
 /**
  * @helper normalizeAuthor
- * Normalizuje postojeci user dokument u UI shape.
  *
- * Namena:
- * - Osigura da osnovna polja uvek postoje (name, profilePicture, deleted).
- * - Doda uid kao id u autor objektu radi lakse upotrebe u komponentama.
+ * Normalizes a Firestore user document into the author UI shape.
  *
- * Fallback:
- * - Ako nema imena ili slike, koristi default vrednosti.
+ * Why:
+ * - Ensures required fields exist (`name`, `profilePicture`, `deleted`) for stable rendering.
+ * - Adds `uid` as `id` to simplify downstream component usage.
  *
- * @param {string} uid - user id iz Firestore dokumenta
- * @param {Object} data - raw podaci iz Firestore user dokumenta
- * @returns {Object} normalizovan autor shape
+ * Compatibility:
+ * - Supports both badge shapes:
+ *   1) nested: `badges: { topContributor: true }`
+ *   2) legacy: `"badges.topContributor": true`
+ *
+ * @param {string} uid - User id (document id).
+ * @param {Object} data - Raw Firestore user document data.
+ * @returns {Object} Normalized author shape.
  */
-// services/userService.js
-
 const normalizeAuthor = (uid, data) => {
   const rawBadges =
     typeof data?.badges === "object" && data.badges ? data.badges : {};
@@ -50,7 +52,7 @@ const normalizeAuthor = (uid, data) => {
   // 1) nested: badges: { topContributor: true }
   // 2) legacy literal: "badges.topContributor": true
   const topContributor = Boolean(
-    rawBadges.topContributor || data?.["badges.topContributor"]
+    rawBadges.topContributor || data?.["badges.topContributor"],
   );
 
   return {
@@ -65,22 +67,22 @@ const normalizeAuthor = (uid, data) => {
   };
 };
 
-
 /**
  * @helper getUserById
- * Dohvata korisnika ili vraca fallback; nikad ne baca gresku, uvek vraca "safe" shape.
  *
- * Namena:
- * - Koristi se kada je autor potreban na UI-u, ali ne zelimo da lomimo stranicu
- *   zbog lose referenciranog ili obrisanog user dokumenta.
+ * Fetches an author by id and always returns a UI-safe shape (never throws).
  *
- * Ponasanje:
- * - Ako userId nedostaje → vraca fallback autora.
- * - Ako dokument ne postoji → vraca fallback autora.
- * - Ako dodje do greske (mreza, rules, itd.) → loguje i vraca fallback.
+ * Why:
+ * - Author data is optional for rendering; a missing/denied user doc should not break pages.
+ * - Centralizes fallback logic so callers do not need try/catch + shape guards.
  *
- * @param {string|null|undefined} userId - id korisnika koga trazimo
- * @returns {Promise<Object>} autor shape (normalizovan ili fallback)
+ * Behavior:
+ * - Missing `userId` -> fallback author.
+ * - Doc not found -> fallback author.
+ * - Any error (network/rules/etc.) -> logs and returns fallback.
+ *
+ * @param {string|null|undefined} userId - Author user id.
+ * @returns {Promise<Object>} Normalized author or fallback author.
  */
 export const getUserById = async (userId) => {
   try {
@@ -100,21 +102,19 @@ export const getUserById = async (userId) => {
 
 /**
  * @helper enrichPostWithAuthor
- * Obogacuje post autor objektom; nikad ne baca, uvek vraca "safe" post+author shape.
  *
- * Namena:
- * - Na UI-u zelimo da svaki post ima `post.author`, cak i kada user dokument ne postoji.
+ * Attaches an `author` object to a post and keeps the result UI-safe (never throws).
  *
- * Ponasanje:
- * - Pokusava da dovuce autora preko `post.userId`.
- * - Ako getUserById baci ili vrati fallback, rezultat je i dalje validan za prikaz.
- * - U najgorem slucaju vraca post sa fallback autorom (Unknown author).
+ * Why:
+ * - UI expects `post.author` to exist even when the user doc is missing or deleted.
+ * - Keeps post rendering stable without forcing every caller to handle fallback cases.
  *
- * Napomena:
- * - Ne menja semu posta; samo dodaje/overridu-je polje `author`.
+ * Behavior:
+ * - Fetches author via `post.userId`.
+ * - Falls back to "Unknown author" if fetching fails for any reason.
  *
- * @param {Object} post - originalni post objekat (ocekuje se polje userId)
- * @returns {Promise<Object>} post prosiren sa `author` poljem
+ * @param {Object} post - Post object (expects `userId`).
+ * @returns {Promise<Object>} Post extended with a safe `author` field.
  */
 export const enrichPostWithAuthor = async (post) => {
   try {

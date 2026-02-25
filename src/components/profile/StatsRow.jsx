@@ -2,9 +2,23 @@ import PropTypes from "prop-types";
 import { FiFileText, FiZap } from "react-icons/fi";
 import { SkeletonLine } from "../ui/skeletonLoader/SkeletonBits";
 
+/**
+ * @component StatCard
+ *
+ * Small stat tile used by `StatsRow` when `variant="cards"`.
+ * - Uses a skeleton placeholder to avoid layout shift while loading.
+ * - Accepts an `icon` component for quick visual scanning.
+ *
+ * @param {string} label
+ * @param {number|string=} value
+ * @param {boolean=} loading
+ * @param {React.ElementType=} icon
+ * @returns {JSX.Element}
+ */
 const StatCard = ({ label, value, loading, icon: Icon }) => {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/20 p-4">
+      {/* Subtle highlight to keep cards from feeling flat without adding noise. */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_10%_0%,rgba(56,189,248,0.08),transparent_60%)]" />
 
       <div className="relative flex items-start justify-between gap-3">
@@ -28,6 +42,26 @@ StatCard.propTypes = {
   icon: PropTypes.elementType,
 };
 
+/**
+ * @component StatsRow
+ *
+ * Reusable profile stats renderer with multiple visual density modes:
+ * - `inline`: minimal text row (default)
+ * - `pills`: compact bordered blocks (mobile-friendly)
+ * - `cards`: richer tiles with icons (dashboard feel)
+ *
+ * Notes:
+ * - `align` only affects horizontal justification (center/start).
+ * - Skeletons are used to keep the layout stable while async stats load.
+ *
+ * @param {number=} posts
+ * @param {number=} reactions
+ * @param {boolean=} loadingPosts
+ * @param {boolean=} loadingReactions
+ * @param {"inline"|"pills"|"cards"=} variant
+ * @param {"center"|"start"=} align
+ * @returns {JSX.Element}
+ */
 const StatsRow = ({
   posts,
   reactions,
@@ -36,6 +70,7 @@ const StatsRow = ({
   variant = "inline",
   align = "center",
 }) => {
+  // Keep layout decisions local so callers only pass intent (variant/align).
   const justify = align === "start" ? "justify-start" : "justify-center";
 
   if (variant === "cards") {

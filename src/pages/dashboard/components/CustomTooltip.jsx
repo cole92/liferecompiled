@@ -3,21 +3,27 @@ import dayjs from "dayjs";
 
 /**
  * @component CustomTooltip
- * Prilagodjeni prikaz za tooltip unutar Recharts grafikona.
  *
- * - Formatira mesec iz `label` vrednosti (npr. "2024-06" → "June 2024")
- * - Prikazuje broj postova za odgovarajući mesec
+ * Custom tooltip renderer for Recharts.
+ *
+ * Behavior:
+ * - Formats a month label like "2024-06" into a human label ("June 2024").
+ * - Reads the first payload value as the monthly post count.
+ * - Highlights the `mostActiveMonth` with an extra message.
+ *
+ * Data assumptions:
+ * - `label` is in "YYYY-MM" format (month bucket key).
+ * - `payload[0].value` contains the aggregated count for that bucket.
  *
  * @param {Object} props
- * @param {boolean} props.active - Da li je tooltip trenutno aktivan
- * @param {Array} props.payload - Podaci koje prosleđuje Recharts
- * @param {string} props.label - Labela meseca (npr. "2024-06")
- * @param {string} props.mostActiveMonth - Mesec koji je najaktivniji (npr. "2024-06")
- *
- * @returns {JSX.Element|null} Prikaz tooltips ili `null` ako nije aktivan
+ * @param {boolean} props.active - Whether Recharts considers the tooltip active.
+ * @param {Array} props.payload - Recharts series payload for the hovered point.
+ * @param {string} props.label - Month key ("YYYY-MM").
+ * @param {string} props.mostActiveMonth - Month key to highlight ("YYYY-MM").
+ * @returns {JSX.Element|null}
  */
-
 const CustomTooltip = ({ active, payload, label, mostActiveMonth }) => {
+  // Recharts may render tooltip in "inactive" state during transitions.
   if (!active || !payload || !payload.length) return null;
 
   const rawMonth = label;

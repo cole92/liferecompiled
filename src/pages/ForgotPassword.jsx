@@ -5,6 +5,20 @@ import { auth } from "../firebase";
 import { showErrorToast, showInfoToast } from "../utils/toastUtils";
 import Spinner from "../components/Spinner";
 
+/**
+ * @component ForgotPassword
+ *
+ * Password reset entry point.
+ * - Accepts an email and triggers Firebase Auth reset flow
+ * - Prefills email when navigated from Login/Register via `location.state.email`
+ * - Uses neutral success/error messaging to avoid account existence leaks
+ *
+ * UX notes:
+ * - Inline validation keeps the form responsive before any network call
+ * - Loading state swaps the submit button for a spinner to prevent double submits
+ *
+ * @returns {JSX.Element}
+ */
 const ForgotPassword = () => {
   const location = useLocation();
 
@@ -13,9 +27,16 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Optional prefill improves flow when user clicks "Forgot password?" from Login.
     if (location.state?.email) setEmail(location.state.email);
   }, [location.state]);
 
+  /**
+   * Submit handler:
+   * - Validates email locally
+   * - Calls Firebase reset API
+   * - Always responds with neutral messaging to reduce enumeration risk
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -26,6 +47,7 @@ const ForgotPassword = () => {
       return;
     }
 
+    // Lightweight email format check (backend still remains source of truth).
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Invalid email format");
@@ -33,23 +55,26 @@ const ForgotPassword = () => {
     }
 
     setLoading(true);
+
     try {
       await sendPasswordResetEmail(auth, email);
 
-      // Neutral message to avoid account existence leaks
+      // Neutral message to avoid account existence leaks.
       showInfoToast(
         "If an account exists for this email, we sent password reset instructions.",
-        { toastId: "reset-sent", autoClose: 3500 }
+        { toastId: "reset-sent", autoClose: 3500 },
       );
     } catch (err) {
-      // Keep neutral for user-not-found and similar
+      // Keep neutral for user-not-found and similar existence signals.
       if (err?.code === "auth/user-not-found") {
         showInfoToast(
           "If an account exists for this email, we sent password reset instructions.",
-          { toastId: "reset-sent", autoClose: 3500 }
+          { toastId: "reset-sent", autoClose: 3500 },
         );
       } else if (err?.code === "auth/network-request-failed") {
-        showErrorToast("Network error. Please check your connection and try again.");
+        showErrorToast(
+          "Network error. Please check your connection and try again.",
+        );
       } else {
         showErrorToast("Could not start reset flow. Please try again.");
       }
@@ -59,7 +84,8 @@ const ForgotPassword = () => {
   };
 
   const inputBase = "ui-input";
-  const inputErr = "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-offset-0";
+  const inputErr =
+    "border-rose-500/80 focus-visible:ring-0 focus-visible:ring-offset-0";
 
   return (
     <div className="mx-auto flex min-h-[70vh] w-full max-w-lg items-center px-4 py-10">
@@ -85,6 +111,8 @@ const ForgotPassword = () => {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
+
+                // Clear inline error as soon as user edits the field.
                 if (error) setError("");
               }}
               autoComplete="email"

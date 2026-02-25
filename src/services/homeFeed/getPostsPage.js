@@ -1,5 +1,5 @@
 // services/homeFeed/getPostsPage.js
-// Servisni sloj: koristi buildHomeFeedQuery, izvrsava upit i vraca stranicu podataka.
+// Service layer: uses buildHomeFeedQuery, executes the query, and returns a page of data.
 
 import { getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -12,13 +12,14 @@ import { enrichPostWithAuthor } from "../userService";
 
 /**
  * @helper getPostsPage
- * Fetch-uje jednu stranicu Home feed-a, normalizuje postove i obogacuje ih autorima.
  *
- * Rezultat:
- * - items: niz postova sa `author` poljem (fallback kada nema user-a)
- * - lastDoc: poslednji DocumentSnapshot u stranici (ili null)
- * - hasMore: da li postoji jos dokumenata (prefetch +1)
- * - warnings: string poruke o preskocenim/ fallback slucajevima
+ * Fetches one Home feed page, normalizes posts, and enriches them with author data.
+ *
+ * Result:
+ * - items: array of posts with an `author` field (uses a fallback when the user is missing)
+ * - lastDoc: the last DocumentSnapshot in the page (or null)
+ * - hasMore: whether there are more documents available (prefetch +1)
+ * - warnings: string messages for skipped docs / fallback cases (for logging/debugging)
  */
 export async function getPostsPage({
   afterDoc = null,
@@ -26,10 +27,10 @@ export async function getPostsPage({
   category,
   sortBy,
 }) {
-  // Defanzivno klampovanje pageSize na globalne granice (feed constants)
+  // Defensive clamp of pageSize to global feed bounds (feed constants)
   const safePageSize = clampPageSize(pageSize ?? PAGE_SIZE_DEFAULT);
 
-  // Prefetch +1 da bismo znali da li stvarno ima jos (bez dodatnog upita)
+  // Prefetch +1 so we can know if there is really more (without an extra query)
   const requestedSize = safePageSize + 1;
 
   const q = buildHomeFeedQuery({
@@ -44,10 +45,10 @@ export async function getPostsPage({
 
   const warnings = [];
 
-  // Uzimamo samo "page" dokumente za prikaz
+  // Use only "page" documents for rendering
   const pageDocs = snap.docs.slice(0, safePageSize);
 
-  // Normalizacija dokumenata (i prikupljanje upozorenja za preskocene)
+  // Normalize documents (and collect warnings for skipped ones)
   const normalized = [];
   for (const docSnap of pageDocs) {
     const post = normalizePostDoc(docSnap);
@@ -60,12 +61,12 @@ export async function getPostsPage({
     normalized.push(post);
   }
 
-  // Obogacivanje autora po stranici (UI dobija post.author uvek)
+  // Enrich authors per page (UI should always receive post.author)
   const items = await Promise.all(
-    normalized.map((post) => enrichPostWithAuthor(post))
+    normalized.map((post) => enrichPostWithAuthor(post)),
   );
 
-  // Dijagnostika: fallback autori / nedostajuci userId (nije za UI, vec za logovanje)
+  // Diagnostics: fallback authors / missing userId (not for UI, but for logs)
   for (const item of items) {
     const isMissingUserId = !item.userId;
     const isFallbackAuthor = item.author?.deleted === true;
@@ -73,15 +74,15 @@ export async function getPostsPage({
     if (isMissingUserId || isFallbackAuthor) {
       const userIdLabel = item.userId ?? "null-or-undefined";
       warnings.push(
-        `AUTHOR_FALLBACK: userId=${userIdLabel} (postId=${item.id})`
+        `AUTHOR_FALLBACK: userId=${userIdLabel} (postId=${item.id})`,
       );
     }
   }
 
-  // lastDoc mora da bude poslednji PRIKAZAN doc (ne +1)
+  // lastDoc must be the last RENDERED doc (not the +1 prefetch doc)
   const lastDoc = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
 
-  // hasMore = true samo ako smo dobili vise od safePageSize
+  // hasMore = true only if we received more than safePageSize
   const hasMore = snap.docs.length > safePageSize;
 
   return { items, lastDoc, hasMore, warnings };

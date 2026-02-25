@@ -20,12 +20,24 @@ import Spinner from "../../components/Spinner";
 import CustomTooltip from "./components/CustomTooltip";
 
 /**
- * Stats (Dashboard)
- * - Reads userStats from Firestore
- * - Monthly posts bar chart + most active highlight
- * - Restore vs delete pie chart
+ * @component Stats
+ *
+ * Dashboard analytics view built on `userStats/{uid}`.
+ * - Renders a monthly posts bar chart and highlights the most active month.
+ * - Renders a restore vs delete pie chart (Trash actions).
+ *
+ * Notes:
+ * - Uses a `chartsReady` gate to avoid Recharts measuring before layout is stable
+ *   (prevents width/height -1 warnings on first paint).
+ * - Treats missing stats doc as "no data yet" without throwing.
+ *
+ * @returns {JSX.Element}
  */
 
+/**
+ * Hook: breakpoint helper for "lg" (min-width: 1024px).
+ * Uses `matchMedia` so charts can adjust tick angles / sizes responsively.
+ */
 const useIsLg = () => {
   const [isLg, setIsLg] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -36,6 +48,7 @@ const useIsLg = () => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const onChange = (e) => setIsLg(e.matches);
 
+    // Support older browsers that still use `addListener`.
     if (mq.addEventListener) mq.addEventListener("change", onChange);
     else mq.addListener(onChange);
 
@@ -48,6 +61,10 @@ const useIsLg = () => {
   return isLg;
 };
 
+/**
+ * Tick formatter for YYYY-MM keys.
+ * Keeps the axis compact while preserving a stable ordering from Firestore data.
+ */
 const monthTick = (v) => {
   const m = v?.slice(5, 7);
   const map = {
@@ -77,12 +94,13 @@ const Stats = () => {
   const [pieData, setPieData] = useState([]);
   const [isPieEmpty, setIsPieEmpty] = useState(false);
 
-  // Avoid recharts measuring before layout is stable (prevents width/height -1 warnings)
+  // Avoid recharts measuring before layout is stable (prevents width/height -1 warnings).
   const [chartsReady, setChartsReady] = useState(false);
 
   const isLg = useIsLg();
 
   useEffect(() => {
+    // Defer chart mount to the next frame so containers have measurable dimensions.
     let raf = requestAnimationFrame(() => setChartsReady(true));
     return () => cancelAnimationFrame(raf);
   }, []);
@@ -95,6 +113,7 @@ const Stats = () => {
         const statsRef = doc(db, "userStats", user.uid);
         const statsSnap = await getDoc(statsRef);
 
+        // Missing doc is treated as a clean "no data" state.
         if (!statsSnap.exists()) {
           setPostsPerMonth([]);
           setMostActiveMonth(null);
@@ -105,12 +124,15 @@ const Stats = () => {
 
         const data = statsSnap.data();
 
+        // Keep charts tolerant to partial documents / missing counters.
         const restored = data.restoredPosts || 0;
         const deleted = data.permanentlyDeletedPosts || 0;
 
+        // Normalize into a stable array so the chart renders in chronological order.
         const monthlyArray = normalizeMonthlyArray(data.postsPerMonth || {});
         setPostsPerMonth(monthlyArray);
 
+        // Derive highlight month purely from chart data to avoid mismatch.
         if (monthlyArray.length === 0) {
           setMostActiveMonth(null);
         } else {
@@ -129,6 +151,8 @@ const Stats = () => {
         setIsPieEmpty(pie.every((item) => item.value === 0));
       } catch (error) {
         console.error("Error fetching stats:", error);
+
+        // On error, fall back to empty states rather than rendering broken charts.
         setPostsPerMonth([]);
         setMostActiveMonth(null);
         setPieData([]);
@@ -138,6 +162,7 @@ const Stats = () => {
       }
     };
 
+    // Guard: do not fetch until we have a user context.
     if (user) fetchUserStats();
   }, [user]);
 
@@ -148,6 +173,7 @@ const Stats = () => {
 
   const pieTooltipProps = useMemo(
     () => ({
+      // Inline tooltip styling avoids global CSS and keeps chart portable.
       contentStyle: {
         backgroundColor: "rgba(9, 9, 11, 0.95)",
         border: "1px solid rgba(63, 63, 70, 0.8)",
@@ -160,10 +186,12 @@ const Stats = () => {
     [],
   );
 
+  // Loading + auth guard: keep the dashboard consistent with other pages.
   if (!user || isLoading) {
     return <Spinner message="Loading statistics..." />;
   }
 
+  // If there is no monthly data, show a friendly empty state instead of a blank chart.
   if (postsPerMonth.length === 0) {
     return (
       <div className="p-5 text-center text-zinc-100">
@@ -239,6 +267,7 @@ const Stats = () => {
                     cursor={{ fill: "rgba(255,255,255,0.04)" }}
                   />
                   <Bar dataKey="count" radius={[10, 10, 0, 0]}>
+                    {/* Highlight is based on derived `mostActiveMonth`, not index. */}
                     {postsPerMonth.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
@@ -253,6 +282,7 @@ const Stats = () => {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
+              // Placeholder keeps height reserved until charts mount.
               <div className="h-full w-full" />
             )}
           </div>
@@ -292,6 +322,7 @@ const Stats = () => {
                         dataKey="value"
                         stroke="rgba(255,255,255,0.10)"
                       >
+                        {/* Fixed colors keep meaning consistent: green=restored, rose=deleted. */}
                         {pieData.map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
@@ -303,6 +334,7 @@ const Stats = () => {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
+                  // Placeholder keeps layout stable until charts mount.
                   <div className="h-full w-full" />
                 )}
               </div>

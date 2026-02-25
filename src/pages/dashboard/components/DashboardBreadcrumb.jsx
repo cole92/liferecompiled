@@ -1,14 +1,24 @@
 import { useLocation } from "react-router-dom";
 
 /**
- * DashboardBreadcrumb
+ * @component DashboardBreadcrumb
  *
- * Minimal breadcrumb label for md+ screens only.
- * Keeps UI clean on mobile.
+ * Minimal breadcrumb label for dashboard routes (sm+ only).
+ *
+ * Why:
+ * - Desktop users benefit from lightweight location context.
+ * - Mobile keeps UI clean by hiding breadcrumbs entirely.
+ *
+ * Behavior:
+ * - Maps known dashboard paths to a simple label string.
+ * - Falls back to "Dashboard" for unknown/extended routes.
+ *
+ * @returns {JSX.Element}
  */
 const DashboardBreadcrumb = () => {
   const { pathname } = useLocation();
 
+  // Central mapping keeps breadcrumb strings consistent across dashboard pages.
   const pathMap = {
     "/dashboard": "Dashboard",
     "/dashboard/saved": "Dashboard / Saved",

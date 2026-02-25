@@ -4,14 +4,27 @@ import Footer from "./Footer";
 import { SearchProvider } from "../context/SearchContext";
 
 /**
- * Layout komponenta - sluzi kao glavni omotac aplikacije.
- * Sadrzi Header, Footer i dinamicki sadrzaj (children),
- * koji se menja u zavisnosti od rute.
+ * @component Layout
+ *
+ * Application shell wrapper used across routes.
+ *
+ * - Provides global context via `SearchProvider`
+ * - Renders consistent app chrome (Header + Footer) around route content
+ * - Includes "Skip to content" link for keyboard accessibility
+ * - Keeps footer pinned to bottom on short pages via flex column layout
+ *
+ * Notes:
+ * - Header is rendered in a sticky wrapper so page content scrolls under it
+ * - Main content is wrapped in `ui-shell` to keep widths consistent across pages
+ *
+ * @param {React.ReactNode} children - Route content
+ * @returns {JSX.Element}
  */
 const Layout = ({ children }) => {
   return (
     <SearchProvider>
       <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
+        {/* A11y: allows keyboard users to jump past navigation */}
         <a
           href="#main-content"
           className="
@@ -29,14 +42,14 @@ const Layout = ({ children }) => {
           Skip to content
         </a>
 
-        {/* Header sticky (body scroll) */}
+        {/* Sticky header (body scrolls underneath) */}
         <div className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
           <Header />
         </div>
 
         {/* Main grows to push Footer to the bottom when content is short */}
         <main id="main-content" className="flex-1 pt-4 pb-6">
-          {/* IMPORTANT: keep dashboard width consistent with the rest of the app */}
+          {/* IMPORTANT: keep page width consistent across the app */}
           <div className="ui-shell">{children}</div>
         </main>
 

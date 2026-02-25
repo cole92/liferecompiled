@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base layer: set app-wide typography + dark neutral background */
 @layer base {
   html,
   body {
@@ -14,30 +15,31 @@
     padding: 0;
     font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 
-    /* neutral dark base */
+    /* Dark UI baseline using Tailwind tokens */
     @apply bg-zinc-950 text-zinc-100 antialiased;
   }
 
+  /* Default link styling (keeps links consistent across markdown + app UI) */
   a {
     @apply text-blue-400 hover:text-blue-300;
   }
 }
 
 @layer components {
-  /* layout */
+  /* Layout primitives: shared wrappers and card surface tokens */
   .ui-shell {
     @apply mx-auto w-full max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 lg:px-8;
   }
 
- .ui-shell-header {
-  @apply mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10;
-}
+  .ui-shell-header {
+    @apply mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10;
+  }
 
   .ui-card {
     @apply rounded-2xl border border-zinc-800/80 bg-zinc-950/35 backdrop-blur shadow-sm ring-1 ring-zinc-100/5;
   }
 
-  /* buttons */
+  /* Button system: consistent focus ring + disabled behavior across the app */
   .ui-button {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors
       focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
@@ -57,7 +59,7 @@
     @apply ui-button border border-zinc-700 bg-transparent text-zinc-100 hover:bg-zinc-900/60;
   }
 
-  /* form fields */
+  /* Form fields: shared input/label/help/error tokens */
   .ui-label {
     @apply block text-base font-medium text-zinc-200;
   }
@@ -79,6 +81,7 @@
   }
 }
 
+/* Cross-browser scrollbar styling for "app-like" feel on dark UI */
 .ui-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(113, 113, 122, 0.55) transparent;
@@ -103,6 +106,7 @@
   background-color: rgba(113, 113, 122, 0.65);
 }
 
+/* Horizontal tag rail scrollbar (thin + subtle; avoids layout jump) */
 .tag-rail {
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: rgba(161, 161, 170, 0.25) transparent;
@@ -125,8 +129,7 @@
   background: rgba(161, 161, 170, 0.35);
 }
 
-
-/* React-Toastify (Zinc UI overrides) */
+/* React-Toastify overrides: align to Zinc dark UI + keep above modals/sheets */
 .Toastify__toast-container {
   z-index: 120 !important;
 }

@@ -20,14 +20,47 @@ import { formatPostDateLabel } from "../utils/formatDate";
 import { FOCUS_RING, PILL_CATEGORY, PILL_TAG } from "../constants/uiClasses";
 
 const CONTENT_PREVIEW_MAX = 260;
+// UX cap: keep feed cards compact and avoid noisy tag floods
 const MAX_TAGS_IN_APP = 5;
 
+/**
+ * Normalize tag label for display.
+ *
+ * - Trims whitespace
+ * - Strips leading '#' characters
+ * - Returns empty string for invalid input
+ *
+ * @param {string} t
+ * @returns {string}
+ */
 const normalizeTagText = (t) => {
   const raw = String(t ?? "").trim();
   if (!raw) return "";
   return raw.replace(/^#+/, "").trim();
 };
 
+/**
+ * @component PostCardFeed
+ *
+ * Feed post card used in Home/Saved lists (read-first browsing).
+ *
+ * - Clickable card navigates to `/post/:id`
+ * - Shows compact preview (description + content excerpt)
+ * - Supports save/unsave with snapshot metadata for SavedPosts consistency
+ * - Shows tags rail (normalized + unique + capped; overflow via horizontal scroll)
+ * - Surfaces badges (Most Inspiring / Trending) and opens BadgeModal on click
+ * - Renders ReactionSummary with current user context (author vs viewer)
+ *
+ * Notes:
+ * - Many inner controls stop propagation to avoid triggering card navigation
+ * - `memo()` is used to reduce re-renders in long feed lists
+ *
+ * @param {Object} props
+ * @param {Object} props.post - Post data used for rendering the card
+ * @param {boolean} [props.isSaved] - Current saved state provided by parent list
+ * @param {Function} [props.onSavedChange] - Callback(postId, nextSavedState)
+ * @returns {JSX.Element}
+ */
 const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
@@ -60,6 +93,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
     return unique;
   }, [post?.tags]);
 
+  // Badge list is derived from post flags and limited to two for layout stability
   const badgesToShow = useMemo(() => {
     const out = [];
     if (post?.badges?.mostInspiring)
@@ -68,6 +102,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
     return out.slice(0, 2);
   }, [post?.badges?.mostInspiring, post?.badges?.trending]);
 
+  // Build a stable preview that avoids layout shifts and keeps whitespace readable
   const { descText, contentPreview, isContentTruncated } = useMemo(() => {
     const normalize = (v) =>
       typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
@@ -97,6 +132,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
 
+    // Snapshot helps SavedPosts detect stale saves after edits (title/updatedAt)
     const currentUpdated = post?.updatedAt || post?.createdAt;
 
     const snapshot = {
@@ -280,7 +316,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
         {/* Bottom */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
           <div className="min-h-[2.25rem]">
-            {/* TAG RAIL: scroll on ALL sizes, no truncation, normal pill size */}
+            {/* Tag rail: scroll on all sizes, no truncation */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <div
                 className={
@@ -306,7 +342,7 @@ const PostCardFeed = ({ post, isSaved, onSavedChange }) => {
                 )}
               </div>
 
-              {/* Subtle fade hint (works as scroll affordance) */}
+              {/* Visual fade hint (scroll affordance) */}
               <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>

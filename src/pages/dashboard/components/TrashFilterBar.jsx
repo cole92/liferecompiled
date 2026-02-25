@@ -2,10 +2,23 @@ import PropTypes from "prop-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * TrashFilterBar
- * - Base..md: horizontal scroll (no wrap)
- * - LG+: normal wrap / no scroll
- * - Scroll indicator: moving thumb (no fade), active while scroll is used
+ * @component TrashFilterBar
+ *
+ * Age-range quick filters for the Trash page.
+ *
+ * UI goals:
+ * - Mobile-first: horizontal scroll (no wrap) to keep pills readable on narrow screens.
+ * - lg+: allow wrapping with no scroll for a cleaner desktop layout.
+ * - Shows a moving "thumb" indicator only when horizontal scrolling is possible.
+ *
+ * Behavior:
+ * - Clicking a range sets `filterRange` via `onFilterChange`.
+ * - Reset clears the filter by passing `null`.
+ *
+ * @param {Object} props
+ * @param {string|null} props.filterRange - Active filter value (e.g. "0-10") or null for none.
+ * @param {(next: (string|null)) => void} props.onFilterChange - Updates the active filter range.
+ * @returns {JSX.Element}
  */
 const TrashFilterBar = ({ filterRange, onFilterChange }) => {
   const scrollerRef = useRef(null);
@@ -47,6 +60,10 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
 
   const btnSize = "px-3 py-1 text-sm";
 
+  /**
+   * Sync scroll thumb position/size with the scroller.
+   * Shows thumb only when content actually overflows horizontally.
+   */
   const updateThumb = () => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -54,6 +71,7 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
     const { scrollLeft, scrollWidth, clientWidth } = el;
     const maxScroll = scrollWidth - clientWidth;
 
+    // No overflow => hide indicator entirely.
     if (maxScroll <= 1) {
       setThumb({ visible: false, widthPct: 0, leftPct: 0 });
       return;
@@ -75,6 +93,7 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
     const el = scrollerRef.current;
     if (!el) return;
 
+    // Scroll + resize keep the indicator honest across device rotations / layout changes.
     const onResize = () => updateThumb();
 
     el.addEventListener("scroll", updateThumb, { passive: true });
@@ -105,6 +124,7 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
             onClick={() => onFilterChange(f.value)}
             className={
               `${baseBtn} ${btnSize} ${f.className} ` +
+              // Active state uses a neutral ring so all color variants remain readable.
               `${filterRange === f.value ? "ring-1 ring-zinc-100/40" : ""} ` +
               "lg:hover:scale-105"
             }
@@ -127,7 +147,7 @@ const TrashFilterBar = ({ filterRange, onFilterChange }) => {
         </button>
       </div>
 
-      {/* Moving underline indicator while scroll is active */}
+      {/* Moving underline indicator while horizontal scroll is available (mobile only). */}
       {thumb.visible && (
         <div className="pointer-events-none lg:hidden">
           <div className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full bg-zinc-800/70 overflow-hidden">

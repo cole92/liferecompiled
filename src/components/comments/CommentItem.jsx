@@ -35,6 +35,11 @@ import Avatar from "../common/Avatar";
 
 dayjs.extend(relativeTime);
 
+/**
+ * Resolve a safe portal root for menus/modals.
+ * - Prefer `#modal-root` to keep overlays above app layout.
+ * - Fallback to `document.body` to avoid breaking if the root is missing.
+ */
 const getPortalRoot = () =>
   document.getElementById("modal-root") || document.body;
 
@@ -53,6 +58,10 @@ const COMMENT_DELETE_ERROR_TOAST_ID = "comment:delete:error";
 const COMMENT_EDIT_EMPTY_TOAST_ID = "comment:edit:empty";
 const COMMENT_EDIT_ERROR_TOAST_ID = "comment:edit:error";
 
+/**
+ * Depth-based padding for nested replies.
+ * Keeps deep threads readable without pushing content too far right on mobile.
+ */
 const getRepliesIndent = (depth) => {
   if (depth <= 0) return "pl-4 sm:pl-5";
   if (depth === 1) return "pl-3 sm:pl-4";
@@ -66,6 +75,36 @@ const NAME_LINK_BASE =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
   "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded-md";
 
+/**
+ * @component CommentItem
+ *
+ * Single comment row with:
+ * - author display (async fetch), timestamp (relative), and optional "replying to" context
+ * - edit window (10 min), soft delete, report flow
+ * - nested replies rendering using `childrenMap` adjacency list
+ * - menu rendered via portal (positioned near button; closes on scroll/Escape/outside click)
+ *
+ * Notes:
+ * - Soft delete keeps thread structure intact; deleted comments can remain visible if they have non-deleted children.
+ * - Reply/edit actions are disabled when `locked` or when depth exceeds configured limits.
+ *
+ * @param {string} userId - Author id of this comment.
+ * @param {string} content - Comment body.
+ * @param {Object} timestamp - Firestore Timestamp for creation time.
+ * @param {Object|null} editedAt - Firestore Timestamp for edit time (optional).
+ * @param {string} postID - Post id (used for reply submit).
+ * @param {string} commentId - Comment document id.
+ * @param {Object} childrenMap - Map: parentCommentId -> array of reply objects.
+ * @param {number} depth - Nesting level (0 for top-level).
+ * @param {boolean} showAll - If false, comment may be truncated in compact views.
+ * @param {boolean} deleted - Soft delete flag.
+ * @param {boolean} locked - If true, disables interactions (reply/edit/delete/reactions/report flows as needed).
+ * @param {boolean} disableBadgeModal - If true, badge modal is disabled (read-only contexts).
+ * @param {number} maxDepthForReply - Reply button disabled at/after this depth.
+ * @param {number} maxDepthForRender - Stop rendering children after this depth (performance/UX guard).
+ * @param {{id: string, name: string}|null} parentAuthor - Context for "Replying to" row.
+ * @returns {JSX.Element}
+ */
 const CommentItem = ({
   userId,
   content,
@@ -104,11 +143,14 @@ const CommentItem = ({
   const hintShownRef = useRef(false);
 
   const portalRoot = useMemo(() => {
+    // SSR guard: portals require DOM.
     if (typeof document === "undefined") return null;
     return getPortalRoot();
   }, []);
 
   const { user: ctxUser } = useContext(AuthContext);
+
+  // Prefer context user; fallback keeps behavior stable if context is late.
   const currentUser = ctxUser || auth.currentUser;
 
   const currentUserId = currentUser?.uid ?? null;
@@ -120,6 +162,7 @@ const CommentItem = ({
   const editedDate = editedAt?.toDate?.();
   const editId = `comment-edit-${commentId}`;
 
+  // Edit window: allow quick fixes, avoid "stealth edits" long after posting.
   const canEdit = !!tsDate && Date.now() - tsDate.getTime() <= 10 * 60 * 1000;
 
   const isDeleted = deleted;
@@ -127,10 +170,12 @@ const CommentItem = ({
   const blockRenderingChildren = depth >= maxDepthForRender;
 
   useEffect(() => {
+    // Keep editor synced with upstream changes unless user is actively editing.
     if (!isEditing) setEditedContent(content);
   }, [content, isEditing]);
 
   const onReportClick = () => {
+    // Auth gate early to avoid opening modal that cannot be confirmed.
     if (!currentUser) {
       showInfoToast("Please login to report 😊", {
         toastId: REPORT_COMMENT_AUTH_TOAST_ID,
@@ -143,6 +188,7 @@ const CommentItem = ({
   const onCancelReport = () => setShowReportModal(false);
 
   const onConfirmReport = async () => {
+    // Double-check auth in case session changed while modal was open.
     if (!currentUser) {
       showInfoToast("Please login to report 😊", {
         toastId: REPORT_COMMENT_AUTH_TOAST_ID,
@@ -151,6 +197,7 @@ const CommentItem = ({
       return;
     }
 
+    // Prevent self-report spam / accidental clicks.
     if (currentUser?.uid === userId) {
       showInfoToast("You can't report your own comment.", {
         toastId: REPORT_COMMENT_SELF_TOAST_ID,
@@ -181,6 +228,7 @@ const CommentItem = ({
   };
 
   useEffect(() => {
+    // Fetch author public profile for name/avatar/badges (best-effort).
     if (!userId) return;
     let isMounted = true;
 
@@ -194,11 +242,13 @@ const CommentItem = ({
     })();
 
     return () => {
+      // Avoid setState on unmounted component when requests resolve late.
       isMounted = false;
     };
   }, [userId]);
 
   useEffect(() => {
+    // Show a short edit hint to the author, but cap to avoid annoyance.
     const currentUid = auth.currentUser?.uid;
     if (!currentUid || currentUid !== userId || !canEdit) return;
     if (hintShownRef.current) return;
@@ -217,6 +267,7 @@ const CommentItem = ({
   useEffect(() => {
     if (!isMenuOpen) return;
 
+    // Close menu on Escape and on any scroll (prevents stale positioning).
     const onKeyDown = (e) => {
       if (e.key === "Escape") setIsMenuOpen(false);
     };
@@ -233,6 +284,8 @@ const CommentItem = ({
   }, [isMenuOpen]);
 
   const rawReplies = childrenMap?.[commentId] || [];
+
+  // Keep reply order stable: chronological (oldest -> newest).
   const sortedReplies = [...rawReplies].sort((a, b) => {
     const aT =
       a.timestamp?.toMillis?.() || a.timestamp?.toDate?.()?.getTime?.() || 0;
@@ -241,6 +294,8 @@ const CommentItem = ({
     return aT - bT;
   });
 
+  // Deleted replies remain visible only if they still have at least one non-deleted child.
+  // This keeps nested conversations readable without "orphaning" children.
   const visibleReplies = sortedReplies.filter((r) => {
     if (!r.deleted) return true;
     const kids = childrenMap?.[r.id] || [];
@@ -279,6 +334,7 @@ const CommentItem = ({
   const handleSave = async () => {
     const trimmed = editedContent.trim();
 
+    // Mirror backend expectations: reject whitespace-only updates.
     if (!trimmed) {
       showErrorToast("Comment cannot be empty!", {
         toastId: COMMENT_EDIT_EMPTY_TOAST_ID,
@@ -286,6 +342,7 @@ const CommentItem = ({
       return;
     }
 
+    // No-op save: keep UI snappy and avoid unnecessary writes.
     if (trimmed === content.trim()) {
       setIsEditing(false);
       return;
@@ -307,6 +364,7 @@ const CommentItem = ({
   };
 
   const handleCancel = () => {
+    // Restore original content to avoid "half edits" lingering in state.
     setIsEditing(false);
     setEditedContent(content);
   };
@@ -316,12 +374,14 @@ const CommentItem = ({
     const btn = menuBtnRef.current;
     if (!btn) return;
 
+    // Position menu near the trigger, clamped to viewport edges.
     const r = btn.getBoundingClientRect();
     const left = Math.min(
       window.innerWidth - MENU_WIDTH - MENU_MARGIN,
       Math.max(MENU_MARGIN, r.right - MENU_WIDTH),
     );
 
+    // Simple heuristic for vertical placement (avoid going off-screen).
     const menuHeightGuess = 140;
     const spaceBelow = window.innerHeight - r.bottom;
     const top =
@@ -367,6 +427,7 @@ const CommentItem = ({
                     setShowTopContributorModal(true);
                   }}
                   onKeyDown={(e) => {
+                    // Keyboard parity for badge info (Enter/Space).
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       if (disableBadgeModal) return;
@@ -382,7 +443,7 @@ const CommentItem = ({
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                {/* NEW: clickable author name */}
+                {/* Clickable author link when `userId` exists (prevents card-level click bubbling). */}
                 {userId ? (
                   <Link
                     to={`/profile/${userId}`}
@@ -688,6 +749,7 @@ const CommentItem = ({
 };
 
 function seeAllTruncation(text) {
+  // Centralized truncation rule to keep compact comment lists consistent.
   return typeof text === "string" && text.length > 150;
 }
 

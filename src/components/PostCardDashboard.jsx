@@ -29,6 +29,16 @@ import {
   PILL_META,
 } from "../constants/uiClasses";
 
+/**
+ * Compute remaining edit window (7 days from creation).
+ *
+ * - Returns `null` when timestamp is missing/invalid (defensive)
+ * - Returns `0` when edit window has expired
+ * - Uses ceil to keep UX intuitive (e.g. "1 day left" until it truly expires)
+ *
+ * @param {Object} createdAt - Firestore Timestamp-like object with `toDate()`
+ * @returns {number|null} Days left to edit, 0 if expired, null if unknown
+ */
 function getEditDaysLeft(createdAt) {
   if (!createdAt?.toDate) return null;
 
@@ -39,14 +49,48 @@ function getEditDaysLeft(createdAt) {
   return leftMs > 0 ? Math.ceil(leftMs / (1000 * 60 * 60 * 24)) : 0;
 }
 
+// UX cap: keep dashboard cards compact and avoid noisy tag floods
 const MAX_TAGS_IN_APP = 5;
 
+/**
+ * Normalize tag label for display.
+ *
+ * - Trims whitespace
+ * - Strips leading '#' characters
+ * - Returns empty string for invalid input
+ *
+ * @param {string} t
+ * @returns {string}
+ */
 const normalizeTagText = (t) => {
   const raw = String(t ?? "").trim();
   if (!raw) return "";
   return raw.replace(/^#+/, "").trim();
 };
 
+/**
+ * @component PostCardDashboard
+ *
+ * Dashboard-focused post card (MyPosts/admin contexts).
+ *
+ * - Clickable card navigates to `/post/:id`
+ * - Supports save/unsave with snapshot metadata for SavedPosts consistency
+ * - Shows compact tag rail (normalized + unique + capped)
+ * - Shows management strip (Edit, Archive, Delete) depending on ownership/state
+ * - Respects locked state (muted/archived indicator, disables edit window)
+ *
+ * Notes:
+ * - `memo()` is used because cards are frequently rendered in lists
+ * - Many child actions stop propagation to avoid triggering card navigation
+ *
+ * @param {Object} props
+ * @param {Object} props.post - Post data used for rendering the card
+ * @param {boolean} [props.isMyPost=false] - Enables owner actions (edit/archive)
+ * @param {boolean} [props.showDeleteButton=false] - Shows delete action
+ * @param {Function} [props.onDelete] - Delete handler (receives postId)
+ * @param {Function} [props.onLock] - Archive/lock handler (receives postId)
+ * @returns {JSX.Element}
+ */
 const PostCardDashboard = ({
   post,
   isMyPost = false,
@@ -65,7 +109,7 @@ const PostCardDashboard = ({
   const postId = post?.id;
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, postId);
 
-  // ✅ Tag rail: unique + normalized + max 5 (scroll handles overflow)
+  // Tag rail: normalize mixed tag shapes, dedupe case-insensitively, cap to MAX_TAGS_IN_APP
   const allTags = useMemo(() => {
     const raw = Array.isArray(post?.tags) ? post.tags : [];
 
@@ -88,6 +132,7 @@ const PostCardDashboard = ({
     return unique;
   }, [post?.tags]);
 
+  // Badge list is derived from post flags and limited to two for layout stability
   const badgesToShow = useMemo(() => {
     const out = [];
     if (post?.badges?.mostInspiring)
@@ -124,6 +169,7 @@ const PostCardDashboard = ({
     if (!user || !postId) return;
 
     try {
+      // Snapshot helps SavedPosts show context even if post changes later
       const currentUpdated = post?.updatedAt || post?.createdAt;
 
       const snapshot = {
@@ -158,7 +204,7 @@ const PostCardDashboard = ({
     "px-2 py-0.5 text-[11px] font-medium text-sky-200 whitespace-nowrap " +
     "sm:px-2.5 sm:py-0.5 sm:text-xs";
 
-  // ✅ IMPORTANT: ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
+  // IMPORTANT: ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
   const TAG_PILL_NO_TRUNC =
     `${PILL_TAG} ` +
     "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
@@ -300,7 +346,7 @@ const PostCardDashboard = ({
 
         {/* Bottom: tags + reactions + management */}
         <div className="mt-auto pt-3 border-t border-zinc-800/60">
-          {/* ✅ Tags rail (same as feed) */}
+          {/* Tags rail: capped pills, horizontal scroll when overflow */}
           <div className="min-h-[2.25rem]">
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <div
@@ -327,6 +373,7 @@ const PostCardDashboard = ({
                 )}
               </div>
 
+              {/* Visual fade to hint horizontal scroll */}
               <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>

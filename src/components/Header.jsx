@@ -7,8 +7,18 @@ import BrandWordmark from "./ui/BrandWordmark";
 
 /**
  * @component Header
- * Global header (logo + auth/avatar).
- * No Home toolbar or Create button here.
+ *
+ * Global app header (brand + auth area).
+ *
+ * - Stays sticky at the top for constant navigation context
+ * - Shows an auth-check loading state to avoid UI flicker during startup
+ * - Renders either avatar dropdown (authenticated) or login/register links (guest)
+ * - Hides login/register buttons on their respective routes to reduce redundancy
+ *
+ * Notes:
+ * - No Home toolbar or Create button belongs here (kept intentionally minimal)
+ *
+ * @returns {JSX.Element}
  */
 const Header = () => {
   const { user, isLoggingOut, logout, isCheckingAuth } =
@@ -18,6 +28,7 @@ const Header = () => {
   const isLogin = pathname === "/login";
   const isRegister = pathname === "/register";
 
+  // Avoid rendering guest/auth UI until auth state is resolved (prevents flicker)
   if (isCheckingAuth) {
     return (
       <header className="sticky top-0 z-50 w-full">
@@ -51,6 +62,7 @@ const Header = () => {
                 />
               ) : (
                 <>
+                  {/* Hide Login button when already on /login */}
                   {!isLogin && (
                     <NavLink
                       to="/login"
@@ -60,6 +72,7 @@ const Header = () => {
                     </NavLink>
                   )}
 
+                  {/* Hide Register button when already on /register */}
                   {!isRegister && (
                     <NavLink
                       to="/register"
