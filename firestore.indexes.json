@@ -43,6 +43,71 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "authorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "badges.trending",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastHotAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "badges.trending",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastHotAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "category",
           "order": "ASCENDING"
         },
@@ -95,6 +160,25 @@
         {
           "fieldPath": "__name__",
           "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deletedAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
       ],
       "density": "SPARSE_ALL"
@@ -194,7 +278,84 @@
         }
       ],
       "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "comments",
+      "fieldPath": "deletedAt",
+      "ttl": true,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "processedEvents",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reactionLedger",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    }
+  ]
 }
