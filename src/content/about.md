@@ -1,45 +1,113 @@
-# LifeRecompiled
+# LifeRecompiled — About
 
 **Growth requires structure — and structure requires discipline.**
 
-> **Work in progress**
-> LifeRecompiled is still evolving step by step. Some features may feel slow or change over time — thanks for your patience and feedback. 🙂
+LifeRecompiled is a portfolio-grade full-stack web app that started as a simple “blog app” and evolved into a small developer/community platform.
 
-This project started as a way to improve my technical skills.
+It focuses on real product problems: reliable data integrity, permissions, UX polish, and deploy-ready infrastructure — not just “CRUD screens”.
 
-But the more I worked on it, the more I realized it wasn’t only about features or clean architecture.
-It became a structure for discipline, focus, and long-term growth.
-
-**This project didn’t just rebuild code.**
-
-LifeRecompiled is now a place to share ideas, document progress, and connect with others on a similar path.
-
-It’s about the real journey behind growth: consistency, mindset, health, burnout, recovery, and progress.
-
-If you're building something of your own — you're welcome here.
+It’s not trying to compete with big social platforms.  
+It’s a small, practical product — built step by step — and a proof of work.
 
 ---
 
-## Beyond code
+## What you can do in the app
 
-Here we talk about:
+### Public (guest)
+- Browse the feed (cursor pagination + stable ordering).
+- Sort posts (Newest / Oldest / Trending) and filter by category.
+- Open any post and read comments + reactions.
+- View public profiles (`/profile/:uid`) and author info.
 
-- building features & solving architectural problems
-- learning journeys and career transitions
-- burnout, recovery, and mental clarity
-- fitness, structure, and consistency
-- the reality behind trying to build something meaningful
+> Guests can browse, but actions like commenting/saving/liking are gated with clear UX prompts.
 
-## Support & feedback
+### Auth & onboarding
+- Email/password auth: Register, Login, Forgot password.
+- Email verification gate before the app treats the user as “fully logged in”.
+- Protected routes for dashboard features.
 
-If you find a bug, have a suggestion, or want to contribute an idea — use the **Support & Feedback** page inside the app.
+### Posts
+- Create posts with title + optional description + main content, category, tags.
+- Edit your own posts (time-limited edit window).
+- Archive posts (read-only: disables interactions like comments/reactions).
+- Soft delete to Trash (restore window) + hard delete (cascade when allowed).
 
-Reports include helpful context to make fixes faster.
+### Comments
+- Threaded comments (multi-level replies; depth-limited).
+- Comment likes + “people who liked this” modal.
+- Permissions: author can delete own comment; admin can delete too.
+- Mobile-first comments UX (sheet pattern on small screens).
+
+### Reactions + badges
+- Deterministic per-user reaction toggles: Idea / Hot / Powerup.
+- Post badges (e.g. Trending) and a user badge (Top Contributor) are driven by backend rules.
+
+### Saved posts
+- Save/unsave with Undo (prevents accidental removals).
+- Handles “ghost saved posts” (if the original post disappears later).
+- Save snapshot metadata (e.g. “Updated since saved”).
+
+### Dashboard
+- My Posts: Active/Archived/All filters, search by title, pagination.
+- Saved: sort modes + pagination + ghost handling + Undo.
+- Stats: charts for monthly posting activity + restore/delete ratio.
+- Trash: restore or delete permanently.
+- Moderation (admin): view reports and jump to target content.
+
+### Profile & settings
+- Public profile with highlights + top posts.
+- Name + bio editing + profile picture.
+- Image upload via Cloudinary (with repositioning).
+
+### Support & feedback (auth-only)
+- A structured Support & Feedback page for bug reports, UX issues, feature requests, etc.
+- Available from the avatar menu once logged in.
+- Includes useful debug context to make reports actionable.
 
 ---
 
-## Closing
+## Behind the scenes (engineering focus)
 
-LifeRecompiled reflects the shift from thinking about change — to engineering it.
+### Data model (high level)
+Firestore collections include:
+- `posts` (content, tags, category, deleted/archived flags, reactionCounts, badges)
+- `comments` (threading via parentId + postId)
+- `reactions` (deterministic doc IDs)
+- `userStats` (authoritative aggregates; server-managed)
+- `users` (profile + role + public badge mirror)
+- `reports` (moderation targets)
 
-And it’s only getting started.
+### Backend architecture: correctness-first
+Reactions and badges are backend-owned and retry-safe via Cloud Functions v2:
+- Idempotency markers (event IDs)
+- Stale guards (create/delete races)
+- Ledger pairing (prevents counter drift)
+
+Trending is both:
+- Count-driven (threshold-based)
+- Time-driven (scheduled expiry)
+
+Admin is derived from `users/{uid}.role` (not custom claims) and exposed to the UI via AuthContext.
+
+`userStats` is treated as server-owned source of truth; the client reads it but does not write aggregates.
+
+---
+
+## Environments & deploy discipline
+- Clear staging vs prod separation (Firebase project aliases).
+- Frontend uses separate env configs; env files are not committed.
+- Secrets are not stored in VITE_ env.
+- Cloudinary config is managed via Firebase Functions runtime config (staging/prod).
+- Node policy: app on Node 20, functions runtime Node 18.
+
+---
+
+## Links
+- GitHub (source + docs): https://github.com/cole92/react-blog
+
+---
+
+## Roadmap (next)
+- Social login (Google/GitHub)
+- Stronger moderation workflows (review queue, actions log)
+- Add tests + CI expansion
