@@ -138,3 +138,9 @@ dist
 # firebase local cache
 .firebase/
 
+
+# secrets
+functions/.runtimeconfig.json
+functions/.env*
+.env*
+
