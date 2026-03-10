@@ -2,6 +2,13 @@
 
 LifeRecompiled is a portfolio-grade full-stack web app that started as a "blog app" and evolved into a small developer/community platform.
 
+## TL;DR
+- Community-style posts + comments + reactions
+- Backend-authoritative aggregates via Cloud Functions v2
+- Deterministic reactions + idempotency ledger to prevent counter drift
+- Soft delete + scheduled purge (Trash → permanent delete)
+- Staging vs prod discipline (safe deploy workflow)
+
 The project focuses on **production-like engineering problems**:
 
 - Data integrity under retries / races
@@ -9,15 +16,15 @@ The project focuses on **production-like engineering problems**:
 - Backend-authoritative aggregates (counts, badges, stats)
 - Robust pagination + UI-safe normalization
 - Polished UX (undo, skeletons, modals, responsive layout)
-- Staging vs prod discipline
 
 ---
 
 ## Demo
 
-- Live: (add link)
-- About: `/about`
-- Support & feedback: `/report` (auth-only)
+- Live: https://liferecompiled.com
+- Repo: https://github.com/cole92/liferecompiled
+- About: /about
+- Support & feedback: /report (auth-only)
 
 ---
 
