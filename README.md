@@ -457,6 +457,8 @@ Typical Firebase variables:
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
+Security note: The Firebase web API key is restricted by HTTP referrers (allowed domains only).
+
 ### Run
 
 ```bash
