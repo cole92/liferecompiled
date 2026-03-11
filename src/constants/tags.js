@@ -80,7 +80,18 @@ export const frontendTags = [
   "Vitest", "HMR-Hot-Module-Replacement", "Monorepos",
 
   // Working with Data
-  "Zod", "Yup", "Immer", "Day.js", "date-fns"
+  "Zod", "Yup", "Immer", "Day.js", "date-fns",
+
+  // Fresh Frontend Tags
+  "UX", "UI Design", "User Experience", "Responsive Design", "Mobile UI",
+  "Desktop UX", "Interaction Design", "Component Design", "Design Systems", "UI Patterns",
+  "Form UX", "Empty States", "Loading States", "Skeleton Loaders", "Microinteractions",
+  "Visual Hierarchy", "Information Architecture", "Content Layout", "Scrollable UI", "Bottom Sheet",
+  "Drawer UI", "Modal UX", "Dropdown UX", "Comments UX", "Feed Design",
+  "Dashboard UI", "Card Design", "Mobile-First Design", "Adaptive Layout", "Responsive Components",
+  "Touch-Friendly UI", "Interaction States", "Error States", "Accessibility UX", "UI Consistency",
+  "Progressive Disclosure", "Frontend Architecture", "Component Reusability", "Reusable Components", "State-Driven UI",
+    
 ];
 
 // 🔹 Backend Tags
@@ -126,8 +137,18 @@ export const backendTags = [
   "mTLS-Mutual-TLS", "HSTS",
 
   // Message Brokers
-  "RabbitMQ", "Kafka", "Redis Streams", "NSQ", "Redpanda"
-];
+  "RabbitMQ", "Kafka", "Redis Streams", "NSQ", "Redpanda",
+
+  // Fresh Backend Tags
+  "Data Integrity", "Idempotency", "Race Conditions", "Concurrency", "Retry Safety",
+  "Stale Event Handling", "Event Ordering", "Aggregate Updates", "Backend Authority", "Server-Side Validation",
+  "Defensive Programming", "Error Handling", "Function Triggers", "Scheduled Jobs", "Cron Jobs",
+  "Data Consistency", "Counter Synchronization", "Toggle Logic", "Permission Checks", "Authorization Logic",
+  "Business Rules", "Auditability", "Mutation Safety", "Backend Workflows", "API Design",
+  "Callable Functions", "Cloud Functions v2", "Serverless Backend", "Edge Cases", "Resilient Systems",
+  "Recovery Logic", "Data Ownership", "System Reliability", "Event Processing", "Write Safety",
+  "Read Models", "Backend Architecture", "Data Validation", "Consistency Guarantees", "Operational Safety",
+  ];
 
 // 🔹 Database Tags
 export const databaseTags = [
@@ -198,7 +219,17 @@ export const databaseTags = [
   "Columnar Storage", "Vector Databases", "Cache Layer",
   "Hyperscan", "Adaptive Indexing", "Vector Search", "Graph Indexing",
   "Probabilistic Data Structures", "Adaptive Sharding",
-  "Range-Based Partitioning"
+  "Range-Based Partitioning",
+
+  // Fresh Database Tags
+  "Data Modeling", "Document Modeling", "NoSQL Design", "Schema Design", "Denormalization",
+  "Normalization", "Composite Indexes", "Query Patterns", "Pagination", "Cursor Pagination",
+  "Data Access Patterns", "Document Relationships", "Nested Data", "Write Optimization", "Read Optimization",
+  "Index Strategy", "Query Constraints", "Data Lifecycle", "Soft Delete", "Restore Workflow",
+  "Scheduled Cleanup", "Retention Policies", "Data Hygiene", "TTL Strategy", "Database Integrity",
+  "Client Access Rules", "Read-Only Aggregates", "Server-Owned Data", "Document IDs", "Deterministic IDs",
+  "Firestore Rules", "Firestore Indexes", "Firestore Queries", "Firestore Pagination", "Subcollections",
+  "Data Aggregation", "Consistency Patterns", "Safe Writes", "Access Control Data Layer", "Production Data Modeling",
 ];
 
 // 🔹 DevOps & Cloud
@@ -274,7 +305,17 @@ export const devopsTags = [
   "OpenVPN", "WireGuard", "Tailscale", "ZeroTier",
   "BGP", "eBPF", "VXLAN", "Cloudflare Tunnels",
   "Open vSwitch", "Nebula Overlay Network", "Submariner",
-  "CNI", "NSX-T"
+  "CNI", "NSX-T",
+
+  // Fresh DevOps Tags
+  "Deployment", "Production Deploy", "Staging Environment", "Production Environment", "Environment Strategy",
+  "Release Workflow", "Build Pipeline", "CI Pipeline", "Hosting Configuration", "Custom Domain",
+  "DNS Setup", "Cloudflare", "Firebase Hosting", "Cloud Run", "Secret Management",
+  "Environment Variables", "Runtime Configuration", "Infrastructure Safety", "Rollback Strategy", "Backup Strategy",
+  "Scheduled Backups", "Cost Control", "Operational Monitoring", "Logs and Observability", "Deployment Discipline",
+  "Multi-Environment Setup", "Build Verification", "Production Readiness", "Deployment Checklist", "Domain Migration",
+  "Static Hosting", "Serverless Deployment", "Release Safety", "Hosting Debugging", "Alias Configuration",
+  "Project Separation", "Cloud Deployments", "Operational Playbooks", "Live Environment Testing", "Release Confidence",
 ];
 
 // 🔹 AI & Machine Learning
@@ -379,7 +420,17 @@ export const aiTags = [
 
   // Decentralized AI & Blockchain AI
   "Bittensor", "Secure Aggregation",
-  "Decentralized AI", "Blockchain AI", "AI-Web3"
+  "Decentralized AI", "Blockchain AI", "AI-Web3",
+
+  // Fresh AI Tags
+  "Artificial Intelligence", "Machine Learning", "Deep Learning", "Neural Networks", "LLMs",
+  "Generative AI", "Prompt Engineering", "AI Tools", "AI Workflows", "Model Inference",
+  "Model Evaluation", "Fine-Tuning", "Embeddings", "Vector Search", "RAG",
+  "AI Agents", "Agent Workflows", "Natural Language Processing", "Computer Vision", "Speech Recognition",
+  "Recommendation Systems", "Predictive Models", "Data Labeling", "Model Serving", "AI Automation",
+  "Inference Pipelines", "AI Product Design", "Responsible AI", "AI Safety", "Model Reliability",
+  "Human-in-the-Loop", "AI Integration", "OpenAI API", "Hugging Face", "LangChain",
+  "Semantic Search", "Knowledge Retrieval", "AI Experimentation", "Prompt Testing", "Applied AI",
 ];
 
 // 🔹 Career & Freelance
@@ -452,7 +503,17 @@ export const careerTags = [
   "Holacracy",
 
   // Alternative Career Paths
-  "Metaverse Developer", "Automation Consultant", "Tech Philanthropist"
+  "Metaverse Developer", "Automation Consultant", "Tech Philanthropist",
+
+  // Fresh Career Tags
+  "Career Growth", "Career Change", "Job Search", "Developer Career", "Tech Career",
+  "Junior Developer", "Self-Taught Developer", "Portfolio Projects", "Personal Branding", "LinkedIn",
+  "GitHub Portfolio", "Resume Tips", "CV Writing", "Interview Prep", "Technical Interviews",
+  "Behavioral Interviews", "Networking", "Freelancing", "Remote Work", "First Tech Job",
+  "Career Planning", "Skill Building", "Learning Roadmap", "Professional Development", "Work Opportunities",
+  "Client Work", "Upwork", "Job Applications", "Career Transition", "Breaking Into Tech",
+  "Developer Mindset", "Building Experience", "Real-World Projects", "Public Portfolio", "Confidence Building",
+  "Long-Term Career", "Career Strategy", "Personal Projects", "Proof of Work", "Growth in Tech",
 ];
 
 // 🔹 Personal Development (Lifestyle)
@@ -534,8 +595,18 @@ export const lifestyleTags = [
   "Mental Subtraction", "Voluntary Discomfort",
   "Future Self Visualization", "Legacy Thinking",
   "Thought Experiments", "Memento Mori",
-  "Existential Mobility"
-];
+  "Existential Mobility",
+
+  // Fresh Personal Development (Lifestyle) Tags
+  "Personal Growth", "Self-Discipline", "Consistency", "Building in Public", "Developer Journey",
+  "Learning Journey", "Starting Over", "Long-Term Growth", "Structured Growth", "Intentional Progress",
+  "Resilience", "Patience", "Self-Reflection", "Personal Systems", "Daily Discipline",
+  "Life and Code", "Growth Through Building", "Rebuilding Yourself", "Small Steps", "Process Over Outcomes",
+  "Deliberate Progress", "Personal Reinvention", "Focus", "Clarity", "Inner Stability",
+  "Meaningful Work", "Identity Through Action", "Momentum", "Consistency Over Motivation", "Building Better Habits",
+  "Personal Standards", "Discipline Over Mood", "Long Game", "Growth Mindset", "Becoming Better",
+  "Intentional Living", "Reset and Rebuild", "Self-Respect Through Discipline", "Purposeful Work", "Slow Progress",
+  ];
 
 // 🔹 Education Tags
 export const educationTags = [
@@ -605,7 +676,17 @@ export const educationTags = [
 
   // Soft Skills & Career Development
   "Decision Making Under Uncertainty", "Cognitive Flexibility",
-  "Personal Knowledge Management-PKM", "The Art of Problem Framing"
+  "Personal Knowledge Management-PKM", "The Art of Problem Framing",
+
+  // Fresh Education Tags
+  "Learning React", "Learning JavaScript", "Learning TypeScript", "Learning by Building", "Project-Based Practice",
+  "Practical Learning", "Deep Understanding", "Problem Solving", "Developer Thinking", "Step-by-Step Learning",
+  "From Theory to Practice", "Learning Frontend", "Learning Backend", "Full-Stack Learning", "Debugging Skills",
+  "Reading Code", "Writing Better Code", "Building Real Projects", "Learning Through Mistakes", "Incremental Learning",
+  "Technical Foundations", "Conceptual Understanding", "Hands-On Practice", "Code Architecture Learning", "Engineering Mindset",
+  "Self-Taught Programming", "Learning Systems Design", "Development Workflow", "Learning by Refactoring", "Feature Breakdown",
+  "Thinking Like a Developer", "Practical Software Design", "Learning Through Iteration", "From CRUD to Real Apps", "Code Review Mindset",
+  "Implementation Thinking", "Testing Your Thinking", "Build-Measure-Improve", "Learning in Layers", "Technical Growth",
 ];
 
 // 🔹 Developer Health
@@ -703,7 +784,17 @@ export const healthTags = [
   "Neck Strengthening for Posture", "Daily Stretching Challenge",
   "Mobility Drills for Longevity", "Dynamic Stretching for Coders",
   "Foam Rolling Recovery Techniques", "Micro-Workouts for Desk Workers",
-  "Isometric Core Training", "Soft Tissue Work with Massage Balls"
+  "Isometric Core Training", "Soft Tissue Work with Massage Balls",
+
+  // Fresh Developer Health Tags
+  "Developer Health", "Mental Clarity", "Focus Management", "Stress Management", "Burnout Prevention",
+  "Work-Life Balance", "Healthy Routines", "Sleep Quality", "Recovery", "Energy Management",
+  "Deep Work", "Digital Wellbeing", "Posture", "Mobility", "Ergonomics",
+  "Eye Strain", "Screen Fatigue", "Movement Breaks", "Desk Setup", "Healthy Habits",
+  "Sustainable Productivity", "Physical Health", "Mental Health", "Routine Building", "Daily Recovery",
+  "Rest and Recovery", "Training and Coding", "Nutrition for Focus", "Hydration", "Sleep and Performance",
+  "Managing Fatigue", "Overthinking", "Nervous System Regulation", "Calm Focus", "Resilience Under Stress",
+  "Consistency Without Burnout", "Healthy Discipline", "Workload Management", "Cognitive Performance", "Long-Term Sustainability",
 ];
 
 // 🔹 Soft Skills & Networking
