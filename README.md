@@ -49,7 +49,24 @@ The project focuses on **production-like engineering problems**:
 - [Testing](#testing)
 - [Gotchas / Lessons learned](#gotchas--lessons-learned)
 - [Roadmap](#roadmap)
+- [Screenshots](#screenshots)
 - [Author](#author)
+
+---
+
+## Screenshots
+
+### Desktop dashboard
+![LifeRecompiled desktop dashboard](docs/screenshots/desktop-dashboard.png)
+
+### Mobile feed
+![LifeRecompiled mobile feed](docs/screenshots/mobile-feed.png)
+
+### Mobile post details
+![LifeRecompiled mobile post details](docs/screenshots/mobile-post-details.png)
+
+### Desktop filters
+![LifeRecompiled desktop filters](docs/screenshots/desktop-filters.png)
 
 ---
 
