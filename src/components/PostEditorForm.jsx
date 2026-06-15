@@ -343,8 +343,7 @@ const PostEditorForm = ({
       className={
         "ui-card -mx-4 sm:mx-0 rounded-2xl p-4 sm:p-7 " +
         "border border-zinc-800/70 shadow-sm " +
-        "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
-        "ring-1 ring-sky-200/10"
+        "bg-zinc-950/65"
       }
     >
       {isLocked ? (
@@ -460,7 +459,7 @@ const PostEditorForm = ({
           </div>
 
           <div className="lg:col-span-4 mt-5 lg:mt-0 space-y-5 lg:sticky lg:top-24 self-start">
-            <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/20 p-3 sm:p-4 ring-1 ring-sky-200/5 shadow-sm">
+            <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/55 p-3 shadow-sm sm:p-4">
               <div className="space-y-2">
                 <label htmlFor="category" className="ui-label">
                   Category
@@ -501,7 +500,7 @@ const PostEditorForm = ({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/20 p-3 sm:p-4 ring-1 ring-sky-200/5 shadow-sm relative overflow-visible">
+            <div className="relative overflow-visible rounded-2xl border border-zinc-800/70 bg-zinc-950/55 p-3 shadow-sm sm:p-4">
               <TagsInput tags={tags} setTags={setTags} />
             </div>
 

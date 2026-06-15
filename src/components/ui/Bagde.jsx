@@ -14,7 +14,7 @@ const badgeImages = {
  *
  * Small visual badge chip (e.g. "Most Inspiring", "Trending").
  *
- * - Renders a circular glass-style frame with a badge image inside
+ * - Renders a compact dark frame with a badge image inside
  * - Supports optional click interaction (e.g. open modal / filter)
  * - `locked` disables interaction and applies muted visual state
  * - Designed as a compact UI atom for post cards and highlights
@@ -38,9 +38,9 @@ const Badge = ({ text, onClick, locked, size = 26 }) => {
       onClick={canClick ? onClick : undefined}
       disabled={!canClick}
       className={[
-        // Mini glass chip frame
+        // Mini badge chip frame
         "inline-flex items-center justify-center",
-        "rounded-full border border-zinc-800/70 bg-zinc-950/55 backdrop-blur",
+        "rounded-full border border-zinc-800/70 bg-zinc-950/75",
         "ring-1 ring-zinc-100/5 shadow-sm",
 
         // Spacing

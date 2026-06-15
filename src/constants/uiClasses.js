@@ -47,7 +47,7 @@ export const TEXT_HELP = "text-sm text-zinc-300";
 // Keep them consistent so everything feels like one system.
 // -----------------------------
 export const SURFACE_PANEL =
-  "ui-card bg-zinc-950/95 shadow-2xl border border-zinc-800/80";
+  "ui-card bg-zinc-950/95 shadow-lg border border-zinc-800/80";
 
 export const SURFACE_PANEL_INNER = "overflow-hidden rounded-xl p-1";
 
@@ -59,10 +59,10 @@ export const SURFACE_PANEL_ARROW =
 // Cards (generic). Home can keep its special gradient.
 // -----------------------------
 export const CARD_BASE =
-  "ui-card relative w-full overflow-hidden p-4 shadow-sm ring-1 ring-zinc-100/5";
+  "ui-card relative w-full overflow-hidden p-4";
 
 export const CARD_HOVER =
-  "cursor-pointer hover:shadow-md transition-colors transition-shadow duration-200";
+  "cursor-pointer hover:border-zinc-700/80 hover:bg-zinc-950/70 transition-colors duration-200";
 
 export const CARD_LOCKED =
   "opacity-60 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5";

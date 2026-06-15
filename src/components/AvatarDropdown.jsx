@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation, NavLink } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { doc, onSnapshot } from "firebase/firestore";
 
@@ -146,101 +145,94 @@ const AvatarDropdown = ({ user, logout, isLoggingOut }) => {
         )}
       </button>
 
-      <AnimatePresence>
-        {showMenu && (
-          <motion.div
-            key="dropdown"
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute right-0 z-50 mt-3.5 w-52 sm:mt-3"
-            role="menu"
-          >
-            <div className={dropdownSurfaceClass}>
-              <div className={SURFACE_PANEL_ARROW} />
+      {showMenu && (
+        <div
+          className="absolute right-0 z-50 mt-3.5 w-52 sm:mt-3"
+          role="menu"
+        >
+          <div className={dropdownSurfaceClass}>
+            <div className={SURFACE_PANEL_ARROW} />
 
-              <ul className="relative z-10 py-1">
-                <li>
-                  <NavLink
-                    to="/dashboard"
-                    className={cx(
-                      linkBase,
-                      location.pathname === "/dashboard" && linkActive,
-                    )}
-                  >
-                    Dashboard
-                  </NavLink>
-                </li>
+            <ul className="relative z-10 py-1">
+              <li>
+                <NavLink
+                  to="/dashboard"
+                  className={cx(
+                    linkBase,
+                    location.pathname === "/dashboard" && linkActive,
+                  )}
+                >
+                  Dashboard
+                </NavLink>
+              </li>
 
-                <li>
-                  <NavLink
-                    to="/profile"
-                    className={cx(
-                      linkBase,
-                      location.pathname === "/profile" && linkActive,
-                    )}
-                  >
-                    Profile Info
-                  </NavLink>
-                </li>
+              <li>
+                <NavLink
+                  to="/profile"
+                  className={cx(
+                    linkBase,
+                    location.pathname === "/profile" && linkActive,
+                  )}
+                >
+                  Profile Info
+                </NavLink>
+              </li>
 
-                <li>
-                  <NavLink
-                    to="/dashboard/settings"
-                    className={cx(
-                      linkBase,
-                      location.pathname === "/dashboard/settings" && linkActive,
-                    )}
-                  >
-                    Settings
-                  </NavLink>
-                </li>
+              <li>
+                <NavLink
+                  to="/dashboard/settings"
+                  className={cx(
+                    linkBase,
+                    location.pathname === "/dashboard/settings" && linkActive,
+                  )}
+                >
+                  Settings
+                </NavLink>
+              </li>
 
-                <li aria-hidden="true" className={dividerClass} />
+              <li aria-hidden="true" className={dividerClass} />
 
-                <li>
-                  <NavLink
-                    to="/about"
-                    className={cx(
-                      linkBase,
-                      location.pathname === "/about" && linkActive,
-                    )}
-                  >
-                    About
-                  </NavLink>
-                </li>
+              <li>
+                <NavLink
+                  to="/about"
+                  className={cx(
+                    linkBase,
+                    location.pathname === "/about" && linkActive,
+                  )}
+                >
+                  About
+                </NavLink>
+              </li>
 
-                <li>
-                  <NavLink
-                    to="/report"
-                    className={cx(
-                      linkBase,
-                      location.pathname === "/report" && linkActive,
-                    )}
-                  >
-                    Support & feedback
-                  </NavLink>
-                </li>
+              <li>
+                <NavLink
+                  to="/report"
+                  className={cx(
+                    linkBase,
+                    location.pathname === "/report" && linkActive,
+                  )}
+                >
+                  Support & feedback
+                </NavLink>
+              </li>
 
-                <li className="mt-1 border-t border-zinc-800/80 pt-1">
-                  <button
-                    type="button"
-                    className={cx(
-                      "w-full rounded-lg px-4 py-2 text-left text-sm text-zinc-200 transition hover:bg-zinc-900/50 hover:text-zinc-100 disabled:opacity-60",
-                      FOCUS_RING,
-                    )}
-                    onClick={logout}
-                    disabled={isLoggingOut}
-                  >
-                    {isLoggingOut ? "Logging out..." : "Logout"}
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <li className="mt-1 border-t border-zinc-800/80 pt-1">
+                <button
+                  type="button"
+                  className={cx(
+                    "w-full rounded-lg px-4 py-2 text-left text-sm text-zinc-200 transition hover:bg-zinc-900/50 hover:text-zinc-100 disabled:opacity-60",
+                    FOCUS_RING,
+                  )}
+                  onClick={logout}
+                  disabled={isLoggingOut}
+                >
+                  {isLoggingOut ? "Logging out..." : "Logout"}
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

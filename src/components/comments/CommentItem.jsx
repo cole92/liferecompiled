@@ -661,7 +661,7 @@ const CommentItem = ({
               onMouseDown={(e) => e.stopPropagation()}
               role="menu"
             >
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl ring-1 ring-zinc-100/10 p-1">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-1 shadow-lg">
                 <button
                   type="button"
                   onClick={(e) => {

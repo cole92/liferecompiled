@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload, label, mostActiveMonth }) => {
   const count = payload[0].value;
 
   return (
-    <div className="ui-card p-3 text-sm border border-zinc-800 bg-zinc-950/90 backdrop-blur">
+    <div className="ui-card border border-zinc-800 bg-zinc-950 p-3 text-sm">
       <div className="font-semibold text-zinc-100">{formatted}</div>
 
       <div className="mt-1 text-zinc-200">

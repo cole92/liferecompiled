@@ -124,12 +124,12 @@ export default function Avatar({
       <ModalPortal
         isOpen={open && zoomable}
         onClose={() => setOpen(false)}
-        overlayClassName="bg-zinc-950/90 backdrop-blur-sm"
+        overlayClassName="bg-zinc-950/95"
         withPanel={false}
         panelClassName="p-0"
         containerClassName="fixed inset-0 z-[80] flex items-center justify-center px-4"
       >
-        <div className="p-2 rounded-full bg-zinc-950/40 ring-1 ring-zinc-800/80 shadow-2xl">
+        <div className="p-2 rounded-full bg-zinc-950 ring-1 ring-zinc-800/80 shadow-lg">
           <img
             src={parsed.baseSrc}
             alt={alt}

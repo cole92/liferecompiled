@@ -134,7 +134,7 @@ const PostCard = ({
     "ui-card relative w-full overflow-hidden p-4 shadow-sm transition duration-200";
   const cardInteractive = isTrashMode
     ? ""
-    : "cursor-pointer hover:shadow-md hover:scale-[1.01]";
+    : "cursor-pointer hover:border-zinc-700/80 hover:bg-zinc-950/70";
   const cardTrending = post.badges?.trending ? "ring-2 ring-rose-500/40" : "";
 
   return (

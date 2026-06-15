@@ -87,8 +87,6 @@ const CreatePost = () => {
   return (
     <div className="ui-shell py-6 sm:py-8">
       <div className="ui-card relative overflow-hidden p-5 sm:p-6 mb-6">
-        {/* Subtle hero glow keeps the page consistent with other dashboard surfaces. */}
-        <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[34rem] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
         <div className="relative">
           <h1 className="text-3xl font-semibold text-zinc-100">
             Create a New Post

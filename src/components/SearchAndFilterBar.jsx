@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import { validCategories } from "../constants/postCategories";
 import FilterPortal from "./modals/FilterPortal";
-import { cx, SURFACE_PANEL } from "../constants/uiClasses";
 
 /**
  * @component IconSort
@@ -249,8 +247,7 @@ const SearchAndFilterBar = ({
   const [localSortBy, setLocalSortBy] = useState("newest");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // Breakpoint-driven UI: sm+ changes overlay style, md+ switches to docked sidebar.
-  const [isSmUp, setIsSmUp] = useState(false);
+  // Breakpoint-driven UI: md+ switches to a docked sidebar.
   const [isLgUp, setIsLgUp] = useState(false);
 
   // Sort dropdown UI-only state (kept local to avoid global state churn).
@@ -258,22 +255,18 @@ const SearchAndFilterBar = ({
   const sortWrapRef = useRef(null);
 
   useEffect(() => {
-    const mqSm = window.matchMedia("(min-width: 640px)");
     const mqMd = window.matchMedia("(min-width: 768px)");
 
     const sync = () => {
-      setIsSmUp(mqSm.matches);
       setIsLgUp(mqMd.matches);
     };
 
     sync();
 
     // Support older Safari via addListener/removeListener fallback.
-    mqSm.addEventListener?.("change", sync) ?? mqSm.addListener(sync);
     mqMd.addEventListener?.("change", sync) ?? mqMd.addListener(sync);
 
     return () => {
-      mqSm.removeEventListener?.("change", sync) ?? mqSm.removeListener(sync);
       mqMd.removeEventListener?.("change", sync) ?? mqMd.removeListener(sync);
     };
   }, []);
@@ -408,40 +401,6 @@ const SearchAndFilterBar = ({
     }
   };
 
-  const backdropVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 },
-    exit: { opacity: 0 },
-  };
-
-  const panelVariantsMobile = {
-    hidden: { opacity: 1, y: 24 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.25, ease: "easeOut" },
-    },
-    exit: {
-      opacity: 1,
-      y: 24,
-      transition: { duration: 0.2, ease: "easeIn" },
-    },
-  };
-
-  const panelVariantsDesktop = {
-    hidden: { opacity: 1, x: 24 },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: { duration: 0.25, ease: "easeOut" },
-    },
-    exit: {
-      opacity: 1,
-      x: 24,
-      transition: { duration: 0.2, ease: "easeIn" },
-    },
-  };
-
   const activeCount = selectedCategories?.length || 0;
 
   const sortLabel =
@@ -537,67 +496,55 @@ const SearchAndFilterBar = ({
                     </svg>
                   </button>
 
-                  <AnimatePresence>
-                    {isSortOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        transition={{ duration: 0.16, ease: "easeOut" }}
-                        className={cx(
-                          "absolute z-30 mt-2.5 sm:mt-3 w-full overflow-hidden rounded-xl backdrop-blur",
-                          SURFACE_PANEL,
-                          "ring-1 ring-sky-200/10 border-sky-500/15",
-                        )}
+                  {isSortOpen && (
+                    <div className="absolute z-30 mt-2.5 w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-sm sm:mt-3">
+                      <ul
+                        role="listbox"
+                        aria-labelledby="home-sort-label"
+                        className="py-1"
                       >
-                        <ul
-                          role="listbox"
-                          aria-labelledby="home-sort-label"
-                          className="py-1"
-                        >
-                          {sortOptions.map((opt) => {
-                            const isSelected = localSortBy === opt.value;
+                        {sortOptions.map((opt) => {
+                          const isSelected = localSortBy === opt.value;
 
-                            const base =
-                              "flex w-full items-center justify-between px-3 py-2 text-left text-sm";
-                            const enabled =
-                              "text-zinc-200 hover:bg-zinc-900/50 focus:outline-none focus-visible:bg-zinc-900/60";
-                            const selected = "bg-zinc-900/60 text-zinc-100";
-                            const disabled =
-                              "cursor-not-allowed text-zinc-500 hover:bg-transparent";
+                          const base =
+                            "flex w-full items-center justify-between px-3 py-2 text-left text-sm";
+                          const enabled =
+                            "text-zinc-200 hover:bg-zinc-900/50 focus:outline-none focus-visible:bg-zinc-900/60";
+                          const selected = "bg-zinc-900/60 text-zinc-100";
+                          const disabled =
+                            "cursor-not-allowed text-zinc-500 hover:bg-transparent";
 
-                            return (
-                              <li key={opt.value}>
-                                <button
-                                  type="button"
-                                  role="option"
-                                  aria-selected={isSelected}
-                                  disabled={opt.disabled}
-                                  onClick={() => applySort(opt.value)}
-                                  className={[
-                                    base,
-                                    opt.disabled
-                                      ? disabled
-                                      : isSelected
-                                        ? selected
-                                        : enabled,
-                                  ].join(" ")}
-                                >
-                                  <span className="truncate">{opt.label}</span>
+                          return (
+                            <li key={opt.value}>
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                disabled={opt.disabled}
+                                onClick={() => applySort(opt.value)}
+                                className={[
+                                  base,
+                                  opt.disabled
+                                    ? disabled
+                                    : isSelected
+                                      ? selected
+                                      : enabled,
+                                ].join(" ")}
+                              >
+                                <span className="truncate">{opt.label}</span>
 
-                                  {isSelected && (
-                                    <span className="ml-3 text-xs text-sky-300">
-                                      Selected
-                                    </span>
-                                  )}
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                                {isSelected && (
+                                  <span className="ml-3 text-xs text-sky-300">
+                                    Selected
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -655,52 +602,35 @@ const SearchAndFilterBar = ({
       {/* Overlay filter panel (< md only) */}
       {!isLgUp && (
         <FilterPortal>
-          <AnimatePresence>
-            {isFilterOpen && (
-              <motion.div
-                className="fixed inset-0 z-[60]"
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                <motion.button
-                  type="button"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  className="absolute inset-0 h-full w-full bg-zinc-950/60"
-                  variants={backdropVariants}
-                  onClick={closeFilters}
-                />
+          {isFilterOpen && (
+            <div className="fixed inset-0 z-[60]">
+              <button
+                type="button"
+                aria-hidden="true"
+                tabIndex={-1}
+                className="absolute inset-0 h-full w-full bg-zinc-950/70"
+                onClick={closeFilters}
+              />
 
-                <div className="absolute inset-0 flex items-end sm:items-stretch sm:justify-end">
-                  <motion.div
-                    id="filters-panel"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Filters"
-                    className="w-full rounded-t-2xl border border-zinc-800 bg-zinc-950/95
-                     p-4 shadow-2xl backdrop-blur flex flex-col overflow-hidden h-[85vh]
-                      pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-full sm:pb-4 sm:rounded-none sm:border-l
-                      sm:border-t-0 sm:w-[320px] min-[720px]:w-[380px]"
-                    variants={
-                      isSmUp ? panelVariantsDesktop : panelVariantsMobile
-                    }
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                  >
-                    <FiltersPanelContent
-                      selectedCategories={selectedCategories}
-                      onFilterChange={onFilterChange}
-                      onReset={handleLocalClear}
-                      onClose={closeFilters}
-                      isTrending={isTrendingSort}
-                    />
-                  </motion.div>
+              <div className="absolute inset-0 flex items-end sm:items-stretch sm:justify-end">
+                <div
+                  id="filters-panel"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Filters"
+                  className="flex h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-lg pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-full sm:w-[320px] sm:rounded-none sm:border-l sm:border-t-0 sm:pb-4 min-[720px]:w-[380px]"
+                >
+                  <FiltersPanelContent
+                    selectedCategories={selectedCategories}
+                    onFilterChange={onFilterChange}
+                    onReset={handleLocalClear}
+                    onClose={closeFilters}
+                    isTrending={isTrendingSort}
+                  />
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </div>
+          )}
         </FilterPortal>
       )}
     </div>

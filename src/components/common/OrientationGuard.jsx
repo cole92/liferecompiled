@@ -63,7 +63,7 @@ const OrientationGuard = () => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-zinc-950">
-      <div className="mx-auto w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6 text-center shadow-xl">
+      <div className="mx-auto w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-6 text-center shadow-lg">
         <div className="text-3xl">📱</div>
         <h2 className="mt-3 text-lg font-semibold text-zinc-100">
           Please rotate your phone
