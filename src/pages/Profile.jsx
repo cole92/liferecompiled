@@ -322,9 +322,8 @@ const Profile = () => {
       <div className="flex flex-col gap-5 sm:gap-6">
         {/* HERO */}
         <section className="ui-card relative overflow-hidden p-3 sm:p-6 lg:p-8">
-          {/* Subtle background glow */}
+          {/* Subtle top edge keeps depth without large blurred gradient layers. */}
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_10%_0%,rgba(56,189,248,0.10),transparent_55%),radial-gradient(100%_70%_at_90%_10%,rgba(34,197,94,0.08),transparent_55%)]" />
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/20 to-transparent" />
           </div>
 

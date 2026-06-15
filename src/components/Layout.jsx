@@ -42,10 +42,8 @@ const Layout = ({ children }) => {
           Skip to content
         </a>
 
-        {/* Sticky header (body scrolls underneath) */}
-        <div className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
-          <Header />
-        </div>
+        {/* Header owns its sticky surface; avoid stacking duplicate paint layers here. */}
+        <Header />
 
         {/* Main grows to push Footer to the bottom when content is short */}
         <main id="main-content" className="flex-1 pt-4 pb-6">

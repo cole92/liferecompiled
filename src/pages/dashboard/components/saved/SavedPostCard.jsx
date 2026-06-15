@@ -155,14 +155,13 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
   const cardBase =
     "relative w-full h-full overflow-hidden p-4 " +
     "rounded-2xl border border-zinc-800/70 " +
-    "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
-    "ring-1 ring-sky-200/10 shadow-sm " +
+    "bg-zinc-950/55 shadow-sm " +
     "flex flex-col transition-colors transition-shadow duration-200";
 
   // Locked posts remain navigable, but the visual style communicates restricted state.
   const cardInteractive = post?.locked
     ? "cursor-pointer"
-    : "cursor-pointer hover:shadow-md hover:ring-sky-200/20 hover:border-sky-300/20";
+    : "cursor-pointer hover:bg-zinc-950/70 hover:border-zinc-700/80";
 
   const cardLocked = post?.locked
     ? "opacity-60 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"

@@ -143,18 +143,13 @@ function TopPostCard({ post }) {
       )}
       aria-label={`Open post: ${post?.title ?? "Untitled"}`}
     >
-      {/* Decorative layers: visual depth without affecting layout or hit targets */}
-      {/* base glow */}
+      {/* Decorative edge: keeps depth without large blurred paint layers. */}
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-100">
-        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-sky-500/5 blur-3xl" />
-        <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-emerald-500/5 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/15 to-transparent" />
       </div>
 
-      {/* hover boost */}
+      {/* Hover accent stays cheap: opacity only on a 1px line. */}
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/25 to-transparent" />
       </div>
 

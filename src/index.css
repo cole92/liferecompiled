@@ -36,7 +36,7 @@
   }
 
   .ui-card {
-    @apply rounded-2xl border border-zinc-800/80 bg-zinc-950/35 backdrop-blur shadow-sm ring-1 ring-zinc-100/5;
+    @apply rounded-2xl border border-zinc-800/80 bg-zinc-950/55 shadow-sm ring-1 ring-zinc-100/5;
   }
 
   /* Button system: consistent focus ring + disabled behavior across the app */

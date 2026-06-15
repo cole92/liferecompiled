@@ -711,12 +711,12 @@ const PostDetails = () => {
 
       {/* Mobile bottom bar (opens CommentsSheet) */}
       {!isLgUp && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/70 bg-zinc-950/95">
           <div className="mx-auto w-full max-w-7xl px-3 py-3">
             <button
               type="button"
               onClick={() => setIsCommentsOpen(true)}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/90 px-4 py-3 text-zinc-100 shadow-lg hover:bg-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-3 text-zinc-100 shadow-sm hover:bg-zinc-900/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
               aria-label="Open comments"
             >
               <FiMessageCircle className="text-lg" />

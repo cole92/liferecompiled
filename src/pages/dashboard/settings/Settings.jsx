@@ -40,9 +40,7 @@ const Settings = () => {
 
   // Feed-like card tint (keeps Settings aligned with dashboard/feed visuals).
   const feedCardSkin =
-    "overflow-hidden border-zinc-800/70 " +
-    "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
-    "ring-sky-200/10";
+    "overflow-hidden border-zinc-800/70 bg-zinc-950/65";
 
   useEffect(() => {
     // UI-only state: reset expanded bio when switching user or when bio changes.

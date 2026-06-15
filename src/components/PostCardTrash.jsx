@@ -110,8 +110,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
   const cardBase =
     "relative w-full h-full overflow-hidden p-4 " +
     "rounded-2xl border border-zinc-800/70 " +
-    "bg-gradient-to-b from-sky-500/10 via-zinc-950/20 to-zinc-950/30 " +
-    "ring-1 ring-sky-200/10 shadow-sm " +
+    "bg-zinc-950/55 shadow-sm " +
     "flex flex-col transition-colors transition-shadow duration-200";
 
   return (

@@ -175,7 +175,7 @@ const CommentsSheet = ({
   return createPortal(
     <div className="fixed inset-0 z-50">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -191,7 +191,7 @@ const CommentsSheet = ({
           className={[
             "h-full w-full sm:max-w-xl",
             "rounded-t-2xl sm:rounded-2xl",
-            "border border-zinc-800 bg-zinc-950/90 shadow-xl overflow-hidden",
+            "border border-zinc-800 bg-zinc-950 shadow-lg overflow-hidden",
             "flex flex-col",
             // Avoid fighting the user's drag with animations; animate only when snapping.
             isDragging ? "" : "transition-transform duration-200 ease-out",
