@@ -1,28 +1,43 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import OrientationGuard from "./components/common/OrientationGuard";
+import Spinner from "./components/Spinner";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
-import ReportIssue from "./pages/ReportIssue";
-import MyPosts from "./pages/MyPosts";
-import CreatePost from "./pages/CreatePost";
-import EditPost from "./pages/EditPost";
-import PostDetails from "./pages/PostDetails";
-import Profile from "./pages/Profile";
-import About from "./pages/About";
 
-import DashboardLayout from "./pages/dashboard/components/DashboardLayout";
-import SavedPosts from "./pages/dashboard/components/saved/SavedPosts";
-import Stats from "./pages/dashboard/Stats";
-import Trash from "./pages/dashboard/Trash";
-import Settings from "./pages/dashboard/settings/Settings";
-import ModerationPage from "./pages/dashboard/moderation/ModerationPage";
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ReportIssue = lazy(() => import("./pages/ReportIssue"));
+const MyPosts = lazy(() => import("./pages/MyPosts"));
+const CreatePost = lazy(() => import("./pages/CreatePost"));
+const EditPost = lazy(() => import("./pages/EditPost"));
+const PostDetails = lazy(() => import("./pages/PostDetails"));
+const Profile = lazy(() => import("./pages/Profile"));
+const About = lazy(() => import("./pages/About"));
+
+const DashboardLayout = lazy(
+  () => import("./pages/dashboard/components/DashboardLayout"),
+);
+const SavedPosts = lazy(
+  () => import("./pages/dashboard/components/saved/SavedPosts"),
+);
+const Stats = lazy(() => import("./pages/dashboard/Stats"));
+const Trash = lazy(() => import("./pages/dashboard/Trash"));
+const Settings = lazy(() => import("./pages/dashboard/settings/Settings"));
+const ModerationPage = lazy(
+  () => import("./pages/dashboard/moderation/ModerationPage"),
+);
+
+const routeFallback = (
+  <div className="flex min-h-[45vh] items-center justify-center">
+    <Spinner message="Loading..." />
+  </div>
+);
 
 /**
  * @component App
@@ -50,38 +65,40 @@ function App() {
     <Layout>
       <OrientationGuard />
 
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/post/:postId" element={<PostDetails />} />
-        <Route path="/about" element={<About />} />
+      <Suspense fallback={routeFallback}>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/post/:postId" element={<PostDetails />} />
+          <Route path="/about" element={<About />} />
 
-        {/* Protected routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard/*" element={<DashboardLayout />}>
-            <Route index element={<MyPosts />} />
-            <Route path="saved" element={<SavedPosts />} />
-            <Route path="stats" element={<Stats />} />
-            <Route path="trash" element={<Trash />} />
-            <Route path="create" element={<CreatePost />} />
-            <Route path="edit/:postId" element={<EditPost />} />
-            <Route path="moderation" element={<ModerationPage />} />
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard/*" element={<DashboardLayout />}>
+              <Route index element={<MyPosts />} />
+              <Route path="saved" element={<SavedPosts />} />
+              <Route path="stats" element={<Stats />} />
+              <Route path="trash" element={<Trash />} />
+              <Route path="create" element={<CreatePost />} />
+              <Route path="edit/:postId" element={<EditPost />} />
+              <Route path="moderation" element={<ModerationPage />} />
+            </Route>
+
+            <Route path="/dashboard/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/report" element={<ReportIssue />} />
           </Route>
 
-          <Route path="/dashboard/settings" element={<Settings />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/report" element={<ReportIssue />} />
-        </Route>
+          {/* Public profile route (view other users) */}
+          <Route path="/profile/:uid" element={<Profile />} />
 
-        {/* Public profile route (view other users) */}
-        <Route path="/profile/:uid" element={<Profile />} />
-
-        {/* Unknown routes -> auth entry */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+          {/* Unknown routes -> auth entry */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
 
       <ToastContainer
         position="top-center"
