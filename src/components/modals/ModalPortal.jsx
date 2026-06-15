@@ -38,7 +38,7 @@ const ModalPortal = ({
   children,
 
   // Optional styling hooks
-  overlayClassName = "bg-zinc-950/60",
+  overlayClassName = "bg-black/70",
   containerClassName = "fixed inset-0 z-50 flex items-center justify-center px-4",
   panelClassName = "",
 
@@ -68,7 +68,7 @@ const ModalPortal = ({
   if (!isOpen) return null;
 
   const panelBase = withPanel
-    ? "relative w-full max-w-lg ui-card p-6"
+    ? "relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-xl"
     : "relative";
 
   return ReactDOM.createPortal(

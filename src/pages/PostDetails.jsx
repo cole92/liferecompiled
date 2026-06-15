@@ -761,9 +761,9 @@ const PostDetails = () => {
       {/* Report confirmation */}
       <ConfirmModal
         isOpen={showReportModal}
-        title="Are you sure you want to report this post?"
-        message="This will notify moderators about this post."
-        confirmText="Yes"
+        title="Report post"
+        message="This will notify moderators so they can review this post."
+        confirmText="Report post"
         onCancel={() => setShowReportModal(false)}
         onConfirm={onConfirmReport}
       />
@@ -771,13 +771,13 @@ const PostDetails = () => {
       {/* Admin delete confirmation */}
       <ConfirmModal
         isOpen={deleteModalOpen}
-        title="Delete Post Permanently"
+        title="Delete post permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
-        confirmText={isDeletingPost ? "Deleting..." : "Delete"}
-        confirmButtonClass={`ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+        confirmText={isDeletingPost ? "Deleting..." : "Delete permanently"}
+        confirmButtonClass={`ui-button justify-center bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
         }`}
-        cancelButtonClass="ui-button-secondary"
+        cancelButtonClass="ui-button-secondary justify-center"
         onCancel={() => {
           if (!isDeletingPost) setDeleteModalOpen(false);
         }}

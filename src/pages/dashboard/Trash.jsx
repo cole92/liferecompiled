@@ -428,11 +428,11 @@ const Trash = () => {
 
       <ConfirmModal
         isOpen={restoreModalOpen}
-        title="Restore Post"
-        message="Are you sure you want to restore this post?"
-        confirmText="Restore"
-        confirmButtonClass="rounded-lg bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/25 hover:bg-emerald-500/25 hover:scale-105 transition"
-        cancelButtonClass="rounded-lg bg-zinc-800/70 text-zinc-100 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:scale-105 transition"
+        title="Restore post"
+        message="Restore this post to your active posts?"
+        confirmText="Restore post"
+        confirmButtonClass="ui-button justify-center bg-emerald-600 text-zinc-50 hover:bg-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        cancelButtonClass="ui-button-secondary justify-center"
         onCancel={() => {
           setRestoreModalOpen(false);
           setSelectedPostId(null);
@@ -446,11 +446,9 @@ const Trash = () => {
 
       <ConfirmModal
         isOpen={deleteModalOpen}
-        title="Delete Post Permanently"
+        title="Delete post permanently"
         message="Are you sure you want to permanently delete this post? This action cannot be undone."
-        confirmText="Delete"
-        confirmButtonClass="rounded-lg bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 hover:scale-105 transition"
-        cancelButtonClass="rounded-lg bg-zinc-800/70 text-zinc-100 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:scale-105 transition"
+        confirmText="Delete permanently"
         onCancel={() => {
           setDeleteModalOpen(false);
           setPostIdToDelete(null);

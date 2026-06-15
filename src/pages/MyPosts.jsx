@@ -376,8 +376,9 @@ const MyPosts = () => {
 
       <ConfirmModal
         isOpen={isModalOpen}
-        title="Delete Post?"
+        title="Move post to Trash"
         message="Are you sure you want to delete this post? It will be moved to Trash and can be restored within 30 days."
+        confirmText="Move to Trash"
         onCancel={() => {
           setIsModalOpen(false);
           setPostToDelete(null);
@@ -387,8 +388,8 @@ const MyPosts = () => {
 
       <ConfirmModal
         isOpen={isLockModalOpen}
-        title="Archive Post?"
-        confirmText={"Archive"}
+        title="Archive post"
+        confirmText="Archive post"
         message="Are you sure you want to archive this post? You won't be able to edit or comment anymore."
         onCancel={() => {
           setIsLockModalOpen(false);

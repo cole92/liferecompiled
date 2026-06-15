@@ -661,7 +661,7 @@ const CommentItem = ({
               onMouseDown={(e) => e.stopPropagation()}
               role="menu"
             >
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-1 shadow-lg">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-1.5 shadow-lg">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -669,7 +669,7 @@ const CommentItem = ({
                     closeMenu();
                     onReportClick();
                   }}
-                  className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/60 rounded-lg"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900"
                   role="menuitem"
                 >
                   Report
@@ -683,7 +683,7 @@ const CommentItem = ({
                       closeMenu();
                       setIsEditing(true);
                     }}
-                    className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/60 rounded-lg"
+                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900"
                     role="menuitem"
                   >
                     Edit
@@ -698,7 +698,7 @@ const CommentItem = ({
                       closeMenu();
                       setShowConfirmModal(true);
                     }}
-                    className="w-full text-left px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/10 rounded-lg"
+                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-200 hover:bg-rose-500/10"
                     role="menuitem"
                   >
                     {isDeleting ? "Deleting..." : "Delete"}
@@ -712,8 +712,9 @@ const CommentItem = ({
 
       <ConfirmModal
         isOpen={showConfirmModal}
-        title="Delete Comment"
-        message="Are you sure you want to delete this comment?"
+        title="Delete comment"
+        message="This removes the comment from the thread. Replies can remain visible for context."
+        confirmText="Delete comment"
         onCancel={() => setShowConfirmModal(false)}
         onConfirm={() => {
           handleDelete(commentId);
@@ -723,9 +724,9 @@ const CommentItem = ({
 
       <ConfirmModal
         isOpen={showReportModal}
-        title="Are you sure you want to report this comment?"
-        message="This will notify moderators about this comment."
-        confirmText="Yes"
+        title="Report comment"
+        message="This will notify moderators so they can review this comment."
+        confirmText="Report comment"
         onCancel={onCancelReport}
         onConfirm={onConfirmReport}
       />
