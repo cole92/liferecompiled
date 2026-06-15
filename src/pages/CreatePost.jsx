@@ -85,15 +85,25 @@ const CreatePost = () => {
   if (!user) return <Spinner message="Loading user info..." />;
 
   return (
-    <div className="ui-shell py-6 sm:py-8">
-      <div className="ui-card relative overflow-hidden p-5 sm:p-6 mb-6">
-        <div className="relative">
-          <h1 className="text-3xl font-semibold text-zinc-100">
-            Create a New Post
-          </h1>
-          <p className="mt-1 text-sm text-zinc-300">
-            Share something useful with the community.
-          </p>
+    <div className="py-2 sm:py-4">
+      <div className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+              Create workspace
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold text-zinc-100 sm:text-3xl">
+              New post
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">
+              Shape the idea, add context, and choose the details readers need
+              before publishing it to the feed.
+            </p>
+          </div>
+
+          <div className="inline-flex w-fit items-center rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300">
+            Drafting
+          </div>
         </div>
       </div>
 
@@ -109,7 +119,7 @@ const CreatePost = () => {
         isSubmitting={isSubmitting}
         onSubmit={handleCreate}
         onCancel={handleCancel}
-        submitLabel="Save Post"
+        submitLabel="Create post"
         cancelLabel="Cancel"
       />
     </div>

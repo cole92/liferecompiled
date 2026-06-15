@@ -338,14 +338,22 @@ const PostEditorForm = ({
     if (ok) onCancel();
   };
 
+  const isCreateMode = mode === "create";
+  const sectionCard =
+    "rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5";
+  const sectionEyebrow =
+    "text-xs font-semibold uppercase tracking-wide text-sky-300";
+  const sectionTitle = "mt-1 text-lg font-semibold text-zinc-100";
+  const sectionHelp = "mt-1 text-sm leading-6 text-zinc-400";
+  const fieldGroup = "space-y-2";
+  const submitText = isSubmitting
+    ? isCreateMode
+      ? "Creating..."
+      : "Saving..."
+    : submitLabel;
+
   return (
-    <div
-      className={
-        "ui-card -mx-4 sm:mx-0 rounded-2xl p-4 sm:p-7 " +
-        "border border-zinc-800/70 shadow-sm " +
-        "bg-zinc-950/65"
-      }
-    >
+    <div className="mx-auto w-full max-w-6xl">
       {isLocked ? (
         <div className="mb-5 rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4 text-amber-100">
           <p className="text-sm font-medium">
@@ -357,110 +365,102 @@ const PostEditorForm = ({
         </div>
       ) : null}
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        <div className="lg:grid lg:grid-cols-12 lg:gap-6">
-          <div className="lg:col-span-8 space-y-5">
-            <div className="space-y-2">
-              <label htmlFor="title" className="ui-label">
-                Title
-              </label>
-              <input
-                id="title"
-                type="text"
-                className={`${inputBase} ${errors.title ? inputErr : inputOk}`}
-                placeholder={
-                  mode === "edit" ? "Edit post title" : "Enter post title"
-                }
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                aria-invalid={Boolean(errors.title)}
-                aria-describedby={errors.title ? "title-error" : "title-help"}
-                disabled={disabled}
-              />
-              {errors.title ? (
-                <p id="title-error" className="ui-error" role="alert">
-                  {errors.title}
-                </p>
-              ) : (
-                <p id="title-help" className="ui-help">
-                  A good title is short and descriptive (e.g. &quot;React
-                  Tips&quot;).
-                </p>
-              )}
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]"
+      >
+        <div className="min-w-0 space-y-5">
+          <section className={sectionCard} aria-labelledby="post-basics-title">
+            <div className="border-b border-zinc-800 pb-4">
+              <p className={sectionEyebrow}>Basics</p>
+              <h2 id="post-basics-title" className={sectionTitle}>
+                Set the direction
+              </h2>
+              <p className={sectionHelp}>
+                Give readers a clear title, short summary, and category before
+                they open the full post.
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="description" className="ui-label">
-                Description
-              </label>
-              <textarea
-                id="description"
-                className={`${inputBase} ${
-                  errors.description ? inputErr : inputOk
-                } resize-none`}
-                placeholder="Enter a short description"
-                maxLength={300}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                aria-invalid={Boolean(errors.description)}
-                aria-describedby={
-                  errors.description ? "description-error" : "description-help"
-                }
-                disabled={disabled}
-              />
-              {errors.description ? (
-                <p id="description-error" className="ui-error" role="alert">
-                  {errors.description}
-                </p>
-              ) : (
-                <p id="description-help" className="ui-help">
-                  Optional. Recommended 10-300 characters. {descCount}/300 (
-                  {descRemaining} left)
-                </p>
-              )}
-            </div>
+            <div className="mt-5 space-y-5">
+              <div className={fieldGroup}>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="title" className="ui-label">
+                    Title
+                  </label>
+                  <span className="text-xs text-zinc-500">
+                    {title.length}/25
+                  </span>
+                </div>
+                <input
+                  id="title"
+                  type="text"
+                  className={`${inputBase} ${
+                    errors.title ? inputErr : inputOk
+                  }`}
+                  placeholder={
+                    mode === "edit" ? "Edit post title" : "Enter post title"
+                  }
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  aria-invalid={Boolean(errors.title)}
+                  aria-describedby={
+                    errors.title ? "title-error" : "title-help"
+                  }
+                  disabled={disabled}
+                />
+                {errors.title ? (
+                  <p id="title-error" className="ui-error" role="alert">
+                    {errors.title}
+                  </p>
+                ) : (
+                  <p id="title-help" className="ui-help">
+                    A good title is short and descriptive.
+                  </p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <label htmlFor="content" className="ui-label">
-                Content
-              </label>
-              <textarea
-                id="content"
-                className={`${inputBase} ${
-                  errors.content ? inputErr : inputOk
-                } resize-none`}
-                placeholder={
-                  mode === "edit"
-                    ? "Change the main content of the post"
-                    : "Enter the main content of the post"
-                }
-                maxLength={5000}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={8}
-                aria-invalid={Boolean(errors.content)}
-                aria-describedby={
-                  errors.content ? "content-error" : "content-help"
-                }
-                disabled={disabled}
-              />
-              {errors.content ? (
-                <p id="content-error" className="ui-error" role="alert">
-                  {errors.content}
-                </p>
-              ) : (
-                <p id="content-help" className="ui-help">
-                  Required. Min 20 characters. {contentCount}/5000 (
-                  {contentRemaining} left)
-                </p>
-              )}
-            </div>
-          </div>
+              <div className={fieldGroup}>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="description" className="ui-label">
+                    Description
+                  </label>
+                  <span className="text-xs text-zinc-500">
+                    {descCount}/300
+                  </span>
+                </div>
+                <textarea
+                  id="description"
+                  className={`${inputBase} ${
+                    errors.description ? inputErr : inputOk
+                  } min-h-28 resize-y`}
+                  placeholder="Add a short summary for the feed"
+                  maxLength={300}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  aria-invalid={Boolean(errors.description)}
+                  aria-describedby={
+                    errors.description
+                      ? "description-error"
+                      : "description-help"
+                  }
+                  disabled={disabled}
+                />
+                {errors.description ? (
+                  <p id="description-error" className="ui-error" role="alert">
+                    {errors.description}
+                  </p>
+                ) : (
+                  <p id="description-help" className="ui-help">
+                    Optional. Recommended 10-300 characters. {descRemaining}{" "}
+                    left.
+                  </p>
+                )}
+              </div>
 
-          <div className="lg:col-span-4 mt-5 lg:mt-0 space-y-5 lg:sticky lg:top-24 self-start">
-            <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/55 p-3 shadow-sm sm:p-4">
-              <div className="space-y-2">
+              <div className={fieldGroup}>
                 <label htmlFor="category" className="ui-label">
                   Category
                 </label>
@@ -499,31 +499,121 @@ const PostEditorForm = ({
                 )}
               </div>
             </div>
+          </section>
 
-            <div className="relative overflow-visible rounded-2xl border border-zinc-800/70 bg-zinc-950/55 p-3 shadow-sm sm:p-4">
-              <TagsInput tags={tags} setTags={setTags} />
+          <section className={sectionCard} aria-labelledby="post-content-title">
+            <div className="border-b border-zinc-800 pb-4">
+              <p className={sectionEyebrow}>Content</p>
+              <h2 id="post-content-title" className={sectionTitle}>
+                Write the post
+              </h2>
+              <p className={sectionHelp}>
+                Keep the useful details here. This is the main article body.
+              </p>
             </div>
 
-            <div className="space-y-3">
-              {isDirty && !isSubmitting ? (
+            <div className="mt-5 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="content" className="ui-label">
+                  Content
+                </label>
+                <span className="text-xs text-zinc-500">
+                  {contentCount}/5000
+                </span>
+              </div>
+              <textarea
+                id="content"
+                className={`${inputBase} ${
+                  errors.content ? inputErr : inputOk
+                } min-h-[18rem] resize-y leading-7`}
+                placeholder={
+                  mode === "edit"
+                    ? "Update the main content of the post"
+                    : "Write the main content of the post"
+                }
+                maxLength={5000}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={12}
+                aria-invalid={Boolean(errors.content)}
+                aria-describedby={
+                  errors.content ? "content-error" : "content-help"
+                }
+                disabled={disabled}
+              />
+              {errors.content ? (
+                <p id="content-error" className="ui-error" role="alert">
+                  {errors.content}
+                </p>
+              ) : (
+                <p id="content-help" className="ui-help">
+                  Required. Minimum 20 characters. {contentRemaining} left.
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <aside className="space-y-5 lg:sticky lg:top-28 lg:self-start">
+          <section className={sectionCard} aria-labelledby="post-tags-title">
+            <div className="border-b border-zinc-800 pb-4">
+              <p className={sectionEyebrow}>Tags</p>
+              <h2 id="post-tags-title" className={sectionTitle}>
+                Add context
+              </h2>
+              <p className={sectionHelp}>
+                Choose up to 5 tags so readers understand the topic quickly.
+              </p>
+            </div>
+
+            <div className="mt-5">
+              <TagsInput tags={tags} setTags={setTags} disabled={disabled} />
+            </div>
+          </section>
+
+          <section className={sectionCard} aria-labelledby="post-actions-title">
+            <div>
+              <p className={sectionEyebrow}>Actions</p>
+              <h2 id="post-actions-title" className={sectionTitle}>
+                {isCreateMode ? "Create post" : "Save changes"}
+              </h2>
+              <p className={sectionHelp}>
+                {isCreateMode
+                  ? "Create the post when the required fields are ready."
+                  : "Save only the updates you want to keep."}
+              </p>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {isLocked ? (
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                  Editing locked
+                </div>
+              ) : isDirty && !isSubmitting ? (
                 <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-200">
                   <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
                   Unsaved changes
                 </div>
-              ) : null}
+              ) : (
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs font-semibold text-zinc-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
+                  {isCreateMode ? "Draft in progress" : "No pending changes"}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <button
                   type="submit"
-                  className="ui-button-primary py-2.5 w-full"
+                  className="ui-button-primary w-full py-2.5"
                   disabled={disabled}
                 >
-                  {isSubmitting ? "Saving..." : submitLabel}
+                  {submitText}
                 </button>
 
                 <button
                   type="button"
-                  className="ui-button-secondary py-2.5 w-full"
+                  className="ui-button-secondary w-full py-2.5"
                   onClick={handleCancelClick}
                   disabled={isSubmitting}
                 >
@@ -532,12 +622,15 @@ const PostEditorForm = ({
               </div>
             </div>
 
-            <p className="text-xs text-zinc-400">
-              Tip: Keep the title tight, use description for context, and put
-              the real value in content.
-            </p>
-          </div>
-        </div>
+            <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
+              <p className="text-xs leading-5 text-zinc-400">
+                {isCreateMode
+                  ? "Required: title, content, and category. Description and tags make the post easier to scan."
+                  : "Dirty-state and tab-close protection stay active while unsaved changes exist."}
+              </p>
+            </div>
+          </section>
+        </aside>
       </form>
     </div>
   );

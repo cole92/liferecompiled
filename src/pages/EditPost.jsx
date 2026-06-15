@@ -164,15 +164,31 @@ const EditPost = () => {
   if (!postToEdit) return null;
 
   return (
-    <div className="ui-shell py-6 sm:py-8">
-      <div className="ui-card relative overflow-hidden p-5 sm:p-6 mb-6">
-        <div className="relative">
-          <h1 className="text-3xl font-semibold text-zinc-100">
-            Edit this post
-          </h1>
-          <p className="mt-1 text-sm text-zinc-300">
-            Update content, tags and category. Changes are saved after submit.
-          </p>
+    <div className="py-2 sm:py-4">
+      <div className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+              Edit workspace
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold text-zinc-100 sm:text-3xl">
+              Edit post
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">
+              Update the content, tags, and category while the edit window is
+              still open.
+            </p>
+          </div>
+
+          <div
+            className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-medium ${
+              isAutoLocked
+                ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                : "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+            }`}
+          >
+            {isAutoLocked ? "Locked" : "Editable"}
+          </div>
         </div>
       </div>
 
@@ -190,7 +206,7 @@ const EditPost = () => {
         lockMessage="Editing is disabled. This post was locked after 7 days."
         onSubmit={handleUpdate}
         onCancel={handleCancel}
-        submitLabel="Save Post"
+        submitLabel="Save changes"
         cancelLabel="Cancel"
       />
     </div>

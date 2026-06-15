@@ -4,8 +4,9 @@ import { WithContext as ReactTags } from "react-tag-input";
 import { predefinedTags, categorizedTags } from "../constants/tags";
 
 const MOBILE_PREDEFINED_LIMIT = 12;
+const DESKTOP_PREDEFINED_LIMIT = 18;
 const MAX_TAGS = 5;
-const MAX_PER_CATEGORY = 50;
+const MAX_PER_CATEGORY = 8;
 
 /**
  * Convert category keys (camelCase / snake_case) into a readable label.
@@ -94,10 +95,11 @@ const TAG_INDEX = buildTagIndex();
  * @param {(next: {id: string, text: string}[]) => void} props.setTags - Setter for selected tags.
  * @returns {JSX.Element}
  */
-const TagsInput = ({ tags, setTags }) => {
+const TagsInput = ({ tags, setTags, disabled = false }) => {
   const [error, setError] = useState(null);
   const [inputValue, setInputValue] = useState("");
   const [showAllMobile, setShowAllMobile] = useState(false);
+  const [showAllDesktop, setShowAllDesktop] = useState(false);
   const containerRef = useRef(null);
 
   // Defer filtering work while typing (keeps UI responsive on large tag sets).
@@ -134,11 +136,14 @@ const TagsInput = ({ tags, setTags }) => {
 
   // Guard against leading spaces (prevents weird empty query states).
   const handleInputChange = (value) => {
+    if (disabled) return;
     if (value.startsWith(" ")) setInputValue("");
     else setInputValue(value);
   };
 
   const handleAddition = (tag) => {
+    if (disabled) return;
+
     const raw = String(tag?.text ?? "").trim();
     if (!raw) return;
 
@@ -172,6 +177,7 @@ const TagsInput = ({ tags, setTags }) => {
   };
 
   const handleDelete = (index) => {
+    if (disabled) return;
     setTags(tags.filter((_, i) => i !== index));
   };
 
@@ -240,7 +246,7 @@ const TagsInput = ({ tags, setTags }) => {
                 {list.map((tagText) => {
                   const isActive = isActiveTag(tagText);
                   const isMaxed = tags.length >= MAX_TAGS;
-                  const disabledBecauseMax = isMaxed && !isActive;
+                  const optionDisabled = disabled || (isMaxed && !isActive);
 
                   const base =
                     "inline-flex w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-0.5 " +
@@ -261,16 +267,14 @@ const TagsInput = ({ tags, setTags }) => {
                       key={`${name}-${tagText}`}
                       title={tagText}
                       className={`${base} ${isActive ? activeCls : normalCls} ${
-                        disabledBecauseMax
-                          ? "cursor-not-allowed opacity-50"
-                          : ""
+                        optionDisabled ? "cursor-not-allowed opacity-50" : ""
                       }`}
                       onClick={() => {
                         if (isActive) return;
-                        if (disabledBecauseMax) return;
+                        if (optionDisabled) return;
                         handleAddition({ id: tagText, text: tagText });
                       }}
-                      disabled={disabledBecauseMax}
+                      disabled={optionDisabled}
                       aria-pressed={isActive}
                     >
                       {isActive ? (
@@ -313,9 +317,18 @@ const TagsInput = ({ tags, setTags }) => {
     ? predefinedTags
     : predefinedTags.slice(0, MOBILE_PREDEFINED_LIMIT);
 
+  const desktopPredefined = showAllDesktop
+    ? predefinedTags
+    : predefinedTags.slice(0, DESKTOP_PREDEFINED_LIMIT);
+
   const moreCount = Math.max(
     0,
     predefinedTags.length - MOBILE_PREDEFINED_LIMIT,
+  );
+
+  const desktopMoreCount = Math.max(
+    0,
+    predefinedTags.length - DESKTOP_PREDEFINED_LIMIT,
   );
 
   const showMoreBtnBase =
@@ -325,105 +338,45 @@ const TagsInput = ({ tags, setTags }) => {
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 " +
     "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
 
+  const renderQuickPick = (tagText) => {
+    const isActive = isActiveTag(tagText);
+    const optionDisabled = disabled || isTagDisabled(tagText);
+
+    return (
+      <button
+        key={tagText}
+        type="button"
+        title={tagText}
+        className={`${tagButtonBase} ${
+          isActive
+            ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
+            : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
+        } ${optionDisabled ? "cursor-not-allowed opacity-50" : ""}`}
+        onClick={() => {
+          if (isActive) return;
+          if (optionDisabled) return;
+          handleAddition({ id: tagText, text: tagText });
+        }}
+        disabled={optionDisabled}
+        aria-pressed={isActive}
+      >
+        <span className="truncate">{tagText}</span>
+      </button>
+    );
+  };
+
   return (
-    <div className="space-y-2">
-      <label htmlFor="tags" className="ui-label">
-        Tags
-      </label>
-
-      {/* Mobile quick picks */}
-      <div className="sm:hidden">
-        <div
-          id="mobile-predefined-tags"
-          className="grid grid-cols-[repeat(auto-fit,minmax(92px,1fr))] gap-1.5"
-        >
-          {mobilePredefined.map((tagText) => {
-            const isActive = isActiveTag(tagText);
-            const disabled = isTagDisabled(tagText);
-
-            return (
-              <button
-                key={tagText}
-                type="button"
-                title={tagText}
-                className={`${tagButtonBase} ${
-                  isActive
-                    ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
-                    : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
-                } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-                onClick={() => {
-                  if (isActive) return;
-                  handleAddition({ id: tagText, text: tagText });
-                }}
-                disabled={disabled}
-                aria-pressed={isActive}
-              >
-                <span className="truncate">{tagText}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {moreCount > 0 ? (
-          <button
-            type="button"
-            className={showMoreBtnBase}
-            onClick={() => setShowAllMobile((v) => !v)}
-            aria-expanded={showAllMobile}
-            aria-controls="mobile-predefined-tags"
-          >
-            <span>
-              {showAllMobile ? "Less tags" : `More tags (${moreCount})`}
-            </span>
-
-            <svg
-              viewBox="0 0 20 20"
-              className={`h-4 w-4 transition-transform ${showAllMobile ? "rotate-180" : ""}`}
-              aria-hidden="true"
-            >
-              <path
-                fill="currentColor"
-                d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"
-              />
-            </svg>
-          </button>
-        ) : null}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor="tags" className="ui-label">
+          Selected tags
+        </label>
+        <span className="text-xs text-zinc-500">
+          {tags.length}/{MAX_TAGS}
+        </span>
       </div>
 
-      {/* Desktop quick picks */}
-      <div className="hidden sm:grid sm:grid-cols-[repeat(auto-fit,minmax(110px,1fr))] sm:gap-2">
-        {predefinedTags.map((tagText) => {
-          const isActive = isActiveTag(tagText);
-          const disabled = isTagDisabled(tagText);
-
-          return (
-            <button
-              key={tagText}
-              type="button"
-              title={tagText}
-              className={`${tagButtonBase} ${
-                isActive
-                  ? "border-sky-600 bg-sky-600 text-zinc-50 hover:bg-sky-500"
-                  : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100"
-              } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-              onClick={() => {
-                if (isActive) return;
-                handleAddition({ id: tagText, text: tagText });
-              }}
-              disabled={disabled}
-              aria-pressed={isActive}
-            >
-              <span className="truncate">{tagText}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <p className="text-xs text-zinc-400">
-        Add up to {MAX_TAGS} tags to describe your post.
-      </p>
-
-      {/* Typeahead input (curated-only) */}
+      {/* Selected tags + curated typeahead come first so current choices are visible. */}
       <div
         className="relative"
         ref={containerRef}
@@ -442,10 +395,12 @@ const TagsInput = ({ tags, setTags }) => {
           inputValue={inputValue}
           handleInputChange={handleInputChange}
           inputFieldPosition="bottom"
-          placeholder="Start typing to search for tags"
+          placeholder={
+            disabled ? "Tag editing is disabled" : "Search curated tags"
+          }
           classNames={{
-            tags: "space-y-2",
-            selected: "flex flex-wrap gap-1.5 sm:gap-2",
+            tags: "space-y-3",
+            selected: "flex min-h-8 flex-wrap gap-1.5 sm:gap-2",
             tag:
               "inline-flex items-center gap-2 rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] leading-none font-medium text-zinc-100 " +
               "sm:px-3 sm:py-1 sm:text-xs",
@@ -453,23 +408,94 @@ const TagsInput = ({ tags, setTags }) => {
               "inline-flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 " +
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
             tagInput: "w-full",
-            tagInputField: "ui-input mt-0 text-sm sm:text-base",
+            tagInputField: `ui-input mt-0 text-sm sm:text-base ${
+              disabled ? "cursor-not-allowed opacity-60" : ""
+            }`,
           }}
         />
 
-        {inputValue ? renderFilteredTags() : null}
+        {inputValue && !disabled ? renderFilteredTags() : null}
       </div>
 
       {!error ? (
-        <p className="text-xs text-zinc-400">
-          Allowed characters: letters, numbers, spaces, dots, underscores, plus
-          (+), hyphens (-), hashtags (#).
+        <p className="text-xs leading-5 text-zinc-400">
+          Search or pick from curated tags. Duplicate tags are blocked and the
+          limit is {MAX_TAGS}.
         </p>
       ) : (
         <p className="ui-error" role="alert">
           {error}
         </p>
       )}
+
+      <div className="border-t border-zinc-800 pt-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Quick picks
+        </p>
+
+        {/* Mobile quick picks */}
+        <div className="sm:hidden">
+          <div
+            id="mobile-predefined-tags"
+            className="grid grid-cols-[repeat(auto-fit,minmax(92px,1fr))] gap-1.5"
+          >
+            {mobilePredefined.map(renderQuickPick)}
+          </div>
+
+          {moreCount > 0 ? (
+            <button
+              type="button"
+              className={showMoreBtnBase}
+              onClick={() => setShowAllMobile((v) => !v)}
+              aria-expanded={showAllMobile}
+              aria-controls="mobile-predefined-tags"
+              disabled={disabled}
+            >
+              <span>
+                {showAllMobile ? "Show fewer tags" : `Show more (${moreCount})`}
+              </span>
+
+              <svg
+                viewBox="0 0 20 20"
+                className={`h-4 w-4 ${showAllMobile ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"
+                />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+
+        {/* Desktop quick picks */}
+        <div className="hidden sm:block">
+          <div
+            id="desktop-predefined-tags"
+            className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-2"
+          >
+            {desktopPredefined.map(renderQuickPick)}
+          </div>
+
+          {desktopMoreCount > 0 ? (
+            <button
+              type="button"
+              className={showMoreBtnBase}
+              onClick={() => setShowAllDesktop((v) => !v)}
+              aria-expanded={showAllDesktop}
+              aria-controls="desktop-predefined-tags"
+              disabled={disabled}
+            >
+              <span>
+                {showAllDesktop
+                  ? "Show fewer tags"
+                  : `Show more (${desktopMoreCount})`}
+              </span>
+            </button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 };
@@ -482,6 +508,7 @@ TagsInput.propTypes = {
     }),
   ).isRequired,
   setTags: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
 };
 
 export default TagsInput;
