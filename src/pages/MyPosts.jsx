@@ -291,6 +291,8 @@ const MyPosts = () => {
 
   const isSearchMode = trimmedSearch.length > 0;
   const visiblePosts = isSearchMode ? posts : filteredPosts;
+  const activeFilterLabel =
+    filter === "active" ? "Active" : filter === "locked" ? "Archived" : "All";
 
   useEffect(() => {
     // Auto-fill: if current page becomes empty (e.g., after delete/lock),
@@ -305,11 +307,43 @@ const MyPosts = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, isLoadingMore, hasMore, lastDoc, visiblePosts.length]);
 
-  const gridClassName =
-    "grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2 items-stretch";
+  const gridClassName = "grid grid-cols-1 gap-3 sm:gap-4";
 
   return (
     <div className="pb-2">
+      <header className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+              My Posts
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold text-zinc-100">
+              Post management
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">
+              Review active posts, archive finished topics, and move outdated
+              posts to Trash.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:justify-end">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2">
+              <p className="text-xs text-zinc-500">Showing</p>
+              <p className="font-semibold text-zinc-100">
+                {isLoading ? "..." : visiblePosts.length}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2">
+              <p className="text-xs text-zinc-500">View</p>
+              <p className="font-semibold text-zinc-100">
+                {isSearchMode ? "Search" : activeFilterLabel}
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {!isLoading && visiblePosts.length === 0 && !hasMore && (
         <EmptyState
           title={isSearchMode ? "No posts match your search" : "No posts yet"}

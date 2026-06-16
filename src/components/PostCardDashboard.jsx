@@ -14,27 +14,14 @@ import ReactionSummary from "./reactions/ReactionSummary";
 import ReactionInfoModal from "./modals/ReactionInfoModal";
 import BadgeModal from "./modals/BadgeModal";
 import Badge from "./ui/Bagde";
-import AuthorLink from "./AuthorLink";
-import ShieldIcon from "./ui/ShieldIcon";
-import Avatar from "./common/Avatar";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
-import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 import { formatPostDateLabel } from "../utils/formatDate";
 
-import {
-  FOCUS_RING,
-  PILL_CATEGORY,
-  PILL_TAG,
-  PILL_META,
-} from "../constants/uiClasses";
+import { FOCUS_RING, PILL_CATEGORY, PILL_TAG } from "../constants/uiClasses";
 
 /**
  * Compute remaining edit window (7 days from creation).
- *
- * - Returns `null` when timestamp is missing/invalid (defensive)
- * - Returns `0` when edit window has expired
- * - Uses ceil to keep UX intuitive (e.g. "1 day left" until it truly expires)
  *
  * @param {Object} createdAt - Firestore Timestamp-like object with `toDate()`
  * @returns {number|null} Days left to edit, 0 if expired, null if unknown
@@ -49,15 +36,10 @@ function getEditDaysLeft(createdAt) {
   return leftMs > 0 ? Math.ceil(leftMs / (1000 * 60 * 60 * 24)) : 0;
 }
 
-// UX cap: keep dashboard cards compact and avoid noisy tag floods
 const MAX_TAGS_IN_APP = 5;
 
 /**
  * Normalize tag label for display.
- *
- * - Trims whitespace
- * - Strips leading '#' characters
- * - Returns empty string for invalid input
  *
  * @param {string} t
  * @returns {string}
@@ -71,25 +53,12 @@ const normalizeTagText = (t) => {
 /**
  * @component PostCardDashboard
  *
- * Dashboard-focused post card (MyPosts/admin contexts).
+ * Management-focused post card for the My Posts dashboard.
  *
  * - Clickable card navigates to `/post/:id`
- * - Supports save/unsave with snapshot metadata for SavedPosts consistency
- * - Shows compact tag rail (normalized + unique + capped)
- * - Shows management strip (Edit, Archive, Delete) depending on ownership/state
- * - Respects locked state (muted/archived indicator, disables edit window)
- *
- * Notes:
- * - `memo()` is used because cards are frequently rendered in lists
- * - Many child actions stop propagation to avoid triggering card navigation
- *
- * @param {Object} props
- * @param {Object} props.post - Post data used for rendering the card
- * @param {boolean} [props.isMyPost=false] - Enables owner actions (edit/archive)
- * @param {boolean} [props.showDeleteButton=false] - Shows delete action
- * @param {Function} [props.onDelete] - Delete handler (receives postId)
- * @param {Function} [props.onLock] - Archive/lock handler (receives postId)
- * @returns {JSX.Element}
+ * - Keeps save/info/badge affordances available but secondary
+ * - Emphasizes post status, title, dates, category, tags, metrics, and actions
+ * - Preserves existing edit/archive/delete callback behavior
  */
 const PostCardDashboard = ({
   post,
@@ -104,12 +73,10 @@ const PostCardDashboard = ({
   const [showInfo, setShowInfo] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
-  const [showTopContributorModal, setShowTopContributorModal] = useState(false);
 
   const postId = post?.id;
   const { isSaved, setIsSaved } = useCheckSavedStatus(user, postId);
 
-  // Tag rail: normalize mixed tag shapes, dedupe case-insensitively, cap to MAX_TAGS_IN_APP
   const allTags = useMemo(() => {
     const raw = Array.isArray(post?.tags) ? post.tags : [];
 
@@ -132,7 +99,6 @@ const PostCardDashboard = ({
     return unique;
   }, [post?.tags]);
 
-  // Badge list is derived from post flags and limited to two for layout stability
   const badgesToShow = useMemo(() => {
     const out = [];
     if (post?.badges?.mostInspiring)
@@ -153,6 +119,25 @@ const PostCardDashboard = ({
     ? archivedAtDate.toLocaleDateString()
     : "";
 
+  const statusLabel = post?.locked
+    ? "Archived"
+    : isEditExpired
+      ? "Edit expired"
+      : "Active";
+
+  const statusClass = post?.locked
+    ? "border-amber-400/25 bg-amber-400/10 text-amber-200"
+    : isEditExpired
+      ? "border-zinc-700 bg-zinc-900 text-zinc-300"
+      : "border-emerald-400/25 bg-emerald-400/10 text-emerald-200";
+
+  const editWindowLabel =
+    editDaysLeft === null
+      ? "Edit window unavailable"
+      : isEditExpired
+        ? "Editing disabled after 7 days"
+        : `${editDaysLeft} day${editDaysLeft === 1 ? "" : "s"} left to edit`;
+
   const handleCardClick = () => {
     if (!postId) return;
     navigate(`/post/${postId}`);
@@ -169,7 +154,6 @@ const PostCardDashboard = ({
     if (!user || !postId) return;
 
     try {
-      // Snapshot helps SavedPosts show context even if post changes later
       const currentUpdated = post?.updatedAt || post?.createdAt;
 
       const snapshot = {
@@ -185,28 +169,16 @@ const PostCardDashboard = ({
   };
 
   const cardBase =
-    "relative w-full h-full overflow-hidden p-4 " +
-    "rounded-2xl border border-zinc-800/70 " +
-    "bg-zinc-950/55 shadow-sm " +
-    "flex flex-col transition-colors transition-shadow duration-200";
-
+    "relative w-full overflow-hidden rounded-2xl border border-zinc-800 " +
+    "bg-zinc-950 p-4 shadow-sm";
   const cardInteractive =
-    "cursor-pointer hover:bg-zinc-950/70 hover:border-zinc-700/80";
+    "cursor-pointer hover:border-zinc-700 hover:bg-zinc-950/90";
+  const cardLocked = post?.locked ? "border-amber-500/20" : "";
 
-  const cardLocked = post?.locked
-    ? "opacity-70 grayscale saturate-0 bg-zinc-950/80 border-zinc-800/90 ring-zinc-100/5"
-    : "";
-
-  const pillEditInfo =
-    "inline-flex items-center gap-1 rounded-full " +
-    "border border-sky-500/20 bg-sky-500/10 " +
-    "px-2 py-0.5 text-[11px] font-medium text-sky-200 whitespace-nowrap " +
-    "sm:px-2.5 sm:py-0.5 sm:text-xs";
-
-  // IMPORTANT: ensure tag pills do NOT truncate even if PILL_TAG contains truncate/max-w/overflow-hidden
-  const TAG_PILL_NO_TRUNC =
-    `${PILL_TAG} ` +
-    "shrink-0 whitespace-nowrap max-w-none overflow-visible text-clip";
+  const actionSecondary =
+    "ui-button-secondary w-full justify-center px-3 py-2 text-sm sm:w-auto";
+  const actionDanger =
+    "ui-button w-full justify-center border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/15 sm:w-auto";
 
   return (
     <>
@@ -214,60 +186,85 @@ const PostCardDashboard = ({
         className={`${cardBase} ${cardInteractive} ${cardLocked}`}
         onClick={handleCardClick}
       >
-        {/* Header: author + (info/save) */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="relative shrink-0"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Avatar
-                src={post?.author?.profilePicture || DEFAULT_PROFILE_PICTURE}
-                size={40}
-                zoomable
-                badge={post?.author?.badges?.topContributor}
-              />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass}`}
+              >
+                {statusLabel}
+              </span>
 
-              {post?.author?.badges?.topContributor && (
-                <button
-                  type="button"
-                  className="group absolute -top-2 -right-1 z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowTopContributorModal(true);
-                  }}
-                  aria-label="Top contributor info"
-                  title="Top Contributor"
+              <span className="text-xs text-zinc-500">
+                {formatPostDateLabel(post, { compact: false })}
+              </span>
+
+              {post?.category ? (
+                <span
+                  className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
+                  title={post.category}
                 >
-                  <ShieldIcon className="w-5 h-5 text-amber-300 group-hover:scale-110 transition-transform" />
-                </button>
-              )}
+                  <span className="min-w-0 truncate">{post.category}</span>
+                </span>
+              ) : null}
             </div>
 
-            {post?.author?.id ? (
-              <span className="min-w-0" onClick={(e) => e.stopPropagation()}>
-                <AuthorLink author={post.author}>
-                  <span className="font-semibold text-sm text-zinc-100 line-clamp-1">
-                    {post.author.name}
-                  </span>
-                </AuthorLink>
-              </span>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <h2 className="min-w-0 text-lg font-semibold leading-snug text-zinc-100 sm:text-xl">
+                {post?.title || ""}
+              </h2>
+
+              {badgesToShow.length > 0 ? (
+                <div
+                  className="flex shrink-0 flex-wrap items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {badgesToShow.map((b) => (
+                    <Badge
+                      key={b.key}
+                      text={b.text}
+                      onClick={(e) => handleBadgeClick(e, b.key)}
+                      locked={post?.locked}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {post?.description ? (
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400 line-clamp-2">
+                {post.description}
+              </p>
             ) : (
-              <span className="font-semibold text-sm text-zinc-500 line-clamp-1 min-w-0">
-                {post?.author?.name || "Unknown"}
-              </span>
+              <p className="mt-2 text-sm text-zinc-600">No description.</p>
             )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {allTags.length > 0 ? (
+                allTags.map((t, idx) => (
+                  <span
+                    key={`${t}_${idx}`}
+                    className={`${PILL_TAG} max-w-none whitespace-nowrap`}
+                    title={`#${t}`}
+                  >
+                    #{t}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-zinc-600">No tags</span>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div
+            className="flex shrink-0 items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowInfo(true);
-              }}
-              aria-label="Info"
-              className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition ${FOCUS_RING}`}
+              onClick={() => setShowInfo(true)}
+              aria-label="Reaction info"
+              className={`rounded-lg p-2 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100 ${FOCUS_RING}`}
             >
               <FaInfoCircle className="h-4 w-4" />
             </button>
@@ -277,7 +274,7 @@ const PostCardDashboard = ({
               onClick={handleSaveToggle}
               disabled={!user}
               aria-disabled={!user}
-              className={`rounded-lg p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950/25 transition disabled:opacity-40 disabled:hover:bg-transparent ${FOCUS_RING}`}
+              className={`rounded-lg p-2 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100 disabled:opacity-40 ${FOCUS_RING}`}
               title={isSaved ? "Remove from saved" : "Save this post"}
             >
               {isSaved ? (
@@ -289,96 +286,11 @@ const PostCardDashboard = ({
           </div>
         </div>
 
-        {/* Title + badges */}
-        <div className="mt-3 flex items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold leading-snug text-zinc-100 min-w-0 line-clamp-2 min-h-[3.25rem] break-words">
-            {post?.title || ""}
-          </h2>
-
-          {badgesToShow.length > 0 ? (
-            <div className="shrink-0 flex items-center gap-1">
-              {badgesToShow.map((b) => (
-                <Badge
-                  key={b.key}
-                  text={b.text}
-                  onClick={(e) => handleBadgeClick(e, b.key)}
-                  locked={post?.locked}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Meta: date + category */}
-        <div className="mt-2 flex items-center gap-3 min-w-0 text-xs text-zinc-400">
-          <span className="min-w-0 max-w-[7.75rem] truncate whitespace-nowrap text-[11px] sm:max-w-none sm:text-xs sm:shrink-0">
-            <span className="sm:hidden">
-              {formatPostDateLabel(post, { compact: true })}
-            </span>
-            <span className="hidden sm:inline">
-              {formatPostDateLabel(post, { compact: false })}
-            </span>
-          </span>
-
-          {post?.category ? (
-            <span className="min-w-0 flex-1 flex justify-end">
-              <span
-                className={`${PILL_CATEGORY} max-w-full overflow-hidden`}
-                title={post.category}
-              >
-                <span className="min-w-0 truncate">{post.category}</span>
-              </span>
-            </span>
-          ) : (
-            <span className="flex-1" aria-hidden="true" />
-          )}
-        </div>
-
-        {/* Description */}
-        {post?.description ? (
-          <p className="mt-2 text-sm text-zinc-300 line-clamp-3 min-h-[3.75rem] break-words">
-            {post.description}
-          </p>
-        ) : (
-          <div className="mt-2 min-h-[3.75rem]" aria-hidden="true" />
-        )}
-
-        {/* Bottom: tags + reactions + management */}
-        <div className="mt-auto pt-3 border-t border-zinc-800/60">
-          {/* Tags rail: capped pills, horizontal scroll when overflow */}
-          <div className="min-h-[2.25rem]">
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <div
-                className={
-                  "tag-rail flex items-center gap-2 flex-nowrap " +
-                  "overflow-x-auto overflow-y-hidden overscroll-x-contain " +
-                  "pb-3"
-                }
-              >
-                {allTags.length > 0 ? (
-                  allTags.map((t, idx) => (
-                    <span
-                      key={`${t}_${idx}`}
-                      className={TAG_PILL_NO_TRUNC}
-                      title={`#${t}`}
-                    >
-                      #{t}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-zinc-600 shrink-0 whitespace-nowrap">
-                    No tags
-                  </span>
-                )}
-              </div>
-
-              {/* Visual fade to hint horizontal scroll */}
-              <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
-            </div>
-          </div>
-
-          {/* Reactions */}
-          <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-4 grid gap-4 border-t border-zinc-800 pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div
+            className="flex flex-col gap-3 sm:flex-row sm:items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <ReactionSummary
               postId={postId}
               locked={post?.locked}
@@ -388,99 +300,63 @@ const PostCardDashboard = ({
               userId={user?.uid ?? null}
               postAuthorId={post?.userId ?? post?.author?.id ?? null}
             />
+
+            {isMyPost ? (
+              <span className="inline-flex items-center gap-1 text-xs text-zinc-500">
+                {post?.locked ? (
+                  <>
+                    <FiLock className="text-sm" />
+                    {archivedAtLabel
+                      ? `Archived on ${archivedAtLabel}`
+                      : "Archived by author"}
+                  </>
+                ) : (
+                  <>
+                    <MdLockClock className="text-sm" />
+                    {editWindowLabel}
+                  </>
+                )}
+              </span>
+            ) : null}
           </div>
 
-          {/* Management strip */}
           {(isMyPost || showDeleteButton) && (
             <div
-              className="mt-3 pt-3 border-t border-zinc-800/60 flex items-center justify-between gap-2"
+              className="grid grid-cols-1 gap-2 sm:flex sm:justify-end"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {canEdit && (
-                  <Link
-                    to={`/dashboard/edit/${postId}`}
-                    className="ui-button-primary inline-flex justify-center text-xs px-4 py-1.5 min-w-[72px] sm:text-sm sm:px-4 sm:py-2"
-                  >
-                    Edit
-                  </Link>
-                )}
+              {canEdit ? (
+                <Link
+                  to={`/dashboard/edit/${postId}`}
+                  className="ui-button-primary w-full justify-center px-4 py-2 text-sm sm:w-auto"
+                >
+                  Edit
+                </Link>
+              ) : isMyPost ? (
+                <span className="inline-flex w-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-400 sm:w-auto">
+                  {post?.locked ? "Archived" : "Edit unavailable"}
+                </span>
+              ) : null}
 
-                {post?.locked && (
-                  <span
-                    className={`${PILL_META} inline-flex items-center gap-1 min-w-0`}
-                    title={
-                      archivedAtLabel
-                        ? `Archived on: ${archivedAtLabel}`
-                        : "Archived by author"
-                    }
-                  >
-                    <FiLock className="text-sm" />
-                    <span className="min-w-0 truncate">
-                      <span className="sm:hidden">Archived</span>
-                      <span className="hidden sm:inline">
-                        Archived by author
-                      </span>
-                    </span>
-                  </span>
-                )}
+              {canLock && (
+                <button
+                  type="button"
+                  className={actionSecondary}
+                  onClick={() => onLock?.(postId)}
+                >
+                  Archive
+                </button>
+              )}
 
-                {isMyPost &&
-                  !post?.locked &&
-                  editDaysLeft !== null &&
-                  !isEditExpired && (
-                    <span
-                      className={pillEditInfo}
-                      title={`Editing will be disabled after 7 days. ${editDaysLeft} day${
-                        editDaysLeft === 1 ? "" : "s"
-                      } left.`}
-                    >
-                      <MdLockClock className="text-sm" />
-                      <span className="sm:hidden">Edit: {editDaysLeft}d</span>
-                      <span className="hidden sm:inline">
-                        Edit: {editDaysLeft}d left
-                      </span>
-                    </span>
-                  )}
-
-                {isMyPost &&
-                  !post?.locked &&
-                  editDaysLeft !== null &&
-                  isEditExpired && (
-                    <span
-                      className={`${pillEditInfo} opacity-80`}
-                      title="Editing is disabled after 7 days"
-                    >
-                      <span className="sm:hidden">Edit disabled</span>
-                      <span className="hidden sm:inline">
-                        Edit disabled (7d)
-                      </span>
-                    </span>
-                  )}
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {canLock && (
-                  <button
-                    type="button"
-                    className="rounded-lg bg-rose-500/15 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition sm:px-3 sm:py-2 sm:text-sm"
-                    onClick={() => onLock?.(postId)}
-                  >
-                    <span className="sm:hidden">Archive</span>
-                    <span className="hidden sm:inline">Archive post</span>
-                  </button>
-                )}
-
-                {showDeleteButton && (
-                  <button
-                    type="button"
-                    className="rounded-lg bg-rose-500/15 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-500/25 hover:bg-rose-500/25 transition sm:px-3 sm:py-2 sm:text-sm"
-                    onClick={() => onDelete?.(postId)}
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
+              {showDeleteButton && (
+                <button
+                  type="button"
+                  className={actionDanger}
+                  onClick={() => onDelete?.(postId)}
+                >
+                  Move to Trash
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -499,15 +375,6 @@ const PostCardDashboard = ({
           badgeKey={selectedBadge}
           locked={post?.locked}
           onClose={() => setShowBadgeModal(false)}
-        />
-      )}
-
-      {showTopContributorModal && (
-        <BadgeModal
-          isOpen={showTopContributorModal}
-          locked={post?.locked}
-          authorBadge="topContributor"
-          onClose={() => setShowTopContributorModal(false)}
         />
       )}
     </>

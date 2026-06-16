@@ -62,7 +62,7 @@ const DashboardLayout = () => {
   }, [user?.uid]);
 
   const dashboardPanel =
-    "rounded-2xl border border-zinc-800/70 bg-zinc-950/75 p-2.5 shadow-sm sm:p-4";
+    "rounded-2xl border border-zinc-800 bg-zinc-950 p-3 shadow-sm sm:p-4";
 
   return (
     <div className="pb-2">
@@ -78,7 +78,16 @@ const DashboardLayout = () => {
                     <DashboardBreadcrumb />
                   </div>
 
-                  <div className="mt-1.5 sm:mt-2">
+                  <div className="mt-1">
+                    <h1 className="text-xl font-semibold text-zinc-100">
+                      Dashboard
+                    </h1>
+                    <p className="mt-0.5 text-sm text-zinc-400">
+                      Manage posts, saved items, insights, and recovery tools.
+                    </p>
+                  </div>
+
+                  <div className="mt-3">
                     <DashboardTabs
                       trashCount={trashCount}
                       isAdmin={Boolean(user?.isAdmin)}
@@ -87,18 +96,11 @@ const DashboardLayout = () => {
                 </div>
 
                 {/* Row 1, Col 2 */}
-                <div className="flex items-center justify-end gap-2">
-                  {/* Email is informational only (truncate prevents header overflow). */}
-                  {user?.email ? (
-                    <span className="text-sm text-zinc-300 max-w-[360px] truncate">
-                      {user.email}
-                    </span>
-                  ) : null}
-
+                <div className="flex items-start justify-end gap-2">
                   {isMyPostsPage && (
                     <NavLink
                       to="/dashboard/create"
-                      className="ui-button-primary"
+                      className="ui-button-primary whitespace-nowrap"
                     >
                       Create post
                     </NavLink>
@@ -182,11 +184,16 @@ const DashboardLayout = () => {
 
               {/* Mobile-only bars keep the same controls, stacked for smaller screens. */}
               <div className="md:hidden">
-                <div className="hidden lg:block">
-                  <DashboardBreadcrumb />
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+                    Workspace
+                  </p>
+                  <h1 className="mt-1 text-lg font-semibold text-zinc-100">
+                    Dashboard
+                  </h1>
                 </div>
 
-                <div className="mt-1.5 sm:mt-2">
+                <div className="mt-3">
                   <DashboardTabs
                     trashCount={trashCount}
                     isAdmin={Boolean(user?.isAdmin)}

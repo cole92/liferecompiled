@@ -20,24 +20,22 @@ import { FOCUS_RING } from "../../../constants/uiClasses";
  * @returns {JSX.Element}
  */
 const DashboardTabs = ({ trashCount = 0, isAdmin = false }) => {
-  // Shared button-like tab styling keeps focus/hover consistent with the app UI kit.
   const tabBase =
-    "inline-flex items-center gap-2 rounded-xl " +
-    "px-2.5 py-1 text-[13px] sm:px-3 sm:py-1.5 sm:text-sm font-medium " +
-    "border border-transparent text-zinc-300 hover:text-zinc-100 hover:bg-zinc-950/40 " +
-    "transition " +
+    "inline-flex items-center gap-2 rounded-lg border border-transparent " +
+    "px-3 py-2 text-sm font-medium text-zinc-400 " +
+    "hover:bg-zinc-900 hover:text-zinc-100 " +
     FOCUS_RING;
 
   const tabActive =
-    "bg-zinc-950/60 text-zinc-100 border-zinc-800 shadow-sm ring-1 ring-zinc-100/5";
+    "border-zinc-800 bg-zinc-900 text-zinc-100";
 
   const badgeBase =
-    "inline-flex items-center justify-center h-5 min-w-5 rounded-full " +
-    "border border-zinc-700 bg-zinc-100/10 px-1.5 text-[11px] text-zinc-200";
+    "inline-flex h-5 min-w-5 items-center justify-center rounded-full " +
+    "border border-zinc-700 bg-zinc-950 px-1.5 text-[11px] text-zinc-200";
 
   return (
-    <div className="-mx-1 overflow-x-auto ui-scrollbar">
-      <div className="flex items-center gap-2 whitespace-nowrap px-1">
+    <nav aria-label="Dashboard navigation" className="-mx-1 overflow-x-auto ui-scrollbar">
+      <div className="flex items-center gap-1.5 whitespace-nowrap px-1 py-0.5">
         <NavLink
           to="/dashboard"
           end
@@ -90,7 +88,7 @@ const DashboardTabs = ({ trashCount = 0, isAdmin = false }) => {
           </NavLink>
         )}
       </div>
-    </div>
+    </nav>
   );
 };
 

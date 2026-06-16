@@ -101,13 +101,13 @@ const PostFilterBar = ({
         label: "Active",
         value: "active",
         activeClass:
-          "bg-emerald-500/12 text-emerald-200 ring-1 ring-inset ring-emerald-400/25",
+          "bg-emerald-500/10 text-emerald-200 ring-1 ring-inset ring-emerald-400/25",
       },
       {
         label: "Archived",
         value: "locked",
         activeClass:
-          "bg-rose-500/12 text-rose-200 ring-1 ring-inset ring-rose-400/25",
+          "bg-amber-500/10 text-amber-200 ring-1 ring-inset ring-amber-400/25",
       },
       {
         label: "All",
@@ -136,19 +136,12 @@ const PostFilterBar = ({
   };
 
   const iconBtn =
-    "ui-button-secondary inline-flex h-11 w-11 items-center justify-center p-0";
+    "ui-button-secondary inline-flex h-10 w-10 items-center justify-center p-0";
 
   const statusPill =
-    "inline-flex h-11 w-full items-center justify-center rounded-xl " +
-    "border border-zinc-800 bg-zinc-950/40 px-3 text-sm text-zinc-200 " +
+    "inline-flex h-10 w-full items-center justify-center rounded-xl " +
+    "border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-200 " +
     "truncate";
-
-  const filterGroupStyle = {
-    opacity: showDesktopSearch ? (hasSearch ? 0 : 1) : hasSearch ? 0.55 : 1,
-    transform:
-      showDesktopSearch && hasSearch ? "translateY(-4px)" : "translateY(0)",
-    transition: "opacity 200ms ease, transform 200ms ease",
-  };
 
   return (
     <div className="w-full">
@@ -283,11 +276,10 @@ const PostFilterBar = ({
           ].join(" ")}
         >
           <div
-            style={filterGroupStyle}
-            className={`w-full sm:w-auto ${hasSearch ? "pointer-events-none" : ""}`}
+            className={`w-full sm:w-auto ${hasSearch ? "pointer-events-none opacity-60" : ""}`}
             aria-hidden={false}
           >
-            <div className="inline-flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-950/40 p-1 sm:w-auto">
+            <div className="inline-flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-950 p-1 sm:w-auto">
               {filters.map((f) => {
                 const isActive = activeFilter === f.value;
 
@@ -298,7 +290,7 @@ const PostFilterBar = ({
                     onClick={() => onFilterChange(f.value)}
                     className={[
                       "flex-1 sm:flex-none",
-                      "rounded-lg px-3 py-1.5 text-sm transition",
+                      "rounded-lg px-3 py-1.5 text-sm",
                       "text-zinc-300 hover:text-zinc-100",
                       "focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
                       "focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
@@ -333,7 +325,7 @@ const PostFilterBar = ({
                   type="button"
                   onClick={() => onSearchChange("")}
                   aria-label="Clear search"
-                  className="shrink-0 text-sm text-zinc-300 underline hover:text-zinc-100"
+                  className="ui-button-secondary shrink-0 px-3 py-2 text-sm"
                 >
                   Clear
                 </button>
