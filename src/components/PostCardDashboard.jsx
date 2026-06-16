@@ -170,7 +170,7 @@ const PostCardDashboard = ({
 
   const cardBase =
     "relative w-full overflow-hidden rounded-2xl border border-zinc-800 " +
-    "bg-zinc-950 p-4 shadow-sm";
+    "bg-zinc-950 p-3 shadow-sm sm:p-4";
   const cardInteractive =
     "cursor-pointer hover:border-zinc-700 hover:bg-zinc-950/90";
   const cardLocked = post?.locked ? "border-amber-500/20" : "";
@@ -186,9 +186,9 @@ const PostCardDashboard = ({
         className={`${cardBase} ${cardInteractive} ${cardLocked}`}
         onClick={handleCardClick}
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
               <span
                 className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass}`}
               >
@@ -208,56 +208,10 @@ const PostCardDashboard = ({
                 </span>
               ) : null}
             </div>
-
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <h2 className="min-w-0 text-lg font-semibold leading-snug text-zinc-100 sm:text-xl">
-                {post?.title || ""}
-              </h2>
-
-              {badgesToShow.length > 0 ? (
-                <div
-                  className="flex shrink-0 flex-wrap items-center gap-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {badgesToShow.map((b) => (
-                    <Badge
-                      key={b.key}
-                      text={b.text}
-                      onClick={(e) => handleBadgeClick(e, b.key)}
-                      locked={post?.locked}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            {post?.description ? (
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400 line-clamp-2">
-                {post.description}
-              </p>
-            ) : (
-              <p className="mt-2 text-sm text-zinc-600">No description.</p>
-            )}
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {allTags.length > 0 ? (
-                allTags.map((t, idx) => (
-                  <span
-                    key={`${t}_${idx}`}
-                    className={`${PILL_TAG} max-w-none whitespace-nowrap`}
-                    title={`#${t}`}
-                  >
-                    #{t}
-                  </span>
-                ))
-              ) : (
-                <span className="text-xs text-zinc-600">No tags</span>
-              )}
-            </div>
           </div>
 
           <div
-            className="flex shrink-0 items-center gap-2"
+            className="flex shrink-0 items-center gap-1"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -269,96 +223,144 @@ const PostCardDashboard = ({
               <FaInfoCircle className="h-4 w-4" />
             </button>
 
-            <button
-              type="button"
-              onClick={handleSaveToggle}
-              disabled={!user}
-              aria-disabled={!user}
-              className={`rounded-lg p-2 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100 disabled:opacity-40 ${FOCUS_RING}`}
-              title={isSaved ? "Remove from saved" : "Save this post"}
-            >
-              {isSaved ? (
-                <BsBookmarkFill className="h-4 w-4 text-sky-200" />
-              ) : (
-                <BsBookmark className="h-4 w-4" />
-              )}
-            </button>
+            {!isMyPost && (
+              <button
+                type="button"
+                onClick={handleSaveToggle}
+                disabled={!user}
+                aria-disabled={!user}
+                className={`rounded-lg p-2 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100 disabled:opacity-40 ${FOCUS_RING}`}
+                title={isSaved ? "Remove from saved" : "Save this post"}
+              >
+                {isSaved ? (
+                  <BsBookmarkFill className="h-4 w-4 text-sky-200" />
+                ) : (
+                  <BsBookmark className="h-4 w-4" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 border-t border-zinc-800 pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div
-            className="flex flex-col gap-3 sm:flex-row sm:items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ReactionSummary
-              postId={postId}
-              locked={post?.locked}
-              reactionCounts={
-                post?.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
-              }
-              userId={user?.uid ?? null}
-              postAuthorId={post?.userId ?? post?.author?.id ?? null}
-            />
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <h2 className="min-w-0 text-lg font-semibold leading-snug text-zinc-100 line-clamp-2 break-words sm:text-xl">
+            {post?.title || ""}
+          </h2>
 
-            {isMyPost ? (
-              <span className="inline-flex items-center gap-1 text-xs text-zinc-500">
-                {post?.locked ? (
-                  <>
-                    <FiLock className="text-sm" />
-                    {archivedAtLabel
-                      ? `Archived on ${archivedAtLabel}`
-                      : "Archived by author"}
-                  </>
-                ) : (
-                  <>
-                    <MdLockClock className="text-sm" />
-                    {editWindowLabel}
-                  </>
-                )}
-              </span>
-            ) : null}
-          </div>
-
-          {(isMyPost || showDeleteButton) && (
+          {badgesToShow.length > 0 ? (
             <div
-              className="grid grid-cols-1 gap-2 sm:flex sm:justify-end"
+              className="flex shrink-0 flex-wrap items-center gap-1"
               onClick={(e) => e.stopPropagation()}
             >
-              {canEdit ? (
-                <Link
-                  to={`/dashboard/edit/${postId}`}
-                  className="ui-button-primary w-full justify-center px-4 py-2 text-sm sm:w-auto"
-                >
-                  Edit
-                </Link>
-              ) : isMyPost ? (
-                <span className="inline-flex w-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-400 sm:w-auto">
-                  {post?.locked ? "Archived" : "Edit unavailable"}
+              {badgesToShow.map((b) => (
+                <Badge
+                  key={b.key}
+                  text={b.text}
+                  onClick={(e) => handleBadgeClick(e, b.key)}
+                  locked={post?.locked}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {post?.description ? (
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400 line-clamp-2">
+            {post.description}
+          </p>
+        ) : null}
+
+        {allTags.length > 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {allTags.map((t, idx) => (
+              <span
+                key={`${t}_${idx}`}
+                className={`${PILL_TAG} max-w-none whitespace-nowrap`}
+                title={`#${t}`}
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-4 border-t border-zinc-800 pt-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div
+              className="min-w-0 text-zinc-500"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-full max-w-[15rem] [&>div]:ml-0 [&>div]:mt-0">
+                <ReactionSummary
+                  postId={postId}
+                  locked={post?.locked}
+                  reactionCounts={
+                    post?.reactionCounts ?? { idea: 0, hot: 0, powerup: 0 }
+                  }
+                  userId={user?.uid ?? null}
+                  postAuthorId={post?.userId ?? post?.author?.id ?? null}
+                />
+              </div>
+
+              {isMyPost ? (
+                <span className="mt-2 inline-flex items-center gap-1 text-xs text-zinc-500">
+                  {post?.locked ? (
+                    <>
+                      <FiLock className="text-sm" />
+                      {archivedAtLabel
+                        ? `Archived on ${archivedAtLabel}`
+                        : "Archived by author"}
+                    </>
+                  ) : (
+                    <>
+                      <MdLockClock className="text-sm" />
+                      {editWindowLabel}
+                    </>
+                  )}
                 </span>
               ) : null}
-
-              {canLock && (
-                <button
-                  type="button"
-                  className={actionSecondary}
-                  onClick={() => onLock?.(postId)}
-                >
-                  Archive
-                </button>
-              )}
-
-              {showDeleteButton && (
-                <button
-                  type="button"
-                  className={actionDanger}
-                  onClick={() => onDelete?.(postId)}
-                >
-                  Move to Trash
-                </button>
-              )}
             </div>
-          )}
+
+            {(isMyPost || showDeleteButton) && (
+              <div
+                className="grid grid-cols-1 gap-2 sm:flex sm:justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {canEdit ? (
+                  <Link
+                    to={`/dashboard/edit/${postId}`}
+                    className="ui-button-primary w-full justify-center px-4 py-2 text-sm sm:w-auto"
+                  >
+                    Edit
+                  </Link>
+                ) : isMyPost ? (
+                  <span className="inline-flex w-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-400 sm:w-auto">
+                    {post?.locked ? "Archived" : "Edit unavailable"}
+                  </span>
+                ) : null}
+
+                {canLock && (
+                  <button
+                    type="button"
+                    className={actionSecondary}
+                    onClick={() => onLock?.(postId)}
+                  >
+                    Archive
+                  </button>
+                )}
+
+                {showDeleteButton && (
+                  <button
+                    type="button"
+                    className={actionDanger}
+                    onClick={() => onDelete?.(postId)}
+                  >
+                    Move to Trash
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </article>
 

@@ -128,7 +128,7 @@ const PostCardTrash = ({ post, daysLeft, onRestore, onDeletePermanently }) => {
 
         {typeof daysLeft === "number" && (
           <span
-            className={`inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-xs font-medium ${getTtlPillClasses(
+            className={`inline-flex max-w-max self-start whitespace-nowrap items-center rounded-full px-2.5 py-1 text-xs font-medium ${getTtlPillClasses(
               daysLeft,
             )}`}
           >
