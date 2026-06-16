@@ -16,7 +16,6 @@ import { db } from "../../firebase";
 import { AuthContext } from "../../context/AuthContext";
 import { normalizeMonthlyArray } from "../../utils/statsUtils";
 
-import Spinner from "../../components/Spinner";
 import CustomTooltip from "./components/CustomTooltip";
 import EmptyState from "./components/EmptyState";
 
@@ -84,6 +83,50 @@ const monthTick = (v) => {
   };
   return map[m] ?? v;
 };
+
+const StatsLoadingSkeleton = () => (
+  <section className="space-y-5 py-2 text-zinc-100" aria-busy="true">
+    <header className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-3">
+          <div className="h-3 w-16 rounded-full bg-zinc-800" />
+          <div className="h-8 w-52 max-w-full rounded-lg bg-zinc-900" />
+          <div className="h-4 w-full max-w-xl rounded bg-zinc-900" />
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          {[0, 1, 2].map((item) => (
+            <div
+              key={item}
+              className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2"
+            >
+              <div className="h-3 w-14 rounded bg-zinc-800" />
+              <div className="mt-2 h-5 w-8 rounded bg-zinc-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </header>
+
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {[0, 1].map((item) => (
+        <div
+          key={item}
+          className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5"
+        >
+          <div className="mb-4 space-y-2">
+            <div className="h-5 w-40 rounded bg-zinc-900" />
+            <div className="h-4 w-56 max-w-full rounded bg-zinc-900" />
+          </div>
+
+          <div className="h-[240px] rounded-xl border border-zinc-800 bg-zinc-900" />
+        </div>
+      ))}
+    </div>
+
+    <span className="sr-only">Loading statistics...</span>
+  </section>
+);
 
 const Stats = () => {
   const { user } = useContext(AuthContext);
@@ -188,7 +231,7 @@ const Stats = () => {
 
   // Loading + auth guard: keep the dashboard consistent with other pages.
   if (!user || isLoading) {
-    return <Spinner message="Loading statistics..." />;
+    return <StatsLoadingSkeleton />;
   }
 
   const restoredValue = pieData?.[0]?.value ?? 0;

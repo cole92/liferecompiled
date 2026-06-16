@@ -5,6 +5,7 @@ import { ToastContainer } from "react-toastify";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import OrientationGuard from "./components/common/OrientationGuard";
+import ScrollToTop from "./components/ScrollToTop";
 import Spinner from "./components/Spinner";
 
 import Home from "./pages/Home";
@@ -64,6 +65,7 @@ function App() {
   return (
     <Layout>
       <OrientationGuard />
+      <ScrollToTop />
 
       <Suspense fallback={routeFallback}>
         <Routes>

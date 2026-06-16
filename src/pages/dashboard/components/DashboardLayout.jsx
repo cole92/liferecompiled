@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { Suspense, useContext, useEffect, useState } from "react";
 import { Outlet, useLocation, NavLink } from "react-router-dom";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 
@@ -9,6 +9,23 @@ import DashboardBreadcrumb from "./DashboardBreadcrumb";
 import DashboardTabs from "./DashboardTabs";
 import TrashFilterBar from "./TrashFilterBar";
 import PostFilterBar from "./PostFilterBar";
+
+const DashboardChildFallback = () => (
+  <section
+    className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+  >
+    <div className="space-y-3">
+      <div className="h-3 w-28 rounded-full bg-zinc-800" />
+      <div className="h-7 w-52 max-w-full rounded-lg bg-zinc-900" />
+      <div className="h-4 w-full max-w-xl rounded bg-zinc-900" />
+    </div>
+
+    <span className="sr-only">Loading dashboard page...</span>
+  </section>
+);
 
 /**
  * @component DashboardLayout
@@ -223,18 +240,20 @@ const DashboardLayout = () => {
 
       <div className={isEditorPage ? "pt-3 sm:pt-4" : "pt-4 sm:pt-5"}>
         {/* Outlet context is the single shared source for dashboard filter/sort UI state. */}
-        <Outlet
-          context={{
-            filterRange,
-            setFilterRange,
-            filter,
-            setFilter,
-            myPostsSearch,
-            setMyPostsSearch,
-            savedSortDirection,
-            setSavedSortDirection,
-          }}
-        />
+        <Suspense fallback={<DashboardChildFallback />}>
+          <Outlet
+            context={{
+              filterRange,
+              setFilterRange,
+              filter,
+              setFilter,
+              myPostsSearch,
+              setMyPostsSearch,
+              savedSortDirection,
+              setSavedSortDirection,
+            }}
+          />
+        </Suspense>
       </div>
     </div>
   );

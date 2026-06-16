@@ -31,6 +31,10 @@ import ConfirmModal from "../modals/ConfirmModal";
 import BadgeModal from "../modals/BadgeModal";
 import ShieldIcon from "../ui/ShieldIcon";
 import Avatar from "../common/Avatar";
+import {
+  SkeletonCircle,
+  SkeletonLine,
+} from "../ui/skeletonLoader/SkeletonBits";
 
 dayjs.extend(relativeTime);
 
@@ -122,6 +126,7 @@ const CommentItem = ({
   parentAuthor = null, // { id, name } for "Replying to"
 }) => {
   const [user, setUser] = useState(null);
+  const [isUserLoading, setIsUserLoading] = useState(Boolean(userId));
   const [isReplying, setIsReplying] = useState(false);
   const [isRepliesOpen, setIsRepliesOpen] = useState(false);
 
@@ -228,8 +233,15 @@ const CommentItem = ({
 
   useEffect(() => {
     // Fetch author public profile for name/avatar/badges (best-effort).
-    if (!userId) return;
+    if (!userId) {
+      setUser(null);
+      setIsUserLoading(false);
+      return;
+    }
+
     let isMounted = true;
+    setUser(null);
+    setIsUserLoading(true);
 
     (async () => {
       try {
@@ -237,6 +249,9 @@ const CommentItem = ({
         if (isMounted) setUser(data);
       } catch (e) {
         console.error("Failed to fetch user:", e);
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setIsUserLoading(false);
       }
     })();
 
@@ -402,15 +417,19 @@ const CommentItem = ({
         <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-3">
           <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-3 items-start">
             <div className="relative">
-              <Avatar
-                src={user?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
-                size={32}
-                zoomable
-                badge={user?.badges?.topContributor ?? false}
-                alt={`Profile picture of ${user?.name ?? "user"}`}
-              />
+              {isUserLoading ? (
+                <SkeletonCircle size={32} />
+              ) : (
+                <Avatar
+                  src={user?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+                  size={32}
+                  zoomable
+                  badge={user?.badges?.topContributor ?? false}
+                  alt={`Profile picture of ${user?.name ?? "user"}`}
+                />
+              )}
 
-              {user?.badges?.topContributor && (
+              {!isUserLoading && user?.badges?.topContributor && (
                 <button
                   type="button"
                   title="Top Contributor · Code-powered"
@@ -438,7 +457,9 @@ const CommentItem = ({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                 {/* Clickable author link when `userId` exists (prevents card-level click bubbling). */}
-                {userId ? (
+                {isUserLoading ? (
+                  <SkeletonLine as="span" w="w-28" h="h-4" />
+                ) : userId ? (
                   <Link
                     to={`/profile/${userId}`}
                     className={`${NAME_LINK_BASE} truncate max-w-[12rem] sm:max-w-[18rem]`}

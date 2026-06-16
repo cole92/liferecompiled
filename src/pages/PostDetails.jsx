@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import { FiLock, FiMessageCircle, FiFlag } from "react-icons/fi";
@@ -33,6 +33,10 @@ import ConfirmModal from "../components/modals/ConfirmModal";
 import BadgeModal from "../components/modals/BadgeModal";
 import Badge from "../components/ui/Bagde";
 import Avatar from "../components/common/Avatar";
+import {
+  SkeletonCircle,
+  SkeletonLine,
+} from "../components/ui/skeletonLoader/SkeletonBits";
 
 import { toggleSavePost } from "../utils/savedPostUtils";
 import {
@@ -160,6 +164,8 @@ const PostDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [author, setAuthor] = useState(null);
+  const [isAuthorLoading, setIsAuthorLoading] = useState(false);
+  const authorUserIdRef = useRef(null);
 
   const [showReportModal, setShowReportModal] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -245,6 +251,16 @@ const PostDetails = () => {
           return;
         }
 
+        if (!postData.userId) {
+          authorUserIdRef.current = null;
+          setAuthor(null);
+          setIsAuthorLoading(false);
+        } else if (authorUserIdRef.current !== postData.userId) {
+          authorUserIdRef.current = postData.userId;
+          setAuthor(null);
+          setIsAuthorLoading(true);
+        }
+
         setPost(postData);
         setIsLoading(false);
       },
@@ -263,9 +279,17 @@ const PostDetails = () => {
 
   // Fetch author profile (separate user doc)
   useEffect(() => {
-    if (!post?.userId) return;
+    if (!post?.userId) {
+      authorUserIdRef.current = null;
+      setAuthor(null);
+      setIsAuthorLoading(false);
+      return;
+    }
 
     let cancelled = false;
+    authorUserIdRef.current = post.userId;
+    setAuthor(null);
+    setIsAuthorLoading(true);
 
     (async () => {
       try {
@@ -273,6 +297,9 @@ const PostDetails = () => {
         if (!cancelled) setAuthor(data);
       } catch (e) {
         console.error("Error fetching author:", e);
+        if (!cancelled) setAuthor(null);
+      } finally {
+        if (!cancelled) setIsAuthorLoading(false);
       }
     })();
 
@@ -471,16 +498,20 @@ const PostDetails = () => {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2 min-w-0">
                   <div className="relative flex-none">
-                    <Avatar
-                      src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
-                      size={36}
-                      zoomable
-                      badge={author?.badges?.topContributor ?? false}
-                      alt={author?.name ?? "Author"}
-                    />
+                    {isAuthorLoading ? (
+                      <SkeletonCircle size={36} />
+                    ) : (
+                      <Avatar
+                        src={author?.profilePicture ?? DEFAULT_PROFILE_PICTURE}
+                        size={36}
+                        zoomable
+                        badge={author?.badges?.topContributor ?? false}
+                        alt={author?.name ?? "Author"}
+                      />
+                    )}
 
                     {/* Top Contributor badge button (opens modal) */}
-                    {author?.badges?.topContributor && (
+                    {!isAuthorLoading && author?.badges?.topContributor && (
                       <button
                         type="button"
                         title="Top Contributor · Code-powered"
@@ -506,12 +537,14 @@ const PostDetails = () => {
 
                   <div className="min-w-0">
                     {/* Author link (only when author loaded) */}
-                    {author?.id && (
+                    {isAuthorLoading ? (
+                      <SkeletonLine as="span" w="w-28" h="h-4" />
+                    ) : author?.id ? (
                       <AuthorLink
                         author={author}
                         className="inline-block max-w-[10rem] sm:max-w-[22rem] truncate align-middle"
                       />
-                    )}
+                    ) : null}
 
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
                       <span className="whitespace-nowrap sm:hidden">

@@ -316,6 +316,13 @@ const Profile = () => {
       ? Math.round((reactionsCount / postCount) * 10) / 10
       : 0;
 
+  const isTopPostsMetricLoading = isLoadingTop3;
+  const isEngagementLoading =
+    isCounting ||
+    isCountingReactions ||
+    postCount == null ||
+    reactionsCount == null;
+
   return (
     <div className="w-full px-2 sm:px-6 lg:px-10 2xl:px-16 py-4 sm:py-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 sm:gap-6">
@@ -482,13 +489,25 @@ const Profile = () => {
 
                   <div className="flex items-center justify-between gap-3">
                     <span>Top posts</span>
-                    <span className="text-zinc-200">{top3?.length || 0}/3</span>
+                    <span className="text-zinc-200">
+                      {isTopPostsMetricLoading ? (
+                        <SkeletonLine as="span" w="w-10" h="h-4" />
+                      ) : errorTop3 ? (
+                        "Unavailable"
+                      ) : (
+                        `${top3?.length || 0}/3`
+                      )}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
                     <span>Engagement</span>
                     <span className="text-zinc-200">
-                      {engagement} per post
+                      {isEngagementLoading ? (
+                        <SkeletonLine as="span" w="w-20" h="h-4" />
+                      ) : (
+                        `${engagement} per post`
+                      )}
                     </span>
                   </div>
                 </div>
