@@ -13,16 +13,15 @@ import topContributorBadge from "../ui/badges/badge_top_contributor.webp";
  * - `badgeKey` targets post badges: "mostInspiring", "trending"
  * - `authorBadge` targets author badges: "topContributor"
  * - Closing behavior (ESC / backdrop click) is handled by `ModalPortal`.
- * - `locked` is visual-only (grayscale/opacity); close is always allowed.
+ * - Archived/locked source posts do not dim this modal; close is always allowed.
  *
  * @param {boolean} isOpen
  * @param {Function} onClose
  * @param {string=} authorBadge
  * @param {string=} badgeKey
- * @param {boolean=} locked
  * @returns {JSX.Element}
  */
-const BadgeModal = ({ isOpen, onClose, authorBadge, badgeKey, locked }) => {
+const BadgeModal = ({ isOpen, onClose, authorBadge, badgeKey }) => {
   const title =
     authorBadge === "topContributor"
       ? "Top Contributor"
@@ -34,13 +33,11 @@ const BadgeModal = ({ isOpen, onClose, authorBadge, badgeKey, locked }) => {
 
   const imgClass = "w-48 object-contain";
 
-  const panelFx = locked ? "opacity-60 grayscale" : "";
-
   return (
     <ModalPortal
       isOpen={isOpen}
       onClose={onClose}
-      panelClassName={`${panelFx} !p-0 overflow-hidden`}
+      panelClassName="!p-0 overflow-hidden"
     >
       <div className="border-b border-zinc-800 px-5 py-4">
         <h2 className="text-base font-semibold text-zinc-100 md:text-lg">

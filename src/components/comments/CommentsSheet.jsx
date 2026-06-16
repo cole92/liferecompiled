@@ -242,7 +242,7 @@ const CommentsSheet = ({
 
           {/* Composer (collapsed -> expands) */}
           {!locked && (
-            <div className="flex-none border-t border-zinc-800 bg-zinc-950/95 px-4 py-3">
+            <div className="flex-none border-t border-zinc-800 bg-zinc-950 px-4 py-3">
               {!isComposerOpen ? (
                 <button
                   type="button"

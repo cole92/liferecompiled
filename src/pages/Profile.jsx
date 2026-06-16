@@ -317,10 +317,10 @@ const Profile = () => {
       : 0;
 
   return (
-    <div className="w-full px-3 sm:px-6 lg:px-10 2xl:px-16 py-5 sm:py-8">
+    <div className="w-full px-2 sm:px-6 lg:px-10 2xl:px-16 py-4 sm:py-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 sm:gap-6">
         {/* HERO */}
-        <section className="ui-card overflow-hidden p-4 sm:p-6 lg:p-7">
+        <section className="ui-card overflow-hidden p-3 sm:p-6 lg:p-7">
           <div className="grid gap-5 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)] lg:items-stretch xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)_minmax(220px,280px)]">
             {/* Left: avatar + identity + stats */}
             <div>
@@ -436,7 +436,7 @@ const Profile = () => {
 
             {/* Bio */}
             <div>
-              <div className="h-full rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-5">
+              <div className="h-full rounded-xl bg-zinc-900 p-3 sm:rounded-2xl sm:border sm:border-zinc-800 sm:bg-zinc-950 sm:p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Author bio
                 </p>
@@ -458,7 +458,7 @@ const Profile = () => {
 
             {/* Highlights */}
             <div>
-              <div className="h-full rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-5">
+              <div className="h-full rounded-xl bg-zinc-900 p-3 sm:rounded-2xl sm:border sm:border-zinc-800 sm:bg-zinc-950 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -487,7 +487,9 @@ const Profile = () => {
 
                   <div className="flex items-center justify-between gap-3">
                     <span>Engagement</span>
-                    <span className="text-zinc-200">{engagement} / post</span>
+                    <span className="text-zinc-200">
+                      {engagement} per post
+                    </span>
                   </div>
                 </div>
               </div>
@@ -506,7 +508,7 @@ const Profile = () => {
         )}
 
         {/* TOP POSTS */}
-        <section className="ui-card overflow-hidden p-4 sm:p-6 lg:p-7">
+        <section className="ui-card overflow-hidden p-3 sm:p-6 lg:p-7">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">

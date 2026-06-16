@@ -338,7 +338,7 @@ const SavedPosts = () => {
 
         <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:justify-end">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2">
-            <p className="text-xs text-zinc-500">Saved</p>
+            <p className="text-xs text-zinc-500">Showing</p>
             <p className="font-semibold text-zinc-100">
               {isLoading ? "..." : savedPosts.length}
             </p>

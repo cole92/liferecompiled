@@ -200,13 +200,13 @@ const ReportIssue = () => {
     : "report-details-help";
 
   return (
-    <div className="w-full px-3 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="w-full px-2 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm sm:p-7">
+        <header className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-7">
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
             Support
           </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-100">
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-100 sm:text-3xl">
             Support & feedback
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300 sm:text-base">
@@ -216,7 +216,7 @@ const ReportIssue = () => {
         </header>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)]">
-          <main className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm sm:p-6">
+          <main className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-6">
             <div className="mb-5">
               <h2 className="text-xl font-semibold text-zinc-100">
                 Write your message
@@ -299,7 +299,7 @@ const ReportIssue = () => {
               </div>
 
               {/* Steps toggle + textarea */}
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+              <div className="rounded-xl bg-zinc-900 p-3 sm:rounded-2xl sm:border sm:border-zinc-800 sm:bg-zinc-950 sm:p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <label className="ui-label" htmlFor="report-steps">
@@ -333,7 +333,7 @@ const ReportIssue = () => {
           </main>
 
           <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm">
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5">
               <h2 className="text-base font-semibold text-zinc-100">
                 Send report
               </h2>
@@ -382,7 +382,7 @@ const ReportIssue = () => {
               </p>
             </section>
 
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm">
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-5">
               <h2 className="text-base font-semibold text-zinc-100">
                 Included context
               </h2>

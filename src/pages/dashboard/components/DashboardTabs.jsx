@@ -22,7 +22,7 @@ import { FOCUS_RING } from "../../../constants/uiClasses";
 const DashboardTabs = ({ trashCount = 0, isAdmin = false }) => {
   const tabBase =
     "inline-flex items-center gap-2 rounded-lg border border-transparent " +
-    "px-3 py-2 text-sm font-medium text-zinc-400 " +
+    "px-2.5 py-1.5 text-xs font-medium text-zinc-400 sm:px-3 sm:py-2 sm:text-sm " +
     "hover:bg-zinc-900 hover:text-zinc-100 " +
     FOCUS_RING;
 
@@ -35,7 +35,7 @@ const DashboardTabs = ({ trashCount = 0, isAdmin = false }) => {
 
   return (
     <nav aria-label="Dashboard navigation" className="-mx-1 overflow-x-auto ui-scrollbar">
-      <div className="flex items-center gap-1.5 whitespace-nowrap px-1 py-0.5">
+      <div className="flex items-center gap-1 whitespace-nowrap px-1 py-0.5 sm:gap-1.5">
         <NavLink
           to="/dashboard"
           end

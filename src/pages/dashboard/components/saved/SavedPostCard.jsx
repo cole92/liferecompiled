@@ -208,7 +208,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
             disabled={isPendingUndo}
             aria-disabled={isPendingUndo}
             className={
-              `ui-button-secondary shrink-0 px-3 py-2 text-sm ` +
+              `ui-button-secondary hidden shrink-0 px-3 py-2 text-sm sm:inline-flex ` +
               `${isPendingUndo ? "opacity-60 cursor-not-allowed" : ""} ${FOCUS_RING}`
             }
             title={isPendingUndo ? "Undo pending..." : "Remove from saved"}
@@ -221,7 +221,21 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
           This post was removed by its author and is no longer available.
         </p>
 
-        <div className="mt-auto pt-3 border-t border-zinc-800/60" />
+        <div className="mt-auto pt-3 border-t border-zinc-800/60">
+          <button
+            type="button"
+            onClick={handleRemoveClick}
+            disabled={isPendingUndo}
+            aria-disabled={isPendingUndo}
+            className={
+              `ui-button-secondary w-full px-3 py-2 text-sm sm:hidden ` +
+              `${isPendingUndo ? "opacity-60 cursor-not-allowed" : ""} ${FOCUS_RING}`
+            }
+            title={isPendingUndo ? "Undo pending..." : "Remove from saved"}
+          >
+            Remove from saved
+          </button>
+        </div>
       </article>
     );
   }
@@ -263,7 +277,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
             onClick={handleSaveToggle}
             disabled={isPendingUndo}
             aria-disabled={isPendingUndo}
-            className={`ui-button-secondary shrink-0 px-3 py-2 text-sm ${
+            className={`ui-button-secondary hidden shrink-0 px-3 py-2 text-sm sm:inline-flex ${
               isPendingUndo ? "opacity-50 cursor-not-allowed" : ""
             } ${FOCUS_RING}`}
             title={
@@ -375,6 +389,20 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
               <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-zinc-950/30 to-transparent" />
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleSaveToggle}
+            disabled={isPendingUndo}
+            aria-disabled={isPendingUndo}
+            className={`ui-button-secondary mt-3 w-full px-3 py-2 text-sm sm:hidden ${
+              isPendingUndo ? "opacity-50 cursor-not-allowed" : ""
+            } ${FOCUS_RING}`}
+            title={isPendingUndo ? "Undo pending..." : "Remove from saved"}
+          >
+            <BsBookmarkFill className="h-4 w-4 text-sky-200" />
+            Remove from saved
+          </button>
         </div>
       </article>
 

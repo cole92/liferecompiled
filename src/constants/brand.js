@@ -12,8 +12,7 @@ export const BRAND = {
   },
 
   // Stored in a raw form; formatting/styling is handled by `BrandWordmark`.
-  // Example: hyphen may be rendered as a visual separator (bullet) in the UI.
-  tagline: "CODE-POWERED",
+  tagline: "PRODUCT BUILD LOG",
 
   // A11y: consistent navigation label for the header home link/button.
   homeAriaLabel: "Go to Home",

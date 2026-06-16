@@ -154,7 +154,7 @@ const mdComponents = {
 
 const proofPoints = [
   "React/Vite app with Firebase Auth, Firestore, and Cloud Functions",
-  "Backend-owned counters, badge rules, and scheduled cleanup flows",
+  "Backend-owned counters, badge rules, and maintenance-oriented flows",
   "Dashboard workflows for posts, saved items, stats, trash, and moderation",
 ];
 
@@ -172,16 +172,16 @@ const About = () => {
   const { title, body } = getMarkdownTitleAndBody(aboutMdRaw);
 
   return (
-    <div className="w-full px-3 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="w-full px-2 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
       <div className="mx-auto w-full max-w-7xl">
         {/* Hero */}
-        <header className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm sm:p-7 lg:p-8">
+        <header className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:mb-6 sm:p-7 lg:p-8">
           <div className="max-w-3xl">
             <div className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-300">
               Product case study
             </div>
 
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl lg:text-5xl">
+            <h1 className="mt-4 text-2xl font-semibold tracking-tight text-zinc-100 sm:text-4xl lg:text-5xl">
               {title || "About"}
             </h1>
 
@@ -232,7 +232,7 @@ const About = () => {
             </section>
           </aside>
 
-          <main className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm sm:p-7 lg:p-8">
+          <main className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-sm sm:p-7 lg:p-8">
             <div className="mb-6 border-b border-zinc-800 pb-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Implementation notes

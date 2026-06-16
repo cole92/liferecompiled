@@ -114,7 +114,7 @@ const Settings = () => {
   if (isCheckingAuth) return null;
 
   return (
-    <div className="w-full px-3 sm:px-6 lg:px-8">
+    <div className="w-full px-2 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-6xl my-5 sm:my-8">
         <header className="mb-5 sm:mb-6 pb-5 border-b border-zinc-800/70">
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
@@ -128,10 +128,10 @@ const Settings = () => {
           </p>
         </header>
 
-        <div className="grid gap-5 lg:gap-8 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+        <div className="grid gap-4 lg:gap-8 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
           {/* LEFT COLUMN (on mobile goes below) */}
           <aside className="space-y-5 lg:sticky lg:top-24 self-start order-2 lg:order-1">
-            <div className={`ui-card ${feedCardSkin} p-4 sm:p-5`}>
+            <div className={`ui-card ${feedCardSkin} p-3 sm:p-5`}>
               <h2 className="text-base font-semibold text-zinc-100">
                 Profile preview
               </h2>
@@ -211,7 +211,7 @@ const Settings = () => {
               )}
             </div>
 
-            <div className={`ui-card ${feedCardSkin} p-4 sm:p-6`}>
+            <div className={`ui-card ${feedCardSkin} p-3 sm:p-6`}>
               <h2 className="text-base font-semibold text-zinc-100">Account</h2>
               <p className="mt-1 text-sm text-zinc-400">
                 Read-only details from authentication.
@@ -242,8 +242,8 @@ const Settings = () => {
           </aside>
 
           {/* RIGHT COLUMN (on mobile goes first) */}
-          <section className="space-y-6 order-1 lg:order-2">
-            <div className={`ui-card ${feedCardSkin} p-4 sm:p-6`}>
+          <section className="space-y-4 order-1 lg:order-2 lg:space-y-6">
+            <div className={`ui-card ${feedCardSkin} p-3 sm:p-6`}>
               <div className="mb-5">
                 <h2 className="text-xl font-semibold text-zinc-100">
                   Edit profile

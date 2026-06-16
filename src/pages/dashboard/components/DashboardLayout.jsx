@@ -62,13 +62,13 @@ const DashboardLayout = () => {
   }, [user?.uid]);
 
   const dashboardPanel =
-    "rounded-2xl border border-zinc-800 bg-zinc-950 p-3 shadow-sm sm:p-4";
+    "rounded-xl border border-zinc-800 bg-zinc-950 p-2.5 shadow-sm sm:rounded-2xl sm:p-4";
 
   return (
     <div className="pb-2">
       <div className="sticky top-16 z-40">
-        <div className="w-full border-b border-zinc-800/80 bg-zinc-950/95">
-          <div className="py-2 sm:py-3">
+        <div className="w-full border-b border-zinc-800 bg-zinc-950">
+          <div className="py-1.5 sm:py-3">
             <div className={dashboardPanel}>
               {/* md+ uses a 2-col / 2-row grid so Search can live on the far right */}
               <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(320px,28rem)] md:gap-6">
@@ -188,19 +188,19 @@ const DashboardLayout = () => {
                   <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
                     Workspace
                   </p>
-                  <h1 className="mt-1 text-lg font-semibold text-zinc-100">
+                  <h1 className="text-base font-semibold text-zinc-100">
                     Dashboard
                   </h1>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-2">
                   <DashboardTabs
                     trashCount={trashCount}
                     isAdmin={Boolean(user?.isAdmin)}
                   />
                 </div>
 
-                <div className="mt-2 sm:mt-3 space-y-2">
+                <div className="mt-2 space-y-2">
                   {isTrashPage && (
                     <TrashFilterBar
                       filterRange={filterRange}

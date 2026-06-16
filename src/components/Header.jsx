@@ -32,7 +32,7 @@ const Header = () => {
   if (isCheckingAuth) {
     return (
       <header className="sticky top-0 z-50 w-full">
-        <div className="w-full border-b border-zinc-800/70 bg-zinc-950/95 ring-1 ring-zinc-100/5">
+        <div className="w-full border-b border-zinc-800 bg-zinc-950">
           <div className="ui-shell-header py-3">
             <div className="flex items-center gap-2 text-sm text-zinc-200">
               <span>Checking authentication</span>
@@ -48,10 +48,10 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      <div className="w-full border-b border-zinc-800/70 bg-zinc-950/95 ring-1 ring-zinc-100/5">
+      <div className="w-full border-b border-zinc-800 bg-zinc-950">
         <div className="ui-shell-header py-3">
           <div className="flex items-center justify-between gap-3">
-            <BrandWordmark className="shrink-0" tagline="CODE-POWERED" />
+            <BrandWordmark className="shrink-0" />
 
             <div className="flex items-center gap-2">
               {user ? (

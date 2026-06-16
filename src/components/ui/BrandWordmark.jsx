@@ -6,12 +6,11 @@ import { BRAND } from "../../constants/brand";
  * Normalize tagline format for consistent visual rendering.
  *
  * - Trims input and removes empty values
- * - Replaces common separators (•, middle dot) with "-"
- * - Collapses spaces/dashes into a single separator
- * - Renders first word + bullet + remaining text (compact brand style)
+ * - Replaces common separators (•, middle dot, dash) with spaces
+ * - Collapses repeated whitespace for stable display
  *
  * Example:
- * "Code - Powered" → "Code•Powered"
+ * "Product - Build Log" -> "Product Build Log"
  *
  * @param {string} raw - Raw tagline string
  * @returns {string} Formatted tagline
@@ -20,17 +19,7 @@ function formatTagline(raw) {
   const s = String(raw ?? "").trim();
   if (!s) return "";
 
-  const parts = s
-    // Normalize bullet-like separators to dash
-    .replace(/[•\u00B7]/g, "-")
-    // Split by dash or whitespace
-    .split(/[-\s]+/)
-    .filter(Boolean);
-
-  if (parts.length <= 1) return parts.join("");
-
-  // First word + bullet + remaining text (no extra spaces)
-  return `${parts[0]}\u2022${parts.slice(1).join("")}`;
+  return s.replace(/[•\u00B7-]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /**

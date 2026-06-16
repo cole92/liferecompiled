@@ -29,7 +29,7 @@ const Footer = () => {
             rel="noopener noreferrer"
             className="font-medium text-zinc-400 hover:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded"
           >
-            Aleksandar Todorovic
+            Aleksandar Todorović
           </a>
         </p>
       </div>

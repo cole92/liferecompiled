@@ -443,7 +443,7 @@ const PostDetails = () => {
   // Layout classes
   const wrapperClass =
     "w-full max-w-7xl mx-auto my-0 px-3 sm:my-8 sm:px-4 lg:px-6 " +
-    "pb-[calc(1.25rem+env(safe-area-inset-bottom))] lg:pb-0";
+    "pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0";
 
   const gridClass =
     "grid gap-5 lg:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-start";
@@ -552,7 +552,7 @@ const PostDetails = () => {
               </div>
 
               {/* Post title */}
-              <h1 className="mt-5 text-3xl font-semibold leading-tight text-zinc-100 break-words sm:text-4xl">
+              <h1 className="mt-5 text-[1.65rem] font-semibold leading-tight text-zinc-100 break-words sm:text-4xl">
                 {post.title}
               </h1>
 
@@ -604,12 +604,12 @@ const PostDetails = () => {
             <div className="mt-7">
               <div className="space-y-7">
                 {post?.description && (
-                  <p className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-base leading-7 text-zinc-200 break-words">
+                  <p className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-[0.95rem] leading-7 text-zinc-200 break-words sm:text-base">
                     {post.description}
                   </p>
                 )}
 
-                <div className="whitespace-pre-wrap text-base leading-8 text-zinc-200 break-words">
+                <div className="whitespace-pre-wrap text-[0.96rem] leading-7 text-zinc-200 break-words sm:text-base sm:leading-8">
                   {post?.content}
                 </div>
               </div>
@@ -673,7 +673,7 @@ const PostDetails = () => {
                       type="button"
                       onClick={() => setDeleteModalOpen(true)}
                       disabled={isDeletingPost}
-                      className={`ui-button bg-rose-600 text-zinc-50 hover:bg-rose-500 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                      className={`ui-button-secondary border-rose-500/40 text-rose-200 hover:bg-rose-500/10 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                         isDeletingPost ? "opacity-60 cursor-not-allowed" : ""
                       }`}
                     >
