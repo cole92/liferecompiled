@@ -186,9 +186,8 @@ const About = () => {
             </h1>
 
             <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300 sm:text-lg">
-              A serious full-stack portfolio project focused on product
-              behavior, data integrity, permissions, and deploy-ready
-              engineering decisions.
+              A full-stack product case study focused on product behavior, data
+              integrity, permissions, and deploy-ready engineering decisions.
             </p>
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
@@ -242,7 +241,10 @@ const About = () => {
               </h2>
             </div>
 
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={mdComponents}
+            >
               {body}
             </ReactMarkdown>
 

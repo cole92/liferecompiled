@@ -3,6 +3,9 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
 
+const AUTHOR_NAME_FALLBACK = "Community member";
+const UNAVAILABLE_AUTHOR_FALLBACK = "Unavailable profile";
+
 /**
  * @helper makeFallbackAuthor
  *
@@ -10,7 +13,7 @@ import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
  *
  * Why:
  * - Prevents UI breakage when author references are stale or access is denied.
- * - Keeps rendering consistent ("Unknown author") without profile links/badges.
+ * - Keeps rendering consistent without profile links/badges.
  *
  * Rules:
  * - `id = null` is a sentinel: do not use it for navigation/profile routes.
@@ -20,7 +23,7 @@ import { DEFAULT_PROFILE_PICTURE } from "../constants/defaults";
  */
 const makeFallbackAuthor = () => ({
   id: null, // sentinel: no profile -> do not render Link
-  name: "Unknown author",
+  name: UNAVAILABLE_AUTHOR_FALLBACK,
   profilePicture: DEFAULT_PROFILE_PICTURE,
   badges: {}, // do not show badges for fallback authors
   deleted: true,
@@ -57,7 +60,7 @@ const normalizeAuthor = (uid, data) => {
 
   return {
     id: uid,
-    name: data?.name || "Unknown author",
+    name: data?.name || AUTHOR_NAME_FALLBACK,
     profilePicture: data?.profilePicture || DEFAULT_PROFILE_PICTURE,
     badges: {
       ...rawBadges,
@@ -111,7 +114,7 @@ export const getUserById = async (userId) => {
  *
  * Behavior:
  * - Fetches author via `post.userId`.
- * - Falls back to "Unknown author" if fetching fails for any reason.
+ * - Falls back to an unavailable-profile author if fetching fails for any reason.
  *
  * @param {Object} post - Post object (expects `userId`).
  * @returns {Promise<Object>} Post extended with a safe `author` field.

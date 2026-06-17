@@ -305,7 +305,7 @@ const Profile = () => {
     ? dayjs(userData.createdAt.toDate()).format("DD MMM YYYY")
     : "---";
 
-  const displayName = userData?.name || "Unknown author";
+  const displayName = userData?.name || "Community member";
 
   /**
    * Simple engagement heuristic: reactions per post.

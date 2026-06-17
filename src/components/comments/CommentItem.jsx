@@ -465,13 +465,13 @@ const CommentItem = ({
                     className={`${NAME_LINK_BASE} truncate max-w-[12rem] sm:max-w-[18rem]`}
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Open profile: ${user?.name || "author"}`}
-                    title={user?.name || "Unknown author"}
+                    title={user?.name || "Unavailable profile"}
                   >
-                    {user?.name || "Unknown author"}
+                    {user?.name || "Unavailable profile"}
                   </Link>
                 ) : (
                   <span className="font-semibold text-sm text-zinc-100">
-                    {user?.name || "Unknown author"}
+                    {user?.name || "Unavailable profile"}
                   </span>
                 )}
 

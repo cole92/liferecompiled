@@ -259,7 +259,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
               <span>Saved reference</span>
               <span aria-hidden="true">•</span>
               <span className="line-clamp-1">
-                {post?.author?.name || "Unknown author"}
+                {post?.author?.name || "Unavailable profile"}
               </span>
               {post?.savedAt?.toDate?.() ? (
                 <>

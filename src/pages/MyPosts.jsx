@@ -109,7 +109,7 @@ const MyPosts = () => {
         // even if post docs do not include denormalized author fields.
         const author = {
           id: user.uid,
-          name: user.name || "Unknown author",
+          name: user.name || "Community member",
           profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
           badges: user.badges || {},
         };
@@ -176,7 +176,7 @@ const MyPosts = () => {
 
       const author = {
         id: user.uid,
-        name: user.name || "Unknown author",
+        name: user.name || "Community member",
         profilePicture: user.profilePicture || DEFAULT_PROFILE_PICTURE,
         badges: user.badges || {},
       };
