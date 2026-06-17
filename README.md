@@ -51,20 +51,11 @@ LifeRecompiled demonstrates:
 
 ### Mobile views
 
-<table>
-  <tr>
-    <td align="center"><strong>Mobile feed</strong></td>
-    <td align="center"><strong>Mobile post details</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/mobile-feed.png" alt="LifeRecompiled mobile feed" width="260" />
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/mobile-post-details.png" alt="LifeRecompiled mobile post details" width="260" />
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/mobile-feed.png" alt="LifeRecompiled mobile feed" width="280" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/screenshots/mobile-post-details.png" alt="LifeRecompiled mobile post details" width="280" />
+</p>
 
 ---
 
