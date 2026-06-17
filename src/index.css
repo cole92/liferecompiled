@@ -32,7 +32,7 @@
   }
 
   .ui-shell-header {
-    @apply mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10;
+    @apply mx-auto w-full max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 lg:px-8;
   }
 
   .ui-card {
@@ -106,27 +106,28 @@
   background-color: rgba(113, 113, 122, 0.65);
 }
 
-/* Horizontal tag rail scrollbar (thin + subtle; avoids layout jump) */
+/* Horizontal rails: preserve touch/trackpad scrolling without visible native bars */
+.ui-scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ui-scrollbar-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Horizontal tag rail scrollbar hidden for calmer mobile/card rails */
 .tag-rail {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(161, 161, 170, 0.25) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .tag-rail::-webkit-scrollbar {
-  height: 6px;
-}
-
-.tag-rail::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.tag-rail::-webkit-scrollbar-thumb {
-  background: rgba(161, 161, 170, 0.22);
-  border-radius: 999px;
-}
-
-.tag-rail:hover::-webkit-scrollbar-thumb {
-  background: rgba(161, 161, 170, 0.35);
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* React-Toastify overrides: align to Zinc dark UI + keep above modals/sheets */

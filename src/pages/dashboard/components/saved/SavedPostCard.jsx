@@ -233,7 +233,7 @@ const SavedPostCard = ({ post, onUnsave, isPendingUndo = false }) => {
             }
             title={isPendingUndo ? "Undo pending..." : "Remove from saved"}
           >
-            Remove from saved
+            Remove
           </button>
         </div>
       </article>

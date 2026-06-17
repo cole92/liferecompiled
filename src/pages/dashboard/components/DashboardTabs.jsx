@@ -36,7 +36,7 @@ const DashboardTabs = ({ trashCount = 0, isAdmin = false }) => {
   return (
     <nav
       aria-label="Dashboard navigation"
-      className="-mx-1 overflow-x-auto ui-scrollbar"
+      className="-mx-1 overflow-x-auto ui-scrollbar-hidden"
     >
       <div className="flex items-center gap-1 whitespace-nowrap px-1 py-0.5 sm:gap-1.5">
         <NavLink

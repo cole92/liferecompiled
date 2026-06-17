@@ -230,10 +230,10 @@ const Home = () => {
         </svg>
       </button>
 
-      {/* Desktop: explicit CTA label. */}
+      {/* Tablet: explicit CTA label. Desktop uses the global header action. */}
       <button
         type="button"
-        className="hidden sm:inline-flex ui-button-primary"
+        className="hidden sm:inline-flex ui-button-primary lg:hidden"
         onClick={() => navigate("/dashboard/create")}
       >
         Create New Post

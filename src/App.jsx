@@ -51,8 +51,8 @@ const routeFallback = (
  * - Mounts a single `ToastContainer` to avoid duplicate containers and inconsistent toast behavior.
  *
  * Routing notes:
- * - Public routes: home, auth pages, post details, about.
- * - Protected routes: dashboard subtree + profile/report pages that require auth.
+ * - Public routes: home, auth pages, post details, about, support/report.
+ * - Protected routes: dashboard subtree + current-user profile.
  * - Fallback route redirects unknown paths to `/login` to keep the entry flow predictable.
  *
  * Toast notes:
@@ -76,6 +76,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/post/:postId" element={<PostDetails />} />
           <Route path="/about" element={<About />} />
+          <Route path="/report" element={<ReportIssue />} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
@@ -91,7 +92,6 @@ function App() {
 
             <Route path="/dashboard/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/report" element={<ReportIssue />} />
           </Route>
 
           {/* Public profile route (view other users) */}

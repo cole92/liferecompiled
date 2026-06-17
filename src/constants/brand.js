@@ -12,7 +12,7 @@ export const BRAND = {
   },
 
   // Stored in a raw form; formatting/styling is handled by `BrandWordmark`.
-  tagline: "PRODUCT BUILD LOG",
+  tagline: "PRODUCT CASE STUDY",
 
   // A11y: consistent navigation label for the header home link/button.
   homeAriaLabel: "Go to Home",

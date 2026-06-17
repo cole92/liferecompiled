@@ -5,7 +5,6 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { AuthContext } from "../../../context/AuthContext";
 
-import DashboardBreadcrumb from "./DashboardBreadcrumb";
 import DashboardTabs from "./DashboardTabs";
 import TrashFilterBar from "./TrashFilterBar";
 import PostFilterBar from "./PostFilterBar";
@@ -33,13 +32,14 @@ const DashboardChildFallback = () => (
  * Shared layout shell for all `/dashboard/*` routes.
  *
  * Responsibilities:
- * - Renders a sticky header panel with tabs + page-specific controls.
+ * - Renders a sticky mobile/tablet header panel with tabs + page-specific controls.
+ * - On desktop, renders only route-specific controls because global header owns tabs.
  * - Exposes shared dashboard UI state to nested routes via `Outlet` context.
  * - Subscribes to trash count in real time to keep the Trash tab badge accurate.
  *
  * Responsive behavior:
  * - < lg: compact stacked toolbar for phone/tablet widths.
- * - lg+: short product-navigation toolbar with page controls inline/nearby.
+ * - lg+: controls-only toolbar for routes that need it; otherwise no generic shell.
  *
  * @returns {JSX.Element}
  */
@@ -123,14 +123,30 @@ const DashboardLayout = () => {
     </NavLink>
   ) : null;
 
+  const desktopControls = isMyPostsPage ? (
+    <PostFilterBar
+      activeFilter={filter}
+      onFilterChange={setFilter}
+      searchTerm={myPostsSearch}
+      onSearchChange={setMyPostsSearch}
+    />
+  ) : isSavedPage ? (
+    <div className="px-1 py-0.5">{savedSortControls}</div>
+  ) : isTrashPage ? (
+    <TrashFilterBar
+      filterRange={filterRange}
+      onFilterChange={setFilterRange}
+    />
+  ) : null;
+
   return (
     <div className="pb-2">
-      <div className="sticky top-16 z-40">
+      <div className="sticky top-16 z-40 lg:hidden">
         <div className="w-full border-b border-zinc-800 bg-zinc-950">
           <div className={isEditorPage ? "py-1 sm:py-1.5" : "py-1.5 sm:py-2"}>
             <div className={dashboardPanel}>
               {/* Phone + tablet: keep a compact stacked toolbar until lg. */}
-              <div className="lg:hidden">
+              <div>
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     {!isEditorPage && (
@@ -184,61 +200,30 @@ const DashboardLayout = () => {
                   {isSavedPage && savedSortControls}
                 </div>
               </div>
-
-              {/* Desktop/laptop: compact product-navigation toolbar. */}
-              <div className="hidden lg:block">
-                <div className="grid grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto] items-center gap-4">
-                  <div className="min-w-0">
-                    <DashboardBreadcrumb />
-                    <h1 className="mt-0.5 text-base font-semibold text-zinc-100">
-                      Dashboard
-                    </h1>
-                  </div>
-
-                  <DashboardTabs
-                    trashCount={trashCount}
-                    isAdmin={Boolean(user?.isAdmin)}
-                  />
-
-                  <div className="flex min-w-0 items-center justify-end gap-2">
-                    {isTrashPage && (
-                      <div className="max-w-full">
-                        <TrashFilterBar
-                          filterRange={filterRange}
-                          onFilterChange={setFilterRange}
-                        />
-                      </div>
-                    )}
-
-                    {isSavedPage && savedSortControls}
-
-                    {createButton}
-                  </div>
-                </div>
-
-                {isMyPostsPage && (
-                  <div className="mt-2 border-t border-zinc-800 pt-2">
-                    <PostFilterBar
-                      activeFilter={filter}
-                      onFilterChange={setFilter}
-                      searchTerm={myPostsSearch}
-                      onSearchChange={setMyPostsSearch}
-                    />
-                  </div>
-                )}
-
-                {!isEditorPage && !isMyPostsPage && !isTrashPage && !isSavedPage && (
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Manage posts, saved items, insights, and recovery tools.
-                  </p>
-                )}
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className={isEditorPage ? "pt-3 sm:pt-4" : "pt-4 sm:pt-5"}>
+      {desktopControls && (
+        <div className="sticky top-16 z-40 hidden lg:block">
+          <div className="w-full border-b border-zinc-800 bg-zinc-950">
+            <div className="py-1.5">
+              <div className={dashboardPanel}>{desktopControls}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={
+          isEditorPage
+            ? "pt-3 sm:pt-4 lg:pt-0"
+            : desktopControls
+              ? "pt-4 sm:pt-5"
+              : "pt-4 sm:pt-5 lg:pt-0"
+        }
+      >
         {/* Outlet context is the single shared source for dashboard filter/sort UI state. */}
         <Suspense fallback={<DashboardChildFallback />}>
           <Outlet
