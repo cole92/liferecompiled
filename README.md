@@ -39,19 +39,32 @@ LifeRecompiled demonstrates:
 
 ### Desktop dashboard
 
-![LifeRecompiled desktop dashboard](docs/screenshots/desktop-dashboard.png)
-
-### Mobile feed
-
-![LifeRecompiled mobile feed](docs/screenshots/mobile-feed.png)
-
-### Mobile post details
-
-![LifeRecompiled mobile post details](docs/screenshots/mobile-post-details.png)
+<p align="center">
+  <img src="docs/screenshots/desktop-dashboard.png" alt="LifeRecompiled desktop dashboard" width="100%" />
+</p>
 
 ### Desktop filters
 
-![LifeRecompiled desktop filters](docs/screenshots/desktop-filters.png)
+<p align="center">
+  <img src="docs/screenshots/desktop-filters.png" alt="LifeRecompiled desktop feed filters" width="100%" />
+</p>
+
+### Mobile views
+
+<table>
+  <tr>
+    <td align="center"><strong>Mobile feed</strong></td>
+    <td align="center"><strong>Mobile post details</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/screenshots/mobile-feed.png" alt="LifeRecompiled mobile feed" width="260" />
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/mobile-post-details.png" alt="LifeRecompiled mobile post details" width="260" />
+    </td>
+  </tr>
+</table>
 
 ---
 
