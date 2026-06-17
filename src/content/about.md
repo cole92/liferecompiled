@@ -2,11 +2,11 @@
 
 ## Overview
 
-LifeRecompiled is a portfolio-grade full-stack React/Firebase application built as a product case study.
+LifeRecompiled is a production-style React/Firebase application built as a product engineering case study.
 
 It started as a simple blog app and evolved into a small community-style platform for publishing posts, discussing ideas, saving content, reporting issues, and managing user-owned content through a private dashboard.
 
-The goal is not to imitate a large social platform. The goal is to demonstrate practical product engineering: data integrity, permissions, responsive UI, predictable UX states, backend-owned rules, and deploy-ready infrastructure.
+The goal is not to imitate a large social platform. The goal is to demonstrate practical product engineering: data integrity, permissions, responsive UI, predictable UX states, backend-maintained logic, security rules, and deploy-ready infrastructure.
 
 ## What the app demonstrates
 
