@@ -28,7 +28,7 @@ LifeRecompiled demonstrates:
 ## Demo
 
 - Live: [liferecompiled.com](https://liferecompiled.com)
-- Repository: [GitHub](https://github.com/cole92/liferecompiled)
+- Repository: [GitHub](https://github.com/aleksandar-todorovic-dev/liferecompiled)
 - Public About page: `/about`
 - Support & feedback route: `/report` — public
 - Demo content: controlled seeded production content used for screenshots, private preview, and manual UX review

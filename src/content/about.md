@@ -58,4 +58,4 @@ Planned follow-ups include:
 
 ## Source
 
-[GitHub repository](https://github.com/cole92/liferecompiled)
+[GitHub repository](https://github.com/aleksandar-todorovic-dev/liferecompiled)

@@ -23,7 +23,7 @@ const Footer = () => {
           {/* Dynamic year prevents manual updates each calendar year */}©{" "}
           {new Date().getFullYear()} {BRAND.name} · Created by{" "}
           <a
-            href="https://github.com/cole92"
+            href="https://github.com/aleksandar-todorovic-dev"
             target="_blank"
             // Security: prevent access to window.opener in new tab
             rel="noopener noreferrer"
