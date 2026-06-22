@@ -655,6 +655,7 @@ Important current limitations:
 - Moderation is MVP-light and does not include a full report lifecycle, audit log, assignments, or resolved queue.
 - Profile top posts / total reaction calculations may need stronger aggregate modeling at larger scale.
 - Automated testing is minimal.
+- Standard Firebase Auth verification and password reset emails currently use Firebase's hosted email action page, then continue back to the app login page. A branded `/auth/action` route exists for a future custom callback or custom email provider flow, but full auth email branding is deferred.
 - Backup automation was documented during development, but backup infrastructure is not managed as infrastructure-as-code in this repository.
 - Cloudinary cleanup is best-effort and only applies when the relevant public ID is available.
 - The Vite main chunk warning is known; route-level lazy loading and intent prefetch are implemented, while manual chunk work is left for later only if it becomes worth the complexity.
@@ -699,8 +700,10 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_CLOUDINARY_CLOUD_NAME=
 VITE_CLOUDINARY_UPLOAD_PRESET=
+VITE_APP_URL=
 VITE_SUPPORT_EMAIL=
 ```
+`VITE_APP_URL` is used to generate absolute Firebase Auth email continue URLs, especially for production builds.
 
 Real `.env` and `.env.staging` files should not be committed.
 
