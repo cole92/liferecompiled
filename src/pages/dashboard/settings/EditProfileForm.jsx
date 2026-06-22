@@ -17,6 +17,7 @@ import {
 const PROFILE_NO_CHANGES_TOAST_ID = "profile:nochanges";
 const PROFILE_SUCCESS_TOAST_ID = "profile:success";
 const PROFILE_ERROR_TOAST_ID = "profile:error";
+const PROFILE_VALIDATION_TOAST_ID = "profile:validation";
 
 // Name rules: allow unicode letters + a few safe separators.
 // Note: this is stricter than "any printable" to reduce junk usernames.
@@ -228,10 +229,14 @@ const EditProfileForm = ({ userData }) => {
     }
 
     setIsSaving(true);
+    setTouchedName(true);
 
     // Validate before building update payload to avoid partial updates.
     const ok = validateForm();
     if (!ok) {
+      showErrorToast("Please fix the highlighted fields before saving.", {
+        toastId: PROFILE_VALIDATION_TOAST_ID,
+      });
       setIsSaving(false);
       return;
     }
@@ -503,6 +508,9 @@ const EditProfileForm = ({ userData }) => {
                   ? value.charAt(0).toUpperCase() + value.slice(1)
                   : "";
                 setFormData((prev) => ({ ...prev, name: capitalizedName }));
+                if (errors.name) {
+                  setErrors((prev) => ({ ...prev, name: "" }));
+                }
               }}
               onBlur={() => {
                 // Validate only after the user interacted to avoid noisy errors on first render.
